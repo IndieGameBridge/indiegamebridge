@@ -3,9 +3,9 @@
 import Link from "next/link";
 
 export type StreamData = {
-    id: string;
+    id: number;
     language: string;
-    max_viewers: string;
+    max_viewers: number;
     duration: string;
     games: string[];
     started_at: string;
@@ -16,7 +16,6 @@ export type StreamerData = {
     login: string;
     display_name: string;
     peak_viewers: number;
-    avg_duration: string;
     languages: string[];
     streams: StreamData[];
 };
