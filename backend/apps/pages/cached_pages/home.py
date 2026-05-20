@@ -6,18 +6,21 @@ from django.db.models.functions import ExtractIsoWeekDay, JSONObject
 from django.utils import timezone
 
 from .base import BaseCachedPageBuilder
-from apps.streams.models import Game, GameGenre, Stream
+from apps.streams.models import Game, GameGenre, Stream, StreamerProfile
 
 
 class HomePageBuilder(BaseCachedPageBuilder):
     key = "home"
     log_label = "Home page"
 
-    # Cap on rows in the home page search results.
-    home_top_n = 10
-
     def build_content(self) -> dict:
+        total_streamers = StreamerProfile.objects.filter(streams__status=Stream.Status.APPROVED).distinct().count()
+        total_streams = Stream.objects.filter(status=Stream.Status.APPROVED).count()
+
         return {
+            "title": f"IndieGameBridge",
+            "description": f"Find Twitch streamers worth pitching your indie game to",
+            "info": f"Currently tracking {total_streamers:,} streamers across {total_streams:,} observed streams",
             "project_goal": {
                 "title": f"What this project is for",
                 "description": f"The project aims to help indie developers find and collaborate with streamers who regularly broadcast specific game genres to a relevant audience."
@@ -129,7 +132,8 @@ class HomePageBuilder(BaseCachedPageBuilder):
         demo_max_duration = 36000
         demo_min_viewers = 100
         demo_max_viewers = 100000
-        demo_genre_ids = [5]  # GameGenre.host_genre_id values
+        demo_genre_ids = [5]
+        demo_results_n = 10
 
         # Aggregate top streamers from the filtered stream set.
         top_streamer_aggregates = list(
@@ -172,7 +176,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     )
                 )
             )
-            .order_by("-peak_viewers")[: self.home_top_n]
+            .order_by("-peak_viewers")[: demo_results_n]
         )
 
         # Resolve every referenced game in a single query.

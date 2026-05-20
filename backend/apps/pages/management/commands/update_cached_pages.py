@@ -8,7 +8,6 @@ from apps.pages.cached_pages import (
     LoginPageBuilder,
     OptOutPageBuilder,
     PageFooterBuilder,
-    PageHeaderBuilder,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ class Command(BaseCommand):
     help = "Recomputes pre-rendered page payloads stored in the CachedPage table."
 
     builders = [
-        PageHeaderBuilder,
         PageFooterBuilder,
         HomePageBuilder,
         OptOutPageBuilder,

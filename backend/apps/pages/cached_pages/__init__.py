@@ -4,7 +4,6 @@ from .home import HomePageBuilder
 from .login import LoginPageBuilder
 from .opt_out import OptOutPageBuilder
 from .page_footer import PageFooterBuilder
-from .page_header import PageHeaderBuilder
 
 
 __all__ = [
@@ -14,5 +13,4 @@ __all__ = [
     "LoginPageBuilder",
     "OptOutPageBuilder",
     "PageFooterBuilder",
-    "PageHeaderBuilder",
 ]

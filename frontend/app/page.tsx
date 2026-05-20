@@ -5,7 +5,6 @@ import {
     SearchFormData,
     StreamerData,
     PageHeader,
-    PageHeaderContent,
     PageFooter,
     PageFooterContent
 } from "./_components";
@@ -23,7 +22,9 @@ type FeaturedSection = {
 };
 
 type HomePageContent = {
-    header_content: PageHeaderContent;
+    title: string;
+    description: string;
+    info: string;
     project_goal: Section;
     search_form: SearchFormData;
     search_results_title: string;
@@ -48,7 +49,12 @@ export default async function Home() {
 
     return (
         <Fragment>
-            <PageHeader user={user} content={content.header_content}></PageHeader>
+            <PageHeader
+                user={user}
+                title={content.title}
+                description={content.description}
+                info={content.info}
+            />
 
             {/* Main */}
             <main className="w-full">
@@ -89,7 +95,7 @@ export default async function Home() {
                 </section>
             </main>
 
-            <PageFooter content={content.footer_content}></PageFooter>
+            <PageFooter content={content.footer_content} />
         </Fragment>
     );
 }

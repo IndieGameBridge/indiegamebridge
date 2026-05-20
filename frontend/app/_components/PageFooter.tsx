@@ -17,24 +17,24 @@ export type PageFooterContent = {
 };
 
 export function PageFooter({ content }: { content: PageFooterContent; } ) {
-    const link_styles = "underline text-blue-500 hover:text-white";
-    const opt_out_link = <Link className={link_styles} href={`/optout`} rel="nofollow">{content.opt_out_text}</Link>;
+    const link_styles = "hover:underline underline-offset-3 decoration-2";
+    const opt_out_link = <Link className={`text-blue-400 hover:text-white ${link_styles}`} href={`/optout`} rel="nofollow">{content.opt_out_text}</Link>;
     return (
         <footer className="pt-16 pb-12 px-6 bg-brand-blue text-white">
-            <section className="max-w-[1000] mx-auto text-gray-300 font-thin text-sm">
+            <section className="max-w-[1000] mx-auto text-white font-thin text-sm mb-4">
                 {content.footer_links.map((one_link, index) => (
                     one_link.is_internal
                         ? <Link key={`footer-link-${index}`}
                             href={one_link.url}
-                            className={`p-2 mr-4${link_styles}`}
+                            className={`p-2 mr-4 text-white ${link_styles}`}
                             rel={one_link.nofollow ? 'nofollow' : undefined}>{one_link.text}</Link>
                         : <a key={`footer-link-${index}`}
                             href={one_link.url}
-                            className={`p-2 mr-4${link_styles}`}
+                            className={`p-2 mr-4 text-white ${link_styles}`}
                             rel={one_link.nofollow ? 'nofollow' : undefined}>{one_link.text}</a>
                 ))}
             </section>
-            <section className="max-w-[1000] mx-auto text-gray-300 font-thin text-sm">
+            <section className="max-w-[1000] mx-auto text-white font-thin text-sm">
                 <div className="p-2">{content.data_source.split('%opt_out_link%').map((part, i, arr) => (
                     <Fragment key={i}>
                         {part}

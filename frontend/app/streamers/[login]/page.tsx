@@ -3,10 +3,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "../../_lib/auth";
-import { PageHeader, PageHeaderContent, PageFooter, PageFooterContent } from "../../_components";
+import { PageHeader, PageFooter, PageFooterContent } from "../../_components";
 
 type StreamerProfilePageContent = {
-    header_content: PageHeaderContent;
     content: string;
     footer_content: PageFooterContent;
 };
@@ -36,7 +35,9 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
 
     return (
         <Fragment>
-            <PageHeader user={user} content={content.header_content}></PageHeader>
+            <PageHeader
+                user={user}
+            />
 
             <main className="flex-1 px-6">
                 <div className="max-w-2xl mx-auto py-16">
