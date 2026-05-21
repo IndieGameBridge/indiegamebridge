@@ -1,6 +1,18 @@
 from django.contrib import admin
 
-from apps.streams.models import Stream
+from apps.streams.models import SearchCache, Stream
 
 
 admin.site.register(Stream)
+
+
+@admin.register(SearchCache)
+class SearchCacheAdmin(admin.ModelAdmin):
+    list_display = ("key_hash_short", "refreshed_at", "last_hit_at", "created_at")
+    readonly_fields = ("key_hash", "filters", "results", "created_at", "refreshed_at", "last_hit_at")
+    search_fields = ("key_hash",)
+    ordering = ("-refreshed_at",)
+
+    @admin.display(description="key_hash")
+    def key_hash_short(self, obj):
+        return f"{obj.key_hash[:12]}…"

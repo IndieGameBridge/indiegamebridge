@@ -94,7 +94,6 @@ class HomePageBuilder(BaseCachedPageBuilder):
 
     def _get_quant_filter_values(self):
         return [
-            {"v": "3", "l": "3"},
             {"v": "10", "l": "10"},
             {"v": "50", "l": "50"},
             {"v": "100", "l": "100"},
@@ -108,7 +107,6 @@ class HomePageBuilder(BaseCachedPageBuilder):
 
     def _get_time_filter_values(self):
         return [
-            {"v": "20m", "l": "20 min"},
             {"v": "1h", "l": "1 h"},
             {"v": "2h", "l": "2 h"},
             {"v": "3h", "l": "3 h"},

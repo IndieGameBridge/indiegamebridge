@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
+from apps.streams.search import StreamerSearch
 
 
 class CachedPageContentView(APIView):
@@ -23,3 +24,29 @@ class CachedPageContentView(APIView):
         page.content["footer_content"] = footer.content if footer else None
 
         return Response(page.content)
+
+
+class StreamerSearchView(APIView):
+    """Run a streamer search.
+
+    Query params mirror the form field names. Multi-valued params (e.g. genre,
+    week_days) can be repeated: ?week_days=1&week_days=5. Missing params fall
+    back to StreamerSearch.default_filters().
+    """
+
+    # Multi-valued query params — read via getlist so repeated keys are preserved.
+    _LIST_PARAMS = ("genre", "genre_ids", "week_days")
+
+    def get(self, request):
+        raw_filters = {}
+        for key in request.GET.keys():
+            if key in self._LIST_PARAMS:
+                raw_filters[key] = request.GET.getlist(key)
+            else:
+                raw_filters[key] = request.GET.get(key)
+
+        search = StreamerSearch(raw_filters)
+        return Response({
+            "filters": search.filters,
+            "results": search.results(),
+        })
