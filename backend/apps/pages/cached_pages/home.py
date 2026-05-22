@@ -21,9 +21,21 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" The platform only aggregates statistics from publicly available information provided by Twitch via the Helix API."
                     f" We do not collect or share any private information.",
             },
-            "search_form": self._get_search_form(),
+            "search_form": {
+                "title": "Search Streamers",
+                "aria_label": "Demonstration search form",
+                "filters": [],
+                "btn_text": "Apply Filters",
+                "demo_title": f"Note:",
+                "search_notes": [
+                    "Times are in UTC. Days of week and the time window are both based on when each stream went offline. A UTC day can straddle two local days in non-UTC zones."
+                ],
+                "demo_note": f"The search form is a demo of the real search form, which is available for logged in users."
+                    f" The results below are real, matching the search parameters prefilled in the form and updating hourly.",
+                "cta_link_text": f"Log in to use the search"
+            },
+            "search_results": [],
             "search_results_title": "Search Results",
-            "search_results": StreamerSearch().results(),
             "roadmap": {
                 "title": f"What's Coming",
                 "description": f"The project is in active development."
@@ -65,21 +77,4 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" Once a stream ends, we compute its peak viewer count from the snapshots collected while it was live,"
                     f" and if any snapshot recorded at least 3 viewers, we add the stream to the streamer's statistics.",
             },
-        }
-
-    @staticmethod
-    def _get_search_form():
-        filters_config, _ = StreamerSearch.get_filters_config()
-        return {
-            "title": "Search Streamers",
-            "aria_label": "Demonstration search form",
-            "filters": filters_config,
-            "btn_text": "Apply Filters",
-            "demo_title": f"Note:",
-            "search_notes": [
-                "Times are in UTC. Days of week and the time window are both based on when each stream went offline. A UTC day can straddle two local days in non-UTC zones."
-            ],
-            "demo_note": f"The search form is a demo of the real search form, which is available for logged in users."
-                f" The results below are real, matching the search parameters prefilled in the form and updating hourly.",
-            "cta_link_text": f"Log in to use the search"
         }
