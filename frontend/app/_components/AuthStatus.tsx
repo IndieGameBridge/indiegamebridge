@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment } from "react/jsx-runtime";
 
@@ -34,7 +35,7 @@ export function AuthStatus({ user }: AuthStatusProps) {
             {!user
                 ? <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3">Log in</a>
                 : <Fragment>
-                        <span className="opacity-80">Hi, {user.display_name}</span>
+                        <span className="text-white">Hi, <Link className="text-white cursor-pointer hover:underline underline-offset-3" href="/account">{user.display_name}</Link></span>
                         <button type="button" onClick={handleLogout} className="text-white cursor-pointer hover:underline underline-offset-3">Log out</button>
                     </Fragment>
             }

@@ -1,3 +1,4 @@
+from .account import AccountPageBuilder
 from .base import BaseCachedPageBuilder
 from .contact import ContactPageBuilder
 from .home import HomePageBuilder
@@ -9,6 +10,7 @@ from .streamers import StreamersPageBuilder
 
 
 __all__ = [
+    "AccountPageBuilder",
     "BaseCachedPageBuilder",
     "ContactPageBuilder",
     "HomePageBuilder",

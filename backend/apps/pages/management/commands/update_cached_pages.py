@@ -3,6 +3,7 @@ import logging
 from django.core.management.base import BaseCommand
 
 from apps.pages.cached_pages import (
+    AccountPageBuilder,
     ContactPageBuilder,
     HomePageBuilder,
     LoginPageBuilder,
@@ -23,6 +24,7 @@ class Command(BaseCommand):
         HomePageBuilder,
         StreamersPageBuilder,
         StreamerProfilePageBuilder,
+        AccountPageBuilder,
         OptOutPageBuilder,
         ContactPageBuilder,
         LoginPageBuilder,
