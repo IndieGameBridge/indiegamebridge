@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 
+import { serverFetch } from "./server-fetch";
+
 export type CurrentUser = {
     twitch_id: number;
     username: string;
@@ -15,18 +17,16 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
         return null;
     }
 
-    // Fail soft: a backend outage or a 4xx shouldn't take down pages that
-    // happen to call this. The page just renders in logged-out state.
-    try {
-        const response = await fetch(`${apiBase}/auth/currentuser/`, {
-            headers: { cookie: cookieHeader },
-            cache: "no-store",
-        });
-        if (!response.ok) {
-            return null;
-        }
-        return await response.json();
-    } catch {
+    // Only a real 401/4xx from the backend means "not authenticated". Network
+    // errors are not "logged out" - swallowing them used to mistranslate a
+    // backend hiccup into a redirect to /login. Let serverFetch retry the
+    // transient connection failures and propagate anything that truly fails.
+    const response = await serverFetch(`${apiBase}/auth/currentuser/`, {
+        headers: { cookie: cookieHeader },
+        cache: "no-store",
+    });
+    if (!response.ok) {
         return null;
     }
+    return await response.json();
 }

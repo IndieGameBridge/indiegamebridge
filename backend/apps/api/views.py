@@ -35,7 +35,8 @@ class StreamerSearchView(APIView):
     """
 
     # Multi-valued query params — read via getlist so repeated keys are preserved.
-    _LIST_PARAMS = ("genre", "genre_ids", "week_days")
+    # Names must match the filter config in StreamerSearch.get_filters_config.
+    _LIST_PARAMS = ("wdays",)
 
     def get(self, request):
         raw_filters = {}

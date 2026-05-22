@@ -8,6 +8,8 @@ from apps.pages.cached_pages import (
     LoginPageBuilder,
     OptOutPageBuilder,
     PageFooterBuilder,
+    StreamerProfilePageBuilder,
+    StreamersPageBuilder,
 )
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,8 @@ class Command(BaseCommand):
     builders = [
         PageFooterBuilder,
         HomePageBuilder,
+        StreamersPageBuilder,
+        StreamerProfilePageBuilder,
         OptOutPageBuilder,
         ContactPageBuilder,
         LoginPageBuilder,

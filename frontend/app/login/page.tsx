@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { serverFetch } from "../_lib/server-fetch";
+
 export const metadata: Metadata = {
     title: "Log in — IndieGameBridge",
     robots: { index: false, follow: false },
@@ -24,7 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     const twitchLoginUrl = buildTwitchLoginUrl(next);
 
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const response = await fetch(`${apiBase}/pages/login/`);
+    const response = await serverFetch(`${apiBase}/pages/login/`);
 
     if (!response.ok) {
         throw new Error(`Failed to load login page content (status ${response.status})`);

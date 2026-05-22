@@ -41,7 +41,7 @@ export function SearchStreamerResultsList({ search_results, search_results_title
                             <a className="inline-block px-6 py-2 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark min-w-40 text-center border border-twitch-brand hover:border-twitch-brand-dark"
                                 href={twitchUrl + one_result.login} target="_blank" rel="nofollow">Visit Channel</a>
                             <Link className="inline-block px-6 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-40 text-center border border-blue-600 hover:border-blue-700"
-                                href={`/streamers/${one_result.login}`} rel="nofollow" title="View streamer profile">View profile</Link>
+                                href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View profile</Link>
                         </div>
                     </div>
                     <div className="border-gray-200 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

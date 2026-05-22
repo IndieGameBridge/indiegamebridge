@@ -12,6 +12,7 @@ import {
     PageFooterContent,
 } from "../_components";
 import { getCurrentUser } from "../_lib/auth";
+import { serverFetch } from "../_lib/server-fetch";
 
 type StreamersPageContent = {
     search_form: SearchFormData;
@@ -57,8 +58,8 @@ export default async function StreamersPage({
     const searchQuery = buildSearchQuery(sp);
 
     const [pageResp, searchResp] = await Promise.all([
-        fetch(`${apiBase}/pages/home/`),
-        fetch(`${apiBase}/streamers/search/${searchQuery ? `?${searchQuery}` : ""}`),
+        serverFetch(`${apiBase}/pages/streamers/`),
+        serverFetch(`${apiBase}/streamers/search/${searchQuery ? `?${searchQuery}` : ""}`),
     ]);
 
     if (!pageResp.ok) {

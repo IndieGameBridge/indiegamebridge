@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentUser } from "../_lib/auth";
+import { serverFetch } from "../_lib/server-fetch";
 import { OptOutButton } from "./_components/OptOutButton";
 import { OptOutSuccess } from "./_components/OptOutSuccess";
 import { Fragment } from "react/jsx-runtime";
@@ -31,7 +32,7 @@ export default async function OptOutPage({ searchParams }: { searchParams: Promi
 
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     const [response, user] = await Promise.all([
-        fetch(`${apiBase}/pages/optout/`),
+        serverFetch(`${apiBase}/pages/optout/`),
         getCurrentUser(),
     ]);
 

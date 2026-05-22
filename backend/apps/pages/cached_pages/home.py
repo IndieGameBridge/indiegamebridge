@@ -1,12 +1,5 @@
-from datetime import timedelta
-
-from django.contrib.postgres.aggregates import JSONBAgg
-from django.db.models import Max, F
-from django.db.models.functions import ExtractIsoWeekDay, JSONObject
-from django.utils import timezone
-
 from .base import BaseCachedPageBuilder
-from apps.streams.models import Game, GameGenre, Stream, StreamerProfile
+from apps.streams.models import Stream, StreamerProfile
 from apps.streams.search import StreamerSearch
 
 
@@ -30,7 +23,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
             },
             "search_form": self._get_search_form(),
             "search_results_title": "Search Results",
-            "search_results": self._get_demo_search_results(),
+            "search_results": StreamerSearch().results(),
             "roadmap": {
                 "title": f"What's Coming",
                 "description": f"The project is in active development."
@@ -73,92 +66,6 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" and if any snapshot recorded at least 3 viewers, we add the stream to the streamer's statistics.",
             },
         }
-
-    def _format_duration(self, duration=0):
-        hours, r = divmod(duration, 3600)
-        minutes, r = divmod(r, 60)
-        return f"{hours} h " + f"{minutes} min"
-
-    def _get_demo_search_results(self) -> tuple[list[dict]]:
-        # TODO: use StreamerSearch class instead
-        # Hardcoded filter values for the demo. The real search will expose these via the form.
-        demo_language = "en"
-        demo_window_start = timezone.now() - timedelta(days=14)
-        demo_wdays = [1, 5, 6, 7]
-        demo_durmin = 1800
-        demo_durmax = 36000
-        demo_peakmin = 100
-        demo_peakmax = 100000
-        demo_genres = [5]
-
-        # Aggregate top streamers from the filtered stream set.
-        top_streamer_aggregates = list(
-            Stream.objects.filter(
-                status=Stream.Status.APPROVED,
-                finished_at__gte=demo_window_start,
-                language=demo_language,
-                duration__gte=demo_durmin,
-                duration__lte=demo_durmax,
-                max_viewers__gte=demo_peakmin,
-                max_viewers__lte=demo_peakmax,
-                genre_ids__overlap=demo_genres
-            )
-            .annotate(
-                finished_dow=ExtractIsoWeekDay("finished_at")
-            )
-            .filter(
-                finished_dow__in=demo_wdays
-            )
-            .annotate(
-                host_login=F("streamer_profile__host_login"),
-                host_display_name=F("streamer_profile__host_display_name")
-            )
-            .values(
-                login=F("host_login"),
-                display_name=F("host_display_name"),
-                profile_id=F("streamer_profile_id")
-            )
-            .annotate(
-                peak_viewers=Max("max_viewers"),
-                streams=JSONBAgg(
-                    JSONObject(
-                        id="id",
-                        duration="duration",
-                        max_viewers="max_viewers",
-                        language="language",
-                        game_ids="host_game_ids",
-                        started_at="started_at",
-                        finished_at="finished_at"
-                    )
-                )
-            )
-            .order_by("-peak_viewers")[: 10]
-        )
-
-        # Resolve every referenced game in a single query.
-        all_game_ids = {
-            one_game_id
-            for one_streamer in top_streamer_aggregates
-            for one_stream in one_streamer.get("streams", [])
-            for one_game_id in one_stream.get("game_ids", [])
-        }
-
-        game_names_map = dict(
-            Game.objects.filter(host_game_id__in=all_game_ids)
-            .values_list("host_game_id", "host_name")
-        )
-
-        # Replace game_ids with human-readable game names and format the duration.
-        for one_streamer in top_streamer_aggregates:
-            for stream in one_streamer.get("streams", []):
-                stream["games"] = [
-                    game_names_map.get(game_id, "N/A")
-                    for game_id in (stream.get("game_ids") or [])
-                ]
-                stream["duration"] = self._format_duration(duration=stream["duration"])
-                stream.pop("game_ids", None)
-
-        return top_streamer_aggregates
 
     @staticmethod
     def _get_search_form():

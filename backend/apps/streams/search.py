@@ -63,40 +63,67 @@ class StreamerSearch:
 
     @classmethod
     def _normalize_query_params(cls, raw: dict) -> dict:
-        normalized_filters = {} # dict(cls.default_filters())
+        normalized_filters = {}
         filters_config, allowed_names = cls.get_filters_config()
 
-        # Trust only configuration names and values
+        # Trust only configuration names and values. "any" sentinels are dropped
+        # from the normalized dict so the cache key stays stable across
+        # equivalent "no-filter" requests and so _run_query can use simple
+        # `key in filters` checks. Raw values arrive as strings from request.GET
+        # but allowed_values are typed (e.g. int 100, not "100"), so we resolve
+        # by string-equality and return the typed counterpart.
+        def coerce(value, allowed_values):
+            if value in allowed_values:
+                return value
+            str_value = str(value)
+            for one_allowed in allowed_values:
+                if str(one_allowed) == str_value:
+                    return one_allowed
+            return None
+
+        def apply(field_name: str, allowed_values: list, default, multi: bool = False):
+            if field_name not in allowed_names:
+                return
+            if field_name in raw:
+                raw_value = raw[field_name]
+                if multi:
+                    source = raw_value if isinstance(raw_value, list) else [raw_value]
+                    resolved = []
+                    for one_raw in source:
+                        rv = coerce(one_raw, allowed_values)
+                        if rv is not None and rv != "any" and rv not in resolved:
+                            resolved.append(rv)
+                    if resolved:
+                        normalized_filters[field_name] = resolved
+                        return
+                else:
+                    rv = coerce(raw_value, allowed_values)
+                    if rv is not None:
+                        if rv != "any":
+                            normalized_filters[field_name] = rv
+                        return
+            if default != "any":
+                normalized_filters[field_name] = list(default) if multi else default
+
         for one_config in filters_config:
-            name = one_config["name"]
-            if name in allowed_names:
-                allowed_values = [one_value["v"] for one_value in one_config["values"]]
-                if name not in raw or raw[name] not in allowed_values:
-                    if one_config["default"] != "any":
-                        normalized_filters[name] = one_config["default"]
-                else:
-                    if raw[name] != "any":
-                        normalized_filters[name] = raw[name]
-
-            if name + "min" in allowed_names:
-                name = name + "min"
-                allowed_values = [one_value["v"] for one_value in one_config["min_" + "values"]]
-                if name not in raw or raw[name] not in allowed_values:
-                     if one_config["default"] != "any":
-                        normalized_filters[name] = one_config["min_default"]
-                else:
-                    if raw[name] != "any":
-                        normalized_filters[name] = raw[name]
-
-            if name + "max" in allowed_names:
-                name = name + "max"
-                allowed_values = [one_value["v"] for one_value in one_config["max_" + "values"]]
-                if name not in raw or raw[name] not in allowed_values:
-                     if one_config["default"] != "any":
-                        normalized_filters[name] = one_config["max_default"]
-                else:
-                    if raw[name] != "any":
-                        normalized_filters[name] = raw[name]
+            base_name = one_config["name"]
+            is_multi = one_config["ui_control"] == "multiselect"
+            apply(
+                base_name,
+                [value["v"] for value in one_config["values"]],
+                one_config["default"],
+                multi=is_multi,
+            )
+            apply(
+                base_name + "min",
+                [value["v"] for value in one_config["min_values"]],
+                one_config["min_default"],
+            )
+            apply(
+                base_name + "max",
+                [value["v"] for value in one_config["max_values"]],
+                one_config["max_default"],
+            )
 
         return normalized_filters
 
@@ -225,18 +252,18 @@ class StreamerSearch:
                 ui_control="range",
                 name="peak",
                 label="Max Viewers",
-                min_values=[{"v": "any", "l": "min"}] + __class__._get_viewers_filter_values(),
+                min_values=[{"v": "any", "l": "Min"}] + __class__._get_viewers_filter_values(),
                 min_default="any",
-                max_values=[{"v": "any", "l": "max"}] + __class__._get_viewers_filter_values(),
+                max_values=__class__._get_viewers_filter_values() + [{"v": "any", "l": "Max"}],
                 max_default="any",
             ),
             __class__._filter_defaults(
                 ui_control="range",
                 name="dur",
                 label="Duration",
-                min_values=[{"v": "any", "l": "min"}] + __class__._get_time_filter_values(),
+                min_values=[{"v": "any", "l": "Min"}] + __class__._get_time_filter_values(),
                 min_default="any",
-                max_values=[{"v": "any", "l": "max"}] + __class__._get_time_filter_values(),
+                max_values=__class__._get_time_filter_values() + [{"v": "any", "l": "Max"}],
                 max_default="any",
             ),
             __class__._filter_defaults(

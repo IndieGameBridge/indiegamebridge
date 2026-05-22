@@ -45,6 +45,18 @@ function toString(value: string | string[] | undefined): string | undefined {
     return Array.isArray(value) ? value[0] : value;
 }
 
+// URL params are always strings, but filter values may be typed (e.g. wdays
+// uses numbers). Resolve a raw string against the configured allowed values
+// and return the typed counterpart so equality checks (`.includes`, `!==`)
+// work in checkbox state and toggle handlers.
+function coerceToAllowed(raw: string, allowed: (string | number)[]): string | number {
+    if (allowed.includes(raw)) return raw;
+    for (const one_allowed of allowed) {
+        if (String(one_allowed) === raw) return one_allowed;
+    }
+    return raw;
+}
+
 export function SearchStreamerForm({
     search_form,
     user,
@@ -62,7 +74,11 @@ export function SearchStreamerForm({
         for (const one_filter of search_form.filters) {
             if (one_filter.ui_control === 'multiselect') {
                 const default_array = Array.isArray(one_filter.default) ? one_filter.default : [one_filter.default];
-                initial[one_filter.name] = toArray(overrides[one_filter.name]) ?? [...default_array];
+                const allowed = one_filter.values.map((one_value) => one_value.v);
+                const override_arr = toArray(overrides[one_filter.name]);
+                initial[one_filter.name] = override_arr
+                    ? override_arr.map((raw) => coerceToAllowed(raw, allowed))
+                    : [...default_array];
             } else if (one_filter.ui_control === 'range') {
                 const min_key = `${one_filter.name}min`;
                 const max_key = `${one_filter.name}max`;

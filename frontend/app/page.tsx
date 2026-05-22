@@ -9,6 +9,7 @@ import {
     PageFooterContent
 } from "./_components";
 import { getCurrentUser } from "./_lib/auth";
+import { serverFetch } from "./_lib/server-fetch";
 
 type Section = {
     title: string;
@@ -37,7 +38,7 @@ type HomePageContent = {
 export default async function Home() {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     const [response, user] = await Promise.all([
-        fetch(`${apiBase}/pages/home/`),
+        serverFetch(`${apiBase}/pages/home/`),
         getCurrentUser(),
     ]);
 

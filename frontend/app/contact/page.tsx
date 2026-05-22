@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { serverFetch } from "../_lib/server-fetch";
+
 export const metadata: Metadata = {
     title: "Contact — IndieGameBridge",
     robots: { index: false, follow: false },
@@ -14,7 +16,7 @@ export type ContactPageContent = {
 
 export default async function ContactPage() {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const response = await fetch(`${apiBase}/pages/contact/`);
+    const response = await serverFetch(`${apiBase}/pages/contact/`);
 
     if (!response.ok) {
         throw new Error(`Failed to load contact page content (status ${response.status})`);
