@@ -26,9 +26,9 @@ export function PageHeader(
         <header className="pb-12 bg-brand-blue text-white shadow-sm shadow-gray-200">
             <section className="border-b border-b-white mb-16 px-6">
                 <div className="max-w-[1000] mx-auto">
-                    <div className="flex justify-end pb-2 pt-6">
-                        <div className="mr-auto">
-                            <NavLink href="/" className="pr-6">Home</NavLink>
+                    <div className="flex flex-col gap-y-4 md:flex-row lg:flex-row justify-end pb-2 pt-6">
+                        <div className="flex flex-col items-center w-full justify-center gap-y-4 gap-x-8 md:mr-auto md:flex-row md:justify-start lg:mr-auto lg:flex-row lg:justify-start">
+                            <NavLink href="/">Home</NavLink>
                             <NavLink href="/streamers">Streamers</NavLink>
                         </div>
                         <AuthStatus user={user} />

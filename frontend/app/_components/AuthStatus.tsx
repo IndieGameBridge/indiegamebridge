@@ -32,12 +32,12 @@ export function AuthStatus({ user }: AuthStatusProps) {
     }
 
     return (
-        <div className="flex gap-x-8 gap-y-2 flex-col md:flex-row lg:flex-row items-end">
+        <div className="flex gap-x-8 gap-y-4 flex-col justify-center items-center md:flex-row md:items-end lg:flex-row lg:items-end">
             {!user
                 ? <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3">Log in</a>
                 : <Fragment>
-                        <span className="text-white">Hi, <NavLink href="/account">{user.display_name}</NavLink></span>
-                        <button type="button" onClick={handleLogout} className="text-white cursor-pointer hover:underline underline-offset-3">Log out</button>
+                        <NavLink href="/account">Settings</NavLink>
+                        <button type="button" onClick={handleLogout} className="text-white cursor-pointer hover:underline underline-offset-3 text-nowrap">Log out</button>
                     </Fragment>
             }
         </div>
