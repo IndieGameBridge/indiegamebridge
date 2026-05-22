@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment } from "react/jsx-runtime";
+import { NavLink } from "./PageHeader";
 
 export type AuthStatusProps = {
     user: {
@@ -35,7 +36,7 @@ export function AuthStatus({ user }: AuthStatusProps) {
             {!user
                 ? <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3">Log in</a>
                 : <Fragment>
-                        <span className="text-white">Hi, <Link className="text-white cursor-pointer hover:underline underline-offset-3" href="/account">{user.display_name}</Link></span>
+                        <span className="text-white">Hi, <NavLink href="/account">{user.display_name}</NavLink></span>
                         <button type="button" onClick={handleLogout} className="text-white cursor-pointer hover:underline underline-offset-3">Log out</button>
                     </Fragment>
             }

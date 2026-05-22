@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { CurrentUser } from "../_lib/auth";
 import { AuthStatus } from "./AuthStatus";
 
-function NavLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
+export function NavLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
     const pathname = usePathname();
     const base = `text-white underline-offset-3 ${className ?? ""}`;
     if (pathname === href) {
