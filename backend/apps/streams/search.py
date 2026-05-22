@@ -2,13 +2,14 @@ import hashlib
 import json
 import logging
 from datetime import timedelta
+from functools import cache
 
 from django.contrib.postgres.aggregates import JSONBAgg
 from django.db.models import Max, F
 from django.db.models.functions import ExtractIsoWeekDay, JSONObject
 from django.utils import timezone
 
-from apps.streams.models import Game, SearchCache, Stream
+from apps.streams.models import Game, SearchCache, Stream, GameGenre
 
 logger = logging.getLogger(__name__)
 
@@ -20,38 +21,16 @@ class StreamerSearch:
     """Single entry point for streamer search.
 
     Responsibilities:
-      - Define the canonical default filters (used by home and `/streamers` default).
+      - Define the canonical default filters (used by the home page and as the default for `/streamers`).
       - Normalize incoming filters into a deterministic shape so equivalent
         searches share one cache entry.
       - Read/write the SearchCache with TTL-on-read semantics.
       - Run the underlying aggregation query against `Stream`.
     """
 
-    # Sentinel values the frontend form uses to mean "no constraint".
-    _RANGE_OPEN = {"min", "max", "", None}
-    _GENRE_ANY = "any"
-
-    @classmethod
-    def default_filters(cls) -> dict:
-        # Concrete values that produce the demo results currently shown on home.
-        # Both home (cached page) and /streamers (no params) should call
-        # StreamerSearch(default_filters()).results() so the two surfaces stay
-        # in lock-step.
-        return {
-            "max_viewers_min": 100,
-            "max_viewers_max": 100000,
-            "duration_min": 1800,
-            "duration_max": 36000,
-            "language": "en",
-            "time_window": 14,
-            "genre_ids": [5],
-            "week_days": [1, 2, 3, 4, 5, 6, 7],
-            "results_n": 10,
-        }
-
     def __init__(self, filters: dict | None = None):
         self.raw_filters = filters or {}
-        self.filters = self._normalize(self.raw_filters)
+        self.filters = self._normalize_query_params(self.raw_filters)
         self.key_hash = self._hash(self.filters)
 
     def results(self) -> list[dict]:
@@ -83,115 +62,78 @@ class StreamerSearch:
         return fresh
 
     @classmethod
-    def _normalize(cls, raw: dict) -> dict:
-        # Start from defaults so any key the caller omitted has a value, then
-        # overlay caller-provided values after coercion. Sentinels resolve to
-        # None for unbounded — the query skips clauses for None values, and
-        # the hash treats them as a single canonical "no constraint".
-        out = dict(cls.default_filters())
+    def _normalize_query_params(cls, raw: dict) -> dict:
+        normalized_filters = {} # dict(cls.default_filters())
+        filters_config, allowed_names = cls.get_filters_config()
 
-        for name in ("max_viewers", "duration"):
-            if f"{name}_min" in raw:
-                out[f"{name}_min"] = cls._coerce_int(raw[f"{name}_min"])
-            if f"{name}_max" in raw:
-                out[f"{name}_max"] = cls._coerce_int(raw[f"{name}_max"])
+        # Trust only configuration names and values
+        for one_config in filters_config:
+            name = one_config["name"]
+            if name in allowed_names:
+                allowed_values = [one_value["v"] for one_value in one_config["values"]]
+                if name not in raw or raw[name] not in allowed_values:
+                    if one_config["default"] != "any":
+                        normalized_filters[name] = one_config["default"]
+                else:
+                    if raw[name] != "any":
+                        normalized_filters[name] = raw[name]
 
-        if "language" in raw:
-            out["language"] = (raw["language"] or "").strip().lower() or out["language"]
+            if name + "min" in allowed_names:
+                name = name + "min"
+                allowed_values = [one_value["v"] for one_value in one_config["min_" + "values"]]
+                if name not in raw or raw[name] not in allowed_values:
+                     if one_config["default"] != "any":
+                        normalized_filters[name] = one_config["min_default"]
+                else:
+                    if raw[name] != "any":
+                        normalized_filters[name] = raw[name]
 
-        if "time_window" in raw:
-            out["time_window"] = cls._coerce_int(raw["time_window"]) or out["time_window"]
+            if name + "max" in allowed_names:
+                name = name + "max"
+                allowed_values = [one_value["v"] for one_value in one_config["max_" + "values"]]
+                if name not in raw or raw[name] not in allowed_values:
+                     if one_config["default"] != "any":
+                        normalized_filters[name] = one_config["max_default"]
+                else:
+                    if raw[name] != "any":
+                        normalized_filters[name] = raw[name]
 
-        if "genre_ids" in raw or "genre" in raw:
-            value = raw.get("genre_ids", raw.get("genre"))
-            out["genre_ids"] = cls._coerce_genre_list(value)
-
-        if "week_days" in raw:
-            out["week_days"] = cls._coerce_week_days(raw["week_days"])
-
-        if "results_n" in raw:
-            # Cap to keep one request from materializing a huge payload.
-            out["results_n"] = max(1, min(cls._coerce_int(raw["results_n"]) or out["results_n"], 50))
-
-        return out
-
-    @classmethod
-    def _coerce_int(cls, value) -> int | None:
-        if value in cls._RANGE_OPEN:
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
-
-    @classmethod
-    def _coerce_genre_list(cls, value) -> list[int]:
-        # "any" or any "any" inside a list → unbounded → empty list.
-        if value is None or value == cls._GENRE_ANY:
-            return []
-        if isinstance(value, str):
-            value = [value]
-        if not isinstance(value, (list, tuple)):
-            return []
-        if cls._GENRE_ANY in value:
-            return []
-        cleaned = []
-        for one in value:
-            try:
-                cleaned.append(int(one))
-            except (TypeError, ValueError):
-                continue
-        return sorted(set(cleaned))
-
-    @classmethod
-    def _coerce_week_days(cls, value) -> list[int]:
-        if isinstance(value, str):
-            value = [value]
-        if not isinstance(value, (list, tuple)):
-            return []
-        cleaned = []
-        for one in value:
-            try:
-                one_int = int(one)
-            except (TypeError, ValueError):
-                continue
-            if 1 <= one_int <= 7:
-                cleaned.append(one_int)
-        return sorted(set(cleaned))
+        return normalized_filters
 
     @classmethod
     def _hash(cls, normalized: dict) -> str:
         # sort_keys + compact separators keep the serialization stable across
-        # Python versions and dict insertion orders.
+        # Python versions and dict insertion order.
         payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"), default=str)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @classmethod
     def _run_query(cls, filters: dict) -> list[dict]:
-        window_start = timezone.now() - timedelta(days=filters["time_window"])
+        window_start = timezone.now() - timedelta(days=filters["window"])
 
         stream_qs = Stream.objects.filter(
             status=Stream.Status.APPROVED,
             finished_at__gte=window_start,
-            language=filters["language"],
+            language=filters["lang"],
         )
 
-        if filters.get("max_viewers_min") is not None:
-            stream_qs = stream_qs.filter(max_viewers__gte=filters["max_viewers_min"])
-        if filters.get("max_viewers_max") is not None:
-            stream_qs = stream_qs.filter(max_viewers__lte=filters["max_viewers_max"])
-        if filters.get("duration_min") is not None:
-            stream_qs = stream_qs.filter(duration__gte=filters["duration_min"])
-        if filters.get("duration_max") is not None:
-            stream_qs = stream_qs.filter(duration__lte=filters["duration_max"])
-        if filters.get("genre_ids"):
-            stream_qs = stream_qs.filter(genre_ids__overlap=filters["genre_ids"])
+        if filters.get("peakmin") is not None:
+            stream_qs = stream_qs.filter(max_viewers__gte=filters["peakmin"])
+        if filters.get("peakmax") is not None:
+            stream_qs = stream_qs.filter(max_viewers__lte=filters["peakmax"])
+        if filters.get("durmin") is not None:
+            stream_qs = stream_qs.filter(duration__gte=filters["durmin"])
+        if filters.get("durmax") is not None:
+            stream_qs = stream_qs.filter(duration__lte=filters["durmax"])
+        if filters.get("genres"):
+            genres = filters["genres"]
+            stream_qs = stream_qs.filter(genre_ids__overlap=genres if isinstance(genres, list) else [genres])
 
         stream_qs = stream_qs.annotate(
             finished_dow=ExtractIsoWeekDay("finished_at")
         )
-        if filters.get("week_days"):
-            stream_qs = stream_qs.filter(finished_dow__in=filters["week_days"])
+        if filters.get("wdays"):
+            stream_qs = stream_qs.filter(finished_dow__in=filters["wdays"])
 
         top_streamer_aggregates = list(
             stream_qs
@@ -206,6 +148,7 @@ class StreamerSearch:
             )
             .annotate(
                 peak_viewers=Max("max_viewers"),
+                max_duration=Max("duration"),
                 streams=JSONBAgg(
                     JSONObject(
                         id="id",
@@ -218,7 +161,7 @@ class StreamerSearch:
                     )
                 ),
             )
-            .order_by("-peak_viewers")[: filters["results_n"]]
+            .order_by("-peak_viewers", "-max_duration")[: 20]
         )
 
         # Resolve every referenced game in a single round-trip.
@@ -249,3 +192,116 @@ class StreamerSearch:
         hours, remainder = divmod(duration_seconds, 3600)
         minutes, _ = divmod(remainder, 60)
         return f"{hours} h {minutes} min"
+
+    @staticmethod
+    @cache
+    def get_filters_config() -> tuple[list[dict], list]:
+        game_genres = [("any", "Any genre")] + list(GameGenre.objects.values_list("host_genre_id", "host_name"))
+        return [
+            __class__._filter_defaults(
+                ui_control="dropdown",
+                name="lang",
+                label="Language",
+                values=[
+                    {"v": "en", "l": "English"},
+                    {"v": "fr", "l": "French"},
+                    {"v": "de", "l": "German"}
+                ],
+                default="en",
+            ),
+            __class__._filter_defaults(
+                ui_control="dropdown",
+                name="window",
+                label="Time Window *",
+                values=[
+                    {"v": 7, "l": "1 Week"},
+                    {"v": 14, "l": "2 Weeks"},
+                    {"v": 21, "l": "3 Weeks"},
+                    {"v": 28, "l": "4 Weeks"},
+                ],
+                default=14,
+            ),
+            __class__._filter_defaults(
+                ui_control="range",
+                name="peak",
+                label="Max Viewers",
+                min_values=[{"v": "any", "l": "min"}] + __class__._get_viewers_filter_values(),
+                min_default="any",
+                max_values=[{"v": "any", "l": "max"}] + __class__._get_viewers_filter_values(),
+                max_default="any",
+            ),
+            __class__._filter_defaults(
+                ui_control="range",
+                name="dur",
+                label="Duration",
+                min_values=[{"v": "any", "l": "min"}] + __class__._get_time_filter_values(),
+                min_default="any",
+                max_values=[{"v": "any", "l": "max"}] + __class__._get_time_filter_values(),
+                max_default="any",
+            ),
+            __class__._filter_defaults(
+                ui_control="dropdown",
+                name="genres",
+                label="Game Genre",
+                values=[{"v": str(one_value), "l": one_label} for one_value, one_label in game_genres],
+                default="any",
+            ),
+            __class__._filter_defaults(
+                ui_control="multiselect",
+                name="wdays",
+                label="Days of Week *",
+                values=[
+                    {"v": 1, "l": "Mon"},
+                    {"v": 2, "l": "Tue"},
+                    {"v": 3, "l": "Wed"},
+                    {"v": 4, "l": "Thu"},
+                    {"v": 5, "l": "Fri"},
+                    {"v": 6, "l": "Sat"},
+                    {"v": 7, "l": "Sun"},
+                ],
+                default=[1, 5, 6, 7],
+            ),
+        ], ["lang", "window", "peakmin", "peakmax", "durmin", "durmax", "genres", "wdays"]
+
+    @staticmethod
+    def _get_viewers_filter_values():
+        return [
+            {"v": 10, "l": "10"},
+            {"v": 50, "l": "50"},
+            {"v": 100, "l": "100"},
+            {"v": 500, "l": "500"},
+            {"v": 1000, "l": "1000"},
+            {"v": 5000, "l": "5000"},
+            {"v": 10000, "l": "10000"},
+            {"v": 50000, "l": "50000"},
+            {"v": 100000, "l": "100000"}
+        ]
+
+    @staticmethod
+    def _get_time_filter_values():
+        return [
+            {"v": 3600, "l": "1 h"},
+            {"v": 7200, "l": "2 h"},
+            {"v": 10800, "l": "3 h"},
+            {"v": 21600, "l": "6 h"},
+            {"v": 32400, "l": "9 h"},
+            {"v": 43200, "l": "12 h"},
+            {"v": 86400, "l": "24 h"}
+        ]
+
+    @staticmethod
+    def _filter_defaults(**kwargs) -> dict:
+        form_field = {
+            "ui_control": "",
+            "name": "",
+            "label": "",
+            "values": [],
+            "default": "",
+            "min_values": [],
+            "min_default": "",
+            "max_values": [],
+            "max_default": "",
+        }
+        for key, value in kwargs.items():
+            form_field[key] = value
+        return form_field

@@ -14,13 +14,14 @@ import {
 import { getCurrentUser } from "../_lib/auth";
 
 type StreamersPageContent = {
-    title: string;
-    description: string;
-    info: string;
     search_form: SearchFormData;
     search_results_title: string;
-    search_results: StreamerData[];
     footer_content: PageFooterContent;
+};
+
+type SearchResponse = {
+    filters: Record<string, unknown>;
+    results: StreamerData[];
 };
 
 export const metadata: Metadata = {
@@ -28,33 +29,62 @@ export const metadata: Metadata = {
     robots: { index: false, follow: false },
 };
 
-export default async function StreamersPage() {
+function buildSearchQuery(searchParams: { [key: string]: string | string[] | undefined }): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(searchParams)) {
+        if (value === undefined) continue;
+        if (Array.isArray(value)) {
+            for (const v of value) params.append(key, v);
+        } else {
+            params.append(key, value);
+        }
+    }
+    return params.toString();
+}
+
+export default async function StreamersPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
     const user = await getCurrentUser();
     if (!user) {
         redirect(`/login?next=${encodeURIComponent("/streamers")}`);
     }
 
+    const sp = await searchParams;
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const response = await fetch(`${apiBase}/pages/home/`);
+    const searchQuery = buildSearchQuery(sp);
 
-    if (!response.ok) {
-        throw new Error(`Failed to load streamers page content (status ${response.status})`);
+    const [pageResp, searchResp] = await Promise.all([
+        fetch(`${apiBase}/pages/home/`),
+        fetch(`${apiBase}/streamers/search/${searchQuery ? `?${searchQuery}` : ""}`),
+    ]);
+
+    if (!pageResp.ok) {
+        throw new Error(`Failed to load streamers page content (status ${pageResp.status})`);
+    }
+    if (!searchResp.ok) {
+        throw new Error(`Failed to run streamer search (status ${searchResp.status})`);
     }
 
-    const content: StreamersPageContent = await response.json();
+    const content: StreamersPageContent = await pageResp.json();
+    const search: SearchResponse = await searchResp.json();
 
     return (
         <Fragment>
-            <PageHeader
-                user={user}
-            />
+            <PageHeader user={user} />
 
             <main className="w-full">
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto pt-16 pb-16">
-                        <SearchStreamerForm search_form={content.search_form} user={user} />
+                        <SearchStreamerForm
+                            search_form={content.search_form}
+                            user={user}
+                            initial_values={sp}
+                        />
                         <SearchStreamerResultsList
-                            search_results={content.search_results}
+                            search_results={search.results}
                             search_results_title={content.search_results_title}
                         />
                     </div>

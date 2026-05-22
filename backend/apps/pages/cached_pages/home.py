@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .base import BaseCachedPageBuilder
 from apps.streams.models import Game, GameGenre, Stream, StreamerProfile
+from apps.streams.search import StreamerSearch
 
 
 class HomePageBuilder(BaseCachedPageBuilder):
@@ -73,65 +74,22 @@ class HomePageBuilder(BaseCachedPageBuilder):
             },
         }
 
-    def _get_search_form_field(self, **kwargs):
-        form_field = {
-            "filter_type": "",
-            "filter_name": "",
-            "filter_label": "",
-            "multi_values": [],
-            "multi_default": [],
-            "single_default": "",
-            "min_values": [],
-            "min_labels": [],
-            "min_default": "",
-            "max_values": [],
-            "max_labels": [],
-            "max_default": "",
-        }
-        for key, value in kwargs.items():
-            form_field[key] = value
-        return form_field
-
-    def _get_quant_filter_values(self):
-        return [
-            {"v": "10", "l": "10"},
-            {"v": "50", "l": "50"},
-            {"v": "100", "l": "100"},
-            {"v": "500", "l": "500"},
-            {"v": "1000", "l": "1000"},
-            {"v": "5000", "l": "5000"},
-            {"v": "10000", "l": "10000"},
-            {"v": "50000", "l": "50000"},
-            {"v": "100000", "l": "100000"}
-        ]
-
-    def _get_time_filter_values(self):
-        return [
-            {"v": "1h", "l": "1 h"},
-            {"v": "2h", "l": "2 h"},
-            {"v": "3h", "l": "3 h"},
-            {"v": "6h", "l": "6 h"},
-            {"v": "9h", "l": "9 h"},
-            {"v": "12h", "l": "12 h"},
-            {"v": "24h", "l": "24 h"}
-        ]
-
     def _format_duration(self, duration=0):
         hours, r = divmod(duration, 3600)
         minutes, r = divmod(r, 60)
         return f"{hours} h " + f"{minutes} min"
 
     def _get_demo_search_results(self) -> tuple[list[dict]]:
+        # TODO: use StreamerSearch class instead
         # Hardcoded filter values for the demo. The real search will expose these via the form.
         demo_language = "en"
         demo_window_start = timezone.now() - timedelta(days=14)
-        demo_weekdays = [1, 2, 3, 4, 5, 6, 7]
-        demo_min_duration = 1800
-        demo_max_duration = 36000
-        demo_min_viewers = 100
-        demo_max_viewers = 100000
-        demo_genre_ids = [5]
-        demo_results_n = 10
+        demo_wdays = [1, 5, 6, 7]
+        demo_durmin = 1800
+        demo_durmax = 36000
+        demo_peakmin = 100
+        demo_peakmax = 100000
+        demo_genres = [5]
 
         # Aggregate top streamers from the filtered stream set.
         top_streamer_aggregates = list(
@@ -139,17 +97,17 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 status=Stream.Status.APPROVED,
                 finished_at__gte=demo_window_start,
                 language=demo_language,
-                duration__gte=demo_min_duration,
-                duration__lte=demo_max_duration,
-                max_viewers__gte=demo_min_viewers,
-                max_viewers__lte=demo_max_viewers,
-                genre_ids__overlap=demo_genre_ids
+                duration__gte=demo_durmin,
+                duration__lte=demo_durmax,
+                max_viewers__gte=demo_peakmin,
+                max_viewers__lte=demo_peakmax,
+                genre_ids__overlap=demo_genres
             )
             .annotate(
                 finished_dow=ExtractIsoWeekDay("finished_at")
             )
             .filter(
-                finished_dow__in=demo_weekdays
+                finished_dow__in=demo_wdays
             )
             .annotate(
                 host_login=F("streamer_profile__host_login"),
@@ -174,7 +132,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     )
                 )
             )
-            .order_by("-peak_viewers")[: demo_results_n]
+            .order_by("-peak_viewers")[: 10]
         )
 
         # Resolve every referenced game in a single query.
@@ -202,86 +160,14 @@ class HomePageBuilder(BaseCachedPageBuilder):
 
         return top_streamer_aggregates
 
-    def _get_search_form(self):
-        game_genres = [("any", "Any genre")] + list(GameGenre.objects.values_list("host_genre_id", "host_name"))
+    @staticmethod
+    def _get_search_form():
+        filters_config, _ = StreamerSearch.get_filters_config()
         return {
             "title": "Search Streamers",
             "aria_label": "Demonstration search form",
-            "filters": [
-                self._get_search_form_field(
-                    filter_type="range",
-                    filter_name="max_viewers",
-                    filter_label="Max Viewers",
-                    min_values=[{"v": "min", "l": "min"}] + self._get_quant_filter_values(),
-                    min_default="min",
-                    max_values=[{"v": "max", "l": "max"}] + self._get_quant_filter_values(),
-                    max_default="max",
-                ),
-                self._get_search_form_field(
-                    filter_type="range",
-                    filter_name="avg_viewers",
-                    filter_label="Avg Viewers",
-                    min_values=[{"v": "min", "l": "min"}] + self._get_quant_filter_values(),
-                    min_default="min",
-                    max_values=[{"v": "max", "l": "max"}] + self._get_quant_filter_values(),
-                    max_default="max",
-                ),
-                self._get_search_form_field(
-                    filter_type="dropdown",
-                    filter_name="language",
-                    filter_label="Language",
-                    multi_values=[
-                        {"value": "en", "l": "English"},
-                        {"value": "fr", "l": "French"},
-                        {"value": "de", "l": "German"}
-                    ],
-                    single_default="en",
-                ),
-                self._get_search_form_field(
-                    filter_type="range",
-                    filter_name="duration",
-                    filter_label="Duration",
-                    min_values=[{"v": "min", "l": "min"}] + self._get_time_filter_values(),
-                    min_default="min",
-                    max_values=[{"v": "max", "l": "max"}] + self._get_time_filter_values(),
-                    max_default="max",
-                ),
-                self._get_search_form_field(
-                    filter_type="dropdown",
-                    filter_name="time_window",
-                    filter_label="Time Window *",
-                    multi_values=[
-                        {"v": "7", "l": "1 Week"},
-                        {"v": "14", "l": "2 Weeks"},
-                        {"v": "21", "l": "3 Weeks"},
-                        {"v": "28", "l": "4 Weeks"},
-                    ],
-                    multi_default=["7"],
-                ),
-                self._get_search_form_field(
-                    filter_type="dropdown",
-                    filter_name="genre",
-                    filter_label="Game Genre",
-                    multi_values=[{"v": str(one_value), "l": one_label} for one_value, one_label in game_genres],
-                    multi_default=["any"],
-                ),
-                self._get_search_form_field(
-                    filter_type="multiselect",
-                    filter_name="week_days",
-                    filter_label="Days of Week *",
-                    multi_values=[
-                        {"v": "1", "l": "Mon"},
-                        {"v": "2", "l": "Tue"},
-                        {"v": "3", "l": "Wed"},
-                        {"v": "4", "l": "Thu"},
-                        {"v": "5", "l": "Fri"},
-                        {"v": "6", "l": "Sat"},
-                        {"v": "7", "l": "Sun"},
-                    ],
-                    multi_default=["1", "5", "6", "7"],
-                ),
-            ],
-            "button_text": "Apply Filters",
+            "filters": filters_config,
+            "btn_text": "Apply Filters",
             "demo_title": f"Note:",
             "search_notes": [
                 "Times are in UTC. Days of week and the time window are both based on when each stream went offline. A UTC day can straddle two local days in non-UTC zones."

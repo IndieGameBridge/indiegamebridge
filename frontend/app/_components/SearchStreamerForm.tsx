@@ -1,55 +1,82 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
 import { CurrentUser } from "../_lib/auth";
 
 export type FieldData = {
-    v: string;
+    v: string | number;
     l: string;
 };
 
 export type SearchStreamerFilterData = {
-    filter_type: string;
-    filter_name: string;
-    filter_label: string;
-    multi_values: FieldData[];
-    multi_default: string[];
-    single_default: string;
+    ui_control: string;
+    name: string;
+    label: string;
+    values: FieldData[];
+    default: (string | number)[] | string | number;
     min_values: FieldData[];
-    min_default: string;
+    min_default: string | number;
     max_values: FieldData[];
-    max_default: string;
+    max_default: string | number;
 };
 
 export type SearchFormData = {
     title: string;
     aria_label: string;
     filters: SearchStreamerFilterData[];
-    button_text: string;
+    btn_text: string;
     demo_title: string;
     demo_note: string;
     search_notes: string[];
     cta_link_text: string;
 };
 
-export function SearchStreamerForm({ search_form, user }: { search_form: SearchFormData; user: CurrentUser | null }) {
+export type SearchFormInitialValues = Record<string, string | string[] | undefined>;
+
+function toArray(value: string | string[] | undefined): string[] | undefined {
+    if (value === undefined) return undefined;
+    return Array.isArray(value) ? value : [value];
+}
+
+function toString(value: string | string[] | undefined): string | undefined {
+    if (value === undefined) return undefined;
+    return Array.isArray(value) ? value[0] : value;
+}
+
+export function SearchStreamerForm({
+    search_form,
+    user,
+    initial_values,
+}: {
+    search_form: SearchFormData;
+    user: CurrentUser | null;
+    initial_values?: SearchFormInitialValues;
+}) {
+    const router = useRouter();
+
     const [formData, setFormData] = useState<Record<string, any>>(() => {
         const initial: Record<string, any> = {};
+        const overrides = initial_values ?? {};
         for (const one_filter of search_form.filters) {
-            if (one_filter.filter_type === 'multiselect') {
-                initial[one_filter.filter_name] = [...one_filter.multi_default];
-            } else if (one_filter.filter_type === 'range') {
-                initial[`${one_filter.filter_name}_min`] = one_filter.min_default;
-                initial[`${one_filter.filter_name}_max`] = one_filter.max_default;
-            } else if (one_filter.filter_type === 'dropdown') {
-                initial[one_filter.filter_name] = one_filter.single_default;
+            if (one_filter.ui_control === 'multiselect') {
+                const default_array = Array.isArray(one_filter.default) ? one_filter.default : [one_filter.default];
+                initial[one_filter.name] = toArray(overrides[one_filter.name]) ?? [...default_array];
+            } else if (one_filter.ui_control === 'range') {
+                const min_key = `${one_filter.name}min`;
+                const max_key = `${one_filter.name}max`;
+                initial[min_key] = toString(overrides[min_key]) ?? one_filter.min_default;
+                initial[max_key] = toString(overrides[max_key]) ?? one_filter.max_default;
+            } else if (one_filter.ui_control === 'dropdown') {
+                initial[one_filter.name] =
+                    toString(overrides[one_filter.name]) ?? one_filter.default;
             }
         }
         return initial;
     });
 
-    const handleCheckboxChange = (filterName: string, value: string, isChecked: boolean) => {
+    const handleCheckboxChange = (filterName: string, value: string | number, isChecked: boolean) => {
     setFormData((prev) => {
         const currentValues = prev[filterName] || [];
             if (isChecked) {
@@ -60,15 +87,13 @@ export function SearchStreamerForm({ search_form, user }: { search_form: SearchF
         });
     };
 
-    // Handler for Select Dropdowns (Range)
     const handleSelectRange = (filterName: string, type: 'min' | 'max', value: string) => {
         setFormData((prev) => ({
             ...prev,
-            [`${filterName}_${type}`]: value
+            [`${filterName + type}`]: value
         }));
     };
 
-    // Handler for Select Dropdowns (Single)
     const handleDropdownChange = (filterName: string, value: string) => {
         setFormData((prev) => ({
             ...prev,
@@ -76,42 +101,69 @@ export function SearchStreamerForm({ search_form, user }: { search_form: SearchF
         }));
     };
 
+    const submitFilters = () => {
+        if (!user) return;
+
+        const params = new URLSearchParams();
+        for (const one_filter of search_form.filters) {
+            if (one_filter.ui_control === 'multiselect') {
+                const values = (formData[one_filter.name] ?? []) as string[];
+                for (const v of values) params.append(one_filter.name, v);
+            } else if (one_filter.ui_control === 'range') {
+                const min_key = `${one_filter.name}min`;
+                const max_key = `${one_filter.name}max`;
+                if (formData[min_key] !== undefined && formData[min_key] !== "") {
+                    params.append(min_key, formData[min_key]);
+                }
+                if (formData[max_key] !== undefined && formData[max_key] !== "") {
+                    params.append(max_key, formData[max_key]);
+                }
+            } else if (one_filter.ui_control === 'dropdown') {
+                if (formData[one_filter.name] !== undefined && formData[one_filter.name] !== "") {
+                    params.append(one_filter.name, formData[one_filter.name]);
+                }
+            }
+        }
+
+        router.push(`/streamers?${params.toString()}`);
+    };
+
     return (
         <div className="overflow-hidden rounded-sm border border-gray-200 shadow-sm shadow-gray-200 bg-white p-6">
             <div className="uppercase mb-5 text-brand-blue text-lg">{search_form.title}</div>
-            <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label}>
-                {search_form.filters.map((one_filter) => (
-                    <fieldset key={one_filter.filter_name}
+            <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label} onSubmit={(event) => { event.preventDefault(); submitFilters(); }}>
+                {search_form.filters.map((one_filter, index) => (
+                    <fieldset key={one_filter.name}
                             className={`flex items-center flex-wrap col-span-1 ${
-                                one_filter.filter_type === 'multiselect'
-                                    ? one_filter.multi_values.length > 10
+                                one_filter.ui_control === 'multiselect'
+                                    ? one_filter.values.length > 10
                                         ? 'lg:col-span-3 md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1'
-                                        : (one_filter.multi_values.length > 3
+                                        : (one_filter.values.length > 3
                                             ? 'lg:col-span-2 md:col-span-2'
                                             : ''
                                         )
                                     : ''
                                 }`}>
-                        <legend className="mr-4 text-sm text-brand-blue">{one_filter.filter_label}</legend>
+                        <legend className="mr-4 text-sm text-brand-blue">{one_filter.label}</legend>
                         {(() => {
-                            switch (one_filter.filter_type) {
+                            switch (one_filter.ui_control) {
 
                                 case 'multiselect':
                                     return (
                                         <Fragment>
-                                            {one_filter.multi_values.map((one_value, index) => {
-                                                const id = `${one_filter.filter_name}_${index}`;
-                                                const isChecked = formData[one_filter.filter_name]?.includes(one_value.v) || false;
+                                            {one_filter.values.map((one_value, index) => {
+                                                const id = `${one_filter.name}_${index}`;
+                                                const isChecked = formData[one_filter.name]?.includes(one_value.v) || false;
 
                                                 return (
                                                     <div key={id} className="mr-5 mb-1 flex-row flex items-center">
                                                         <input id={id}
                                                             type="checkbox"
-                                                            name={one_filter.filter_name}
+                                                            name={one_filter.name}
                                                             value={one_value.v}
                                                             className="w-4 h-4 rounded mr-2 cursor-pointer"
                                                             checked={isChecked}
-                                                            onChange={(e) => handleCheckboxChange(one_filter.filter_name, one_value.v, e.target.checked)}
+                                                            onChange={(e) => handleCheckboxChange(one_filter.name, one_value.v, e.target.checked)}
                                                         />
                                                         <label htmlFor={id} className="cursor-pointer">{one_value.l}</label>
                                                     </div>
@@ -123,27 +175,27 @@ export function SearchStreamerForm({ search_form, user }: { search_form: SearchF
                                 case 'range':
                                     return (
                                         <Fragment>
-                                            <select id={`${one_filter.filter_name}_min`}
-                                                name={`${one_filter.filter_name}_min`}
+                                            <select id={`${one_filter.name}min`}
+                                                name={`${one_filter.name}min`}
                                                 className="p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
-                                                value={formData[`${one_filter.filter_name}_min`] || one_filter.min_default || ''}
-                                                onChange={(e) => handleSelectRange(one_filter.filter_name, 'min', e.target.value)}
+                                                value={formData[`${one_filter.name}min`] || one_filter.min_default || ''}
+                                                onChange={(e) => handleSelectRange(one_filter.name, 'min', e.target.value)}
                                             >
                                                 {one_filter.min_values.map((one_value, index) => (
-                                                    <option key={`${one_filter.filter_name}_min_${index}`} value={one_value.v}>
+                                                    <option key={`${one_filter.name}min_${index}`} value={one_value.v}>
                                                         {one_value.l}
                                                     </option>
                                                 ))}
                                             </select>
                                             <span className="p-2">to</span>
-                                            <select id={`${one_filter.filter_name}_max`}
-                                                name={`${one_filter.filter_name}_max`}
+                                            <select id={`${one_filter.name}max`}
+                                                name={`${one_filter.name}max`}
                                                 className="p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
-                                                value={formData[`${one_filter.filter_name}_max`] || one_filter.max_default || ''}
-                                                onChange={(e) => handleSelectRange(one_filter.filter_name, 'max', e.target.value)}
+                                                value={formData[`${one_filter.name}max`] || one_filter.max_default || ''}
+                                                onChange={(e) => handleSelectRange(one_filter.name, 'max', e.target.value)}
                                             >
                                                 {one_filter.max_values.map((one_value, index) => (
-                                                    <option key={`${one_filter.filter_name}_max_${index}`} value={one_value.v}>
+                                                    <option key={`${one_filter.name}max_${index}`} value={one_value.v}>
                                                         {one_value.l}
                                                     </option>
                                                 ))}
@@ -154,14 +206,14 @@ export function SearchStreamerForm({ search_form, user }: { search_form: SearchF
                                 case 'dropdown':
                                     return (
                                         <Fragment>
-                                            <select id={one_filter.filter_name}
-                                                name={one_filter.filter_name}
+                                            <select id={one_filter.name}
+                                                name={one_filter.name}
                                                 className="p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
-                                                value={formData[one_filter.filter_name] || one_filter.single_default || ''}
-                                                onChange={(e) => handleDropdownChange(one_filter.filter_name, e.target.value)}
+                                                value={formData[one_filter.name] || one_filter.default || ''}
+                                                onChange={(e) => handleDropdownChange(one_filter.name, e.target.value)}
                                             >
-                                                {one_filter.multi_values.map((one_value, index) => (
-                                                    <option key={`${one_filter.filter_name}_${index}`} value={one_value.v}>
+                                                {one_filter.values.map((one_value, index) => (
+                                                    <option key={`${one_filter.name}_${index}`} value={one_value.v}>
                                                         {one_value.l}
                                                     </option>
                                                 ))}
@@ -189,7 +241,7 @@ export function SearchStreamerForm({ search_form, user }: { search_form: SearchF
                                 ? "bg-gray-300 px-8 py-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed shadow-sm shadow-gray-200 min-w-40"
                                 : "bg-blue-600 px-8 py-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer shadow-sm shadow-gray-200 min-w-40"
                             }
-                        >{search_form.button_text}</button>
+                        >{search_form.btn_text}</button>
                     </fieldset>
                 </div>
                 {!user

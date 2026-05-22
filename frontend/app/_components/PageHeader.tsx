@@ -1,8 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { CurrentUser } from "../_lib/auth";
 import { AuthStatus } from "./AuthStatus";
+
+function NavLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
+    const pathname = usePathname();
+    const base = `text-white underline-offset-3 ${className ?? ""}`;
+    if (pathname === href) {
+        return <span className={`${base} underline`}>{children}</span>;
+    }
+    return <Link href={href} className={`${base} hover:underline`}>{children}</Link>;
+}
 
 export function PageHeader(
     { user, title, description, info }: {
@@ -10,14 +20,17 @@ export function PageHeader(
         title?: string;
         description?: string;
         info?: string;
-    } 
+    }
 ) {
     return (
         <header className="pb-12 bg-brand-blue text-white shadow-sm shadow-gray-200">
             <section className="border-b border-b-white mb-16 px-6">
                 <div className="max-w-[1000] mx-auto">
                     <div className="flex justify-end pb-2 pt-6">
-                        <Link href="/" className="mr-auto text-white hover:underline">Home</Link>
+                        <div className="mr-auto">
+                            <NavLink href="/" className="pr-6">Home</NavLink>
+                            <NavLink href="/streamers">Streamers</NavLink>
+                        </div>
                         <AuthStatus user={user} />
                     </div>
                 </div>
