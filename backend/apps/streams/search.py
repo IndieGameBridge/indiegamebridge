@@ -188,7 +188,7 @@ class StreamerSearch:
                     )
                 ),
             )
-            .order_by("-peak_viewers", "-max_duration")[: 20]
+            .order_by("-peak_viewers", "-max_duration")[: 100]
         )
 
         # Resolve every referenced game in a single round-trip.

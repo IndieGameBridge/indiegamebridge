@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 
 export type StreamData = {
@@ -20,6 +21,8 @@ export type StreamerData = {
     streams: StreamData[];
 };
 
+const PAGE_SIZE = 10;
+
 function formatStreamTime(iso: string) {
     const d = new Date(iso);
     const date = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -29,19 +32,22 @@ function formatStreamTime(iso: string) {
 
 export function SearchStreamerResultsList({ search_results, search_results_title }: { search_results: StreamerData[]; search_results_title: string }) {
     const twitchUrl = "https://www.twitch.tv/";
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const visibleResults = search_results.slice(0, visibleCount);
+    const hasMore = visibleCount < search_results.length;
 
     return (
         <div className="pt-16">
             <div className="text-center text-brand-blue uppercase text-lg">{search_results_title}</div>
-            {search_results.map((one_result, index) => (
+            {visibleResults.map((one_result, index) => (
                 <div key={`search-result-${index}`} className="border border-gray-200 p-6 mt-6 rounded-sm shadow-sm shadow-gray-200 bg-white">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4">
                         <div className="font-bold text-lg">{one_result.display_name}</div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
-                            <a className="inline-block px-6 py-2 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark min-w-40 text-center border border-twitch-brand hover:border-twitch-brand-dark"
+                            <a className="text-sm align-baseline inline-block py-2 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark min-w-36 text-center border border-twitch-brand hover:border-twitch-brand-dark"
                                 href={twitchUrl + one_result.login} target="_blank" rel="nofollow">Visit Channel</a>
-                            <Link className="inline-block px-6 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-40 text-center border border-blue-600 hover:border-blue-700"
-                                href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View profile</Link>
+                            <Link className="text-sm align-baseline inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
+                                href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
                         </div>
                     </div>
                     <div className="border-gray-200 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -61,6 +67,17 @@ export function SearchStreamerResultsList({ search_results, search_results_title
                     </div>
                 </div>
             ))}
+            {hasMore && (
+                <div className="pt-6 text-center">
+                    <button
+                        type="button"
+                        onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                        className="inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700"
+                    >
+                        Show More
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

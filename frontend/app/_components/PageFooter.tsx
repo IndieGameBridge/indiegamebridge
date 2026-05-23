@@ -21,7 +21,7 @@ export function PageFooter({ content }: { content: PageFooterContent; } ) {
     const opt_out_link = <Link className={`text-blue-400 hover:text-white ${link_styles}`} href={`/optout`} rel="nofollow">{content.opt_out_text}</Link>;
     return (
         <footer className="pt-16 pb-12 px-6 bg-brand-blue text-white">
-            <section className="max-w-[1000] mx-auto text-white font-thin text-sm mb-4">
+            <section className="max-w-[1000] mx-auto text-white font-thin mb-4">
                 {content.footer_links.map((one_link, index) => (
                     one_link.is_internal
                         ? <Link key={`footer-link-${index}`}
@@ -34,7 +34,7 @@ export function PageFooter({ content }: { content: PageFooterContent; } ) {
                             rel={one_link.nofollow ? 'nofollow' : undefined}>{one_link.text}</a>
                 ))}
             </section>
-            <section className="max-w-[1000] mx-auto text-white font-thin text-sm">
+            <section className="max-w-[1000] mx-auto text-white font-thin">
                 <div className="p-2">{content.data_source.split('%opt_out_link%').map((part, i, arr) => (
                     <Fragment key={i}>
                         {part}

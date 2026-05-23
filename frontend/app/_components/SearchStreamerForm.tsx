@@ -147,7 +147,7 @@ export function SearchStreamerForm({
     return (
         <div className="overflow-hidden rounded-sm border border-gray-200 shadow-sm shadow-gray-200 bg-white p-6">
             <div className="uppercase mb-5 text-brand-blue text-lg">{search_form.title}</div>
-            <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label} onSubmit={(event) => { event.preventDefault(); submitFilters(); }}>
+            <form className="text-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label} onSubmit={(event) => { event.preventDefault(); submitFilters(); }}>
                 {search_form.filters.map((one_filter, index) => (
                     <fieldset key={one_filter.name}
                             className={`flex items-center flex-wrap col-span-1 ${
@@ -177,11 +177,11 @@ export function SearchStreamerForm({
                                                             type="checkbox"
                                                             name={one_filter.name}
                                                             value={one_value.v}
-                                                            className="w-4 h-4 rounded mr-2 cursor-pointer"
+                                                            className="text-sm w-4 h-4 rounded mr-2 cursor-pointer"
                                                             checked={isChecked}
                                                             onChange={(e) => handleCheckboxChange(one_filter.name, one_value.v, e.target.checked)}
                                                         />
-                                                        <label htmlFor={id} className="cursor-pointer">{one_value.l}</label>
+                                                        <label htmlFor={id} className="text-sm cursor-pointer">{one_value.l}</label>
                                                     </div>
                                                 );
                                             })}
@@ -193,7 +193,7 @@ export function SearchStreamerForm({
                                         <Fragment>
                                             <select id={`${one_filter.name}min`}
                                                 name={`${one_filter.name}min`}
-                                                className="p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
+                                                className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
                                                 value={formData[`${one_filter.name}min`] || one_filter.min_default || ''}
                                                 onChange={(e) => handleSelectRange(one_filter.name, 'min', e.target.value)}
                                             >
@@ -203,10 +203,10 @@ export function SearchStreamerForm({
                                                     </option>
                                                 ))}
                                             </select>
-                                            <span className="p-2">to</span>
+                                            <span className="text-sm p-2">to</span>
                                             <select id={`${one_filter.name}max`}
                                                 name={`${one_filter.name}max`}
-                                                className="p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
+                                                className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
                                                 value={formData[`${one_filter.name}max`] || one_filter.max_default || ''}
                                                 onChange={(e) => handleSelectRange(one_filter.name, 'max', e.target.value)}
                                             >
@@ -224,7 +224,7 @@ export function SearchStreamerForm({
                                         <Fragment>
                                             <select id={one_filter.name}
                                                 name={one_filter.name}
-                                                className="p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
+                                                className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
                                                 value={formData[one_filter.name] || one_filter.default || ''}
                                                 onChange={(e) => handleDropdownChange(one_filter.name, e.target.value)}
                                             >
@@ -254,8 +254,8 @@ export function SearchStreamerForm({
                     <fieldset className="flex justify-center col-span-1 items-start">
                         <button type="submit" disabled={!user}
                             className={!user
-                                ? "bg-gray-300 px-8 py-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed shadow-sm shadow-gray-200 min-w-40"
-                                : "bg-blue-600 px-8 py-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer shadow-sm shadow-gray-200 min-w-40"
+                                ? "text-sm align-baseline bg-gray-300 py-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed shadow-sm shadow-gray-200 min-w-36"
+                                : "text-sm align-baseline bg-blue-600 py-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer shadow-sm shadow-gray-200 min-w-36"
                             }
                         >{search_form.btn_text}</button>
                     </fieldset>
