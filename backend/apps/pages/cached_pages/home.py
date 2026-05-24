@@ -22,6 +22,13 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" The platform only aggregates statistics from publicly available information provided by Twitch via the Helix API."
                     f" We do not collect or share any private information.",
             },
+            "methodology": {
+                "title": f"Methodology",
+                "description": f"We poll live Twitch streams every 20 minutes via the Helix API."
+                    f" Each snapshot records the game, viewer count, date, and time."
+                    f" Once a stream ends, we compute its peak viewer count from the snapshots collected while it was live,"
+                    f" and if any snapshot recorded at least 3 viewers, we add the stream to the streamer's statistics.",
+            },
             "search_form": {
                 "title": "Search Streamers",
                 "aria_label": "Demonstration search form",
@@ -69,12 +76,5 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     #       - integrated promo codes (to make collaboration more automated and reduce overhead for both sides)
                     #       - AI best-match search (a quick-start option for users who don't want to spend time on a thorough search or want to reduce overhead)
                 ]
-            },
-            "methodology": {
-                "title": f"Methodology",
-                "description": f"We poll live Twitch streams every 20 minutes via the Helix API."
-                    f" Each snapshot records the game, viewer count, date, and time."
-                    f" Once a stream ends, we compute its peak viewer count from the snapshots collected while it was live,"
-                    f" and if any snapshot recorded at least 3 viewers, we add the stream to the streamer's statistics.",
             },
         }

@@ -246,7 +246,7 @@ class StreamerSearch:
                     {"v": 21, "l": "3 Weeks"},
                     {"v": 28, "l": "4 Weeks"},
                 ],
-                default=14,
+                default=28,
             ),
             __class__._filter_defaults(
                 ui_control="range",
@@ -312,9 +312,6 @@ class StreamerSearch:
             {"v": 3000, "l": "3000"},
             {"v": 4000, "l": "4000"},
             {"v": 5000, "l": "5000"},
-            {"v": 10000, "l": "10000"},
-            {"v": 50000, "l": "50000"},
-            {"v": 100000, "l": "100000"}
         ]
 
     @staticmethod

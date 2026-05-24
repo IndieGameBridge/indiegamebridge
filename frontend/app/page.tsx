@@ -1,9 +1,10 @@
 import { Fragment } from "react/jsx-runtime";
-import { 
+import {
     SearchStreamerForm,
     SearchStreamerResultsList,
     SearchFormData,
     StreamerData,
+    StreamersDistribution,
     PageHeader,
     PageFooter,
     PageFooterContent
@@ -68,19 +69,22 @@ export default async function Home() {
                     </div>
                 </section>
 
-                {/* Demo Search */}
-                <section className="px-6">
-                    <div className="max-w-[1000] mx-auto pt-4 pb-16">
-                        <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
-                        <SearchStreamerResultsList search_results={content.search_results} search_results_title={content.search_results_title}></SearchStreamerResultsList>
-                    </div>
-                </section>
-
                 {/* Methodology */}
                 <section className="border-t border-gray-200 px-6">
                     <div className="max-w-[1000] mx-auto py-16">
                         <h2 className="text-2xl font-bold mb-4">{content.methodology.title}</h2>
                         <p>{content.methodology.description}</p>
+                    </div>
+                </section>
+
+                {/* Streamer Peak-Viewer Distribution */}
+                <StreamersDistribution />
+
+                {/* Demo Search */}
+                <section className="border-t border-gray-200 px-6">
+                    <div className="max-w-[1000] mx-auto py-16">
+                        <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
+                        <SearchStreamerResultsList search_results={content.search_results} search_results_title={content.search_results_title}></SearchStreamerResultsList>
                     </div>
                 </section>
                 <section className="border-t border-gray-200 px-6">

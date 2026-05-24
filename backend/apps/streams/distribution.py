@@ -16,12 +16,17 @@ DISTRIBUTION_WINDOW_DAYS = 28
 # Mirrors StreamerSearch._get_viewers_filter_values() so each bar maps 1:1 to a
 # selectable "max viewers" value in the search form. Last bucket catches everything
 # at or above the final threshold.
-PEAK_BUCKET_THRESHOLDS = [5, 10, 15, 20, 30, 40, 50, 75, 100, 200, 300, 400, 500, 750, 1000, 2000, 3000, 4000, 5000, 10000, 50000, 100000]
+PEAK_BUCKET_THRESHOLDS = [5, 10, 15, 20, 30, 40, 50, 75, 100, 200]
 
 # Mirrors the language filter in StreamerSearch. Hardcoded in both places for now;
 # expected to move to admin-managed settings once the polling language list becomes
 # configurable.
 LANGUAGES = ["en", "fr", "de"]
+
+# Effective floor for a stream's peak max_viewers: per HomePageBuilder's
+# methodology text, streams below this many viewers don't get approved.
+# Used purely for labeling the first bucket as e.g. "3-5" rather than "<5".
+MIN_PEAK = 3
 
 
 class StreamersDistribution:
@@ -83,7 +88,9 @@ class StreamersDistribution:
                 bucket_counts[-1] += 1
 
         return {
-            "window_days": DISTRIBUTION_WINDOW_DAYS,
+            "title": "Streamer Peak-Viewer Distribution",
+            "description": f"Streamers grouped by their peak viewer count over the last 4 weeks."
+                f" Use it as a hint when choosing the 'Max Viewers' range in the search form.",
             "buckets": {
                 language: cls._build_buckets(counts_by_language[language])
                 for language in LANGUAGES
@@ -92,9 +99,9 @@ class StreamersDistribution:
 
     @staticmethod
     def _build_buckets(bucket_counts: list[int]) -> list[dict]:
-        buckets = [
-            {"x": f"<{threshold}", "y": bucket_counts[index]}
-            for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS)
-        ]
+        buckets = []
+        for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS):
+            lower = MIN_PEAK if index == 0 else PEAK_BUCKET_THRESHOLDS[index - 1]
+            buckets.append({"x": f"{lower}-{threshold}", "y": bucket_counts[index]})
         buckets.append({"x": f"{PEAK_BUCKET_THRESHOLDS[-1]}+", "y": bucket_counts[-1]})
         return buckets
