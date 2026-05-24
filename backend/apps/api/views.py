@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
+from apps.streams.distribution import StreamersDistribution
 from apps.streams.search import StreamerSearch
 from apps.pages.cached_pages import HomePageBuilder
 
@@ -57,3 +58,10 @@ class StreamerSearchView(APIView):
             "filters": search.filters,
             "results": search.results(),
         })
+
+
+class StreamersDistributionView(APIView):
+    """Public read-only endpoint returning the cached global peak-viewer distribution."""
+
+    def get(self, request):
+        return Response(StreamersDistribution().results())

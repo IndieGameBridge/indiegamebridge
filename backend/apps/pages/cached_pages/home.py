@@ -41,7 +41,6 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "description": f"The project is in active development."
                     f" Planned features include:",
                 "features": [
-                    f"Export search results in your preferred file format.",
                     f"Developer profile with extra features.",
                     f"Streamer profile with extra features.",
                     # Possible next features:

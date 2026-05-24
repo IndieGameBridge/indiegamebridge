@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.streams.models import SearchCache, Stream
+from apps.streams.models import JsonCache, SearchCache, Stream
 
 
 admin.site.register(Stream)
@@ -16,3 +16,10 @@ class SearchCacheAdmin(admin.ModelAdmin):
     @admin.display(description="key_hash")
     def key_hash_short(self, obj):
         return f"{obj.key_hash[:12]}…"
+
+
+@admin.register(JsonCache)
+class JsonCacheAdmin(admin.ModelAdmin):
+    list_display = ("key", "updated_at")
+    readonly_fields = ("updated_at",)
+    search_fields = ("key",)
