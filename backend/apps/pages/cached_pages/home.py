@@ -10,6 +10,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         total_streamers = StreamerProfile.objects.filter(streams__status=Stream.Status.APPROVED).distinct().count()
         total_streams = Stream.objects.filter(status=Stream.Status.APPROVED).count()
+        filters_config, _ = StreamerSearch.get_filters_config()
 
         return {
             "title": f"IndieGameBridge",
@@ -24,7 +25,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
             "search_form": {
                 "title": "Search Streamers",
                 "aria_label": "Demonstration search form",
-                "filters": [],
+                "filters": filters_config,
                 "btn_text": "Apply Filters",
                 "demo_title": f"Note:",
                 "search_notes": [
@@ -34,7 +35,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" The results below are real, matching the search parameters prefilled in the form and updating hourly.",
                 "cta_link_text": f"Log in to use the search"
             },
-            "search_results": [],
+            "search_results": StreamerSearch().results(limit=10),
             "search_results_title": "Search Results",
             "roadmap": {
                 "title": f"What's Coming",

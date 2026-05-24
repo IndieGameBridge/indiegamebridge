@@ -5,7 +5,6 @@ from rest_framework.views import APIView
 from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
 from apps.streams.search import StreamerSearch
-from apps.pages.cached_pages import HomePageBuilder
 
 
 class CachedPageContentView(APIView):
@@ -24,11 +23,6 @@ class CachedPageContentView(APIView):
         footer = page_parts.get("page_footer")
         page.content["header_content"] = header.content if header else None
         page.content["footer_content"] = footer.content if footer else None
-
-        if key == HomePageBuilder.key:
-            filters_config, _ = StreamerSearch.get_filters_config()
-            page.content["search_form"]["filters"] = filters_config
-            page.content["search_results"] = StreamerSearch().results(limit=10)
 
         return Response(page.content)
 
