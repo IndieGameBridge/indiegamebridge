@@ -15,6 +15,7 @@ import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
 
 type StreamersPageContent = {
+    title: string;
     search_form: SearchFormData;
     search_results_title: string;
     footer_content: PageFooterContent;
@@ -25,10 +26,24 @@ type SearchResponse = {
     results: StreamerData[];
 };
 
-export const metadata: Metadata = {
-    title: "Search Streamers — IndieGameBridge",
-    robots: { index: false, follow: false },
-};
+async function fetchStreamersContent(): Promise<StreamersPageContent> {
+    const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
+    const response = await serverFetch(`${apiBase}/pages/streamers/`);
+
+    if (!response.ok) {
+        throw new Error(`Failed to load streamers page content (status ${response.status})`);
+    }
+
+    return await response.json();
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+    const content = await fetchStreamersContent();
+    return {
+        title: content.title,
+        robots: { index: false, follow: false },
+    };
+}
 
 function buildSearchQuery(searchParams: { [key: string]: string | string[] | undefined }): string {
     const params = new URLSearchParams();
@@ -57,24 +72,20 @@ export default async function StreamersPage({
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     const searchQuery = buildSearchQuery(sp);
 
-    const [pageResp, searchResp] = await Promise.all([
-        serverFetch(`${apiBase}/pages/streamers/`),
+    const [content, searchResp] = await Promise.all([
+        fetchStreamersContent(),
         serverFetch(`${apiBase}/streamers/search/${searchQuery ? `?${searchQuery}` : ""}`),
     ]);
 
-    if (!pageResp.ok) {
-        throw new Error(`Failed to load streamers page content (status ${pageResp.status})`);
-    }
     if (!searchResp.ok) {
         throw new Error(`Failed to run streamer search (status ${searchResp.status})`);
     }
 
-    const content: StreamersPageContent = await pageResp.json();
     const search: SearchResponse = await searchResp.json();
 
     return (
         <Fragment>
-            <PageHeader user={user} />
+            <PageHeader user={user} title={content.title} />
 
             <main className="w-full">
                 <section className="px-6">

@@ -7,6 +7,6 @@ class StreamerProfilePageBuilder(BaseCachedPageBuilder):
 
     def build_content(self) -> dict:
         return {
-            "title": f"Streamer",
+            "title": f"Streamer: %streamer_display_name%",
             "body": f"Detailed streamer profile is coming soon. The data source and caching strategy are still being decided.",
         }

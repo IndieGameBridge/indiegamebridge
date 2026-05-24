@@ -4,6 +4,8 @@ from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
+from apps.streams.models import StreamerProfile
+from apps.streams.profile import StreamerProfileStreams
 from apps.streams.search import StreamerSearch
 
 
@@ -18,6 +20,19 @@ class CachedPageContentView(APIView):
         page = page_parts.get(key)
         if page is None:
             raise Http404
+        
+        if key == "streamer_profile":
+            twitch_login = request.GET.get("twitch_login", "")
+            streamer_profile = (
+                StreamerProfile.objects
+                .filter(host=StreamerProfile.Host.TWITCH, host_login=twitch_login)
+                .first()
+            )
+            page.content["title"] = page.content["title"].replace(
+                "%streamer_display_name%",
+                streamer_profile.host_display_name if streamer_profile else "Not found",
+            )
+            page.content["streams"] = StreamerProfileStreams(streamer_profile).results() if streamer_profile else []
 
         header = page_parts.get("page_header")
         footer = page_parts.get("page_footer")

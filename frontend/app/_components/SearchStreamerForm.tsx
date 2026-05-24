@@ -145,136 +145,133 @@ export function SearchStreamerForm({
     };
 
     return (
-        <Fragment>
-            <h2 className="text-2xl font-bold mb-4">{search_form.title}</h2>
-            <div className="overflow-hidden rounded-sm border border-gray-200 shadow-sm shadow-gray-200 bg-white p-6">
-                <form className="text-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label} onSubmit={(event) => { event.preventDefault(); submitFilters(); }}>
-                    {search_form.filters.map((one_filter, index) => (
-                        <fieldset key={one_filter.name}
-                                className={`flex items-center flex-wrap col-span-1 ${
-                                    one_filter.ui_control === 'multiselect'
-                                        ? one_filter.values.length > 10
-                                            ? 'lg:col-span-3 md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1'
-                                            : (one_filter.values.length > 3
-                                                ? 'lg:col-span-2 md:col-span-2'
-                                                : ''
-                                            )
-                                        : ''
-                                    }`}>
-                            <legend className="mr-4 text-sm text-brand-blue">{one_filter.label}</legend>
-                            {(() => {
-                                switch (one_filter.ui_control) {
+        <div className="overflow-hidden rounded-sm border border-gray-200 shadow-sm shadow-gray-200 bg-white p-6">
+            <form className="text-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label} onSubmit={(event) => { event.preventDefault(); submitFilters(); }}>
+                {search_form.filters.map((one_filter, index) => (
+                    <fieldset key={one_filter.name}
+                            className={`flex items-center flex-wrap col-span-1 ${
+                                one_filter.ui_control === 'multiselect'
+                                    ? one_filter.values.length > 10
+                                        ? 'lg:col-span-3 md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1'
+                                        : (one_filter.values.length > 3
+                                            ? 'lg:col-span-2 md:col-span-2'
+                                            : ''
+                                        )
+                                    : ''
+                                }`}>
+                        <legend className="mr-4 text-sm text-brand-blue">{one_filter.label}</legend>
+                        {(() => {
+                            switch (one_filter.ui_control) {
 
-                                    case 'multiselect':
-                                        return (
-                                            <Fragment>
-                                                {one_filter.values.map((one_value, index) => {
-                                                    const id = `${one_filter.name}_${index}`;
-                                                    const isChecked = formData[one_filter.name]?.includes(one_value.v) || false;
+                                case 'multiselect':
+                                    return (
+                                        <Fragment>
+                                            {one_filter.values.map((one_value, index) => {
+                                                const id = `${one_filter.name}_${index}`;
+                                                const isChecked = formData[one_filter.name]?.includes(one_value.v) || false;
 
-                                                    return (
-                                                        <div key={id} className="mr-5 mb-1 flex-row flex items-center">
-                                                            <input id={id}
-                                                                type="checkbox"
-                                                                name={one_filter.name}
-                                                                value={one_value.v}
-                                                                className="text-sm w-4 h-4 rounded mr-2 cursor-pointer"
-                                                                checked={isChecked}
-                                                                onChange={(e) => handleCheckboxChange(one_filter.name, one_value.v, e.target.checked)}
-                                                            />
-                                                            <label htmlFor={id} className="text-sm cursor-pointer">{one_value.l}</label>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </Fragment>
-                                        );
+                                                return (
+                                                    <div key={id} className="mr-5 mb-1 flex-row flex items-center">
+                                                        <input id={id}
+                                                            type="checkbox"
+                                                            name={one_filter.name}
+                                                            value={one_value.v}
+                                                            className="text-sm w-4 h-4 rounded mr-2 cursor-pointer"
+                                                            checked={isChecked}
+                                                            onChange={(e) => handleCheckboxChange(one_filter.name, one_value.v, e.target.checked)}
+                                                        />
+                                                        <label htmlFor={id} className="text-sm cursor-pointer">{one_value.l}</label>
+                                                    </div>
+                                                );
+                                            })}
+                                        </Fragment>
+                                    );
 
-                                    case 'range':
-                                        return (
-                                            <Fragment>
-                                                <select id={`${one_filter.name}min`}
-                                                    name={`${one_filter.name}min`}
-                                                    className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
-                                                    value={formData[`${one_filter.name}min`] || one_filter.min_default || ''}
-                                                    onChange={(e) => handleSelectRange(one_filter.name, 'min', e.target.value)}
-                                                >
-                                                    {one_filter.min_values.map((one_value, index) => (
-                                                        <option key={`${one_filter.name}min_${index}`} value={one_value.v}>
-                                                            {one_value.l}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <span className="text-sm p-2">to</span>
-                                                <select id={`${one_filter.name}max`}
-                                                    name={`${one_filter.name}max`}
-                                                    className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
-                                                    value={formData[`${one_filter.name}max`] || one_filter.max_default || ''}
-                                                    onChange={(e) => handleSelectRange(one_filter.name, 'max', e.target.value)}
-                                                >
-                                                    {one_filter.max_values.map((one_value, index) => (
-                                                        <option key={`${one_filter.name}max_${index}`} value={one_value.v}>
-                                                            {one_value.l}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </Fragment>
-                                        );
+                                case 'range':
+                                    return (
+                                        <Fragment>
+                                            <select id={`${one_filter.name}min`}
+                                                name={`${one_filter.name}min`}
+                                                className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
+                                                value={formData[`${one_filter.name}min`] || one_filter.min_default || ''}
+                                                onChange={(e) => handleSelectRange(one_filter.name, 'min', e.target.value)}
+                                            >
+                                                {one_filter.min_values.map((one_value, index) => (
+                                                    <option key={`${one_filter.name}min_${index}`} value={one_value.v}>
+                                                        {one_value.l}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <span className="text-sm p-2">to</span>
+                                            <select id={`${one_filter.name}max`}
+                                                name={`${one_filter.name}max`}
+                                                className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
+                                                value={formData[`${one_filter.name}max`] || one_filter.max_default || ''}
+                                                onChange={(e) => handleSelectRange(one_filter.name, 'max', e.target.value)}
+                                            >
+                                                {one_filter.max_values.map((one_value, index) => (
+                                                    <option key={`${one_filter.name}max_${index}`} value={one_value.v}>
+                                                        {one_value.l}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </Fragment>
+                                    );
 
-                                    case 'dropdown':
-                                        return (
-                                            <Fragment>
-                                                <select id={one_filter.name}
-                                                    name={one_filter.name}
-                                                    className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
-                                                    value={formData[one_filter.name] || one_filter.default || ''}
-                                                    onChange={(e) => handleDropdownChange(one_filter.name, e.target.value)}
-                                                >
-                                                    {one_filter.values.map((one_value, index) => (
-                                                        <option key={`${one_filter.name}_${index}`} value={one_value.v}>
-                                                            {one_value.l}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </Fragment>
-                                        );
+                                case 'dropdown':
+                                    return (
+                                        <Fragment>
+                                            <select id={one_filter.name}
+                                                name={one_filter.name}
+                                                className="text-sm p-2 border border-gray-200 rounded-sm grow cursor-pointer outline-gray-400"
+                                                value={formData[one_filter.name] || one_filter.default || ''}
+                                                onChange={(e) => handleDropdownChange(one_filter.name, e.target.value)}
+                                            >
+                                                {one_filter.values.map((one_value, index) => (
+                                                    <option key={`${one_filter.name}_${index}`} value={one_value.v}>
+                                                        {one_value.l}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </Fragment>
+                                    );
 
-                                    default:
-                                        return null;
-                                }
-                            })()}
-                        </fieldset>
-                    ))}
-                    <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
-                        <div className="col-span-1 md:col-span-1 lg:col-span-2 text-sm italic">
-                            {search_form.search_notes.map((one_note, index) => (
-                                <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative"
-                                    style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
-                                >{one_note}</div>
-                            ))}
-                        </div>
-                        <fieldset className="flex justify-center col-span-1 items-start">
-                            <button type="submit" disabled={!user}
-                                className={!user
-                                    ? "text-sm align-baseline bg-gray-300 py-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed shadow-sm shadow-gray-200 min-w-36"
-                                    : "text-sm align-baseline bg-blue-600 py-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer shadow-sm shadow-gray-200 min-w-36"
-                                }
-                            >{search_form.btn_text}</button>
-                        </fieldset>
+                                default:
+                                    return null;
+                            }
+                        })()}
+                    </fieldset>
+                ))}
+                <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
+                    <div className="col-span-1 md:col-span-1 lg:col-span-2 text-sm italic">
+                        {search_form.search_notes.map((one_note, index) => (
+                            <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative"
+                                style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
+                            >{one_note}</div>
+                        ))}
                     </div>
-                    {!user
-                        ? <div className="col-span-1 lg:col-span-3 md:col-span-2 text-orange-600 mt-4 border-t border-orange-500 pt-4">
-                            <div>
-                                <span className="font-bold uppercase">{search_form.demo_title}</span>
-                                <span> {search_form.demo_note}</span>
-                            </div>
-                            <div className="text-center mt-4">
-                                <Link href="/login" className="underline text-blue-700 hover:text-blue-500 ml-2">{search_form.cta_link_text}</Link>
-                            </div>
+                    <fieldset className="flex justify-center col-span-1 items-start">
+                        <button type="submit" disabled={!user}
+                            className={!user
+                                ? "text-sm align-baseline bg-gray-300 py-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed shadow-sm shadow-gray-200 min-w-36"
+                                : "text-sm align-baseline bg-blue-600 py-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer shadow-sm shadow-gray-200 min-w-36"
+                            }
+                        >{search_form.btn_text}</button>
+                    </fieldset>
+                </div>
+                {!user
+                    ? <div className="col-span-1 lg:col-span-3 md:col-span-2 text-orange-600 mt-4 border-t border-orange-500 pt-4">
+                        <div>
+                            <span className="font-bold uppercase">{search_form.demo_title}</span>
+                            <span> {search_form.demo_note}</span>
                         </div>
-                        : null
-                    }
-                </form>
-            </div>
-        </Fragment>
+                        <div className="text-center mt-4">
+                            <Link href="/login" className="underline text-blue-700 hover:text-blue-500 ml-2">{search_form.cta_link_text}</Link>
+                        </div>
+                    </div>
+                    : null
+                }
+            </form>
+        </div>
     );
 };

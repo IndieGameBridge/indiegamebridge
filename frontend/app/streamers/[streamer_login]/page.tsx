@@ -25,7 +25,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
     }
 
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const response = await serverFetch(`${apiBase}/pages/streamer_profile/`);
+    const response = await serverFetch(`${apiBase}/pages/streamer_profile/?twitch_login=${encodeURIComponent(streamer_login)}`);
 
     if (!response.ok) {
         throw new Error(`Failed to load streamer profile page content (status ${response.status})`);
@@ -37,11 +37,11 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
         <Fragment>
             <PageHeader
                 user={user}
+                title={content.title}
             />
 
             <main className="flex-1 px-6">
                 <div className="max-w-2xl mx-auto py-16">
-                    <h1 className="text-2xl font-bold mb-4">{content.title}: {streamer_login}</h1>
                     <p className="text-gray-600">{content.body}</p>
                 </div>
             </main>

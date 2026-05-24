@@ -1,4 +1,5 @@
 import { Fragment } from "react/jsx-runtime";
+import type { Metadata } from "next";
 import {
     SearchStreamerForm,
     SearchStreamerResultsList,
@@ -36,18 +37,30 @@ type HomePageContent = {
     footer_content: PageFooterContent;
 };
 
-export default async function Home() {
+async function fetchHomeContent(): Promise<HomePageContent> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const [response, user] = await Promise.all([
-        serverFetch(`${apiBase}/pages/home/`),
-        getCurrentUser(),
-    ]);
+    const response = await serverFetch(`${apiBase}/pages/home/`);
 
     if (!response.ok) {
         throw new Error(`Failed to load home page content (status ${response.status})`);
     }
 
-    const content: HomePageContent = await response.json();
+    return await response.json();
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+    const content = await fetchHomeContent();
+    return {
+        title: content.title,
+        description: content.description,
+    };
+}
+
+export default async function Home() {
+    const [content, user] = await Promise.all([
+        fetchHomeContent(),
+        getCurrentUser(),
+    ]);
 
     return (
         <Fragment>
@@ -69,6 +82,18 @@ export default async function Home() {
                     </div>
                 </section>
 
+                {/* Streamer Peak-Viewer Distribution */}
+                <StreamersDistribution />
+
+                {/* Demo Search */}
+                <section className="border-t border-gray-200 px-6">
+                    <div className="max-w-[1000] mx-auto py-16">
+                        <h2 className="text-2xl font-bold mb-4">{content.search_form.title}</h2>
+                        <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
+                        <SearchStreamerResultsList search_results={content.search_results} search_results_title={content.search_results_title}></SearchStreamerResultsList>
+                    </div>
+                </section>
+
                 {/* Methodology */}
                 <section className="border-t border-gray-200 px-6">
                     <div className="max-w-[1000] mx-auto py-16">
@@ -77,16 +102,7 @@ export default async function Home() {
                     </div>
                 </section>
 
-                {/* Streamer Peak-Viewer Distribution */}
-                <StreamersDistribution />
-
-                {/* Demo Search */}
-                <section className="border-t border-gray-200 px-6">
-                    <div className="max-w-[1000] mx-auto py-16">
-                        <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
-                        <SearchStreamerResultsList search_results={content.search_results} search_results_title={content.search_results_title}></SearchStreamerResultsList>
-                    </div>
-                </section>
+                {/* Roadmap */}
                 <section className="border-t border-gray-200 px-6">
                     <div className="max-w-[1000] mx-auto py-16">
                         <h2 className="text-2xl font-bold mb-4">{content.roadmap.title}</h2>
