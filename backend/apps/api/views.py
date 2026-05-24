@@ -27,7 +27,7 @@ class CachedPageContentView(APIView):
         if key == HomePageBuilder.key:
             filters_config, _ = StreamerSearch.get_filters_config()
             page.content["search_form"]["filters"] = filters_config
-            page.content["search_results"] = StreamerSearch().results()
+            page.content["search_results"] = StreamerSearch().results(limit=10)
 
         return Response(page.content)
 

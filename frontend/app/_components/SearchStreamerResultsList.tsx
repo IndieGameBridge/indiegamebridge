@@ -21,7 +21,7 @@ export type StreamerData = {
     streams: StreamData[];
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 function formatStreamTime(iso: string) {
     const d = new Date(iso);

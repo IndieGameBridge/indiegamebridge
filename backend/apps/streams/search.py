@@ -33,7 +33,7 @@ class StreamerSearch:
         self.filters = self._normalize_query_params(self.raw_filters)
         self.key_hash = self._hash(self.filters)
 
-    def results(self) -> list[dict]:
+    def results(self, limit=100) -> list[dict]:
         now = timezone.now()
         cached = SearchCache.objects.filter(key_hash=self.key_hash).first()
 
@@ -41,7 +41,7 @@ class StreamerSearch:
             # Hit: touch last_hit_at (used by future eviction) and return as-is.
             SearchCache.objects.filter(pk=cached.pk).update(last_hit_at=now)
             logger.debug("Search cache hit: %s", self.key_hash[:12])
-            return cached.results
+            return cached.results[:limit]
 
         # Miss or stale: recompute and upsert. update_or_create resolves the
         # race between two concurrent first-misses into a single row.
@@ -59,7 +59,7 @@ class StreamerSearch:
                 "last_hit_at": now,
             },
         )
-        return fresh
+        return fresh[:limit]
 
     @classmethod
     def _normalize_query_params(cls, raw: dict) -> dict:
