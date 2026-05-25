@@ -39,7 +39,7 @@ export function PageHeader(
                 <div className="max-w-[1000] mx-auto">
                     {title && <h1 className="text-2xl font-bold">{title}</h1>}
                     {description && <p className="mt-6 text-lg">{description}</p>}
-                    {info && <p className="mt-6 text-sm opacity-70">{info}</p>}
+                    {info && <p className="mt-6 opacity-70">{info}</p>}
                 </div>
             </section>
         </header>

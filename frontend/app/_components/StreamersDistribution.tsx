@@ -63,7 +63,7 @@ function DistributionChart({ title, buckets }: ChartProps) {
 
     // viewBox-relative units; SVG scales with container width via w-full h-auto.
     const width = 1000;
-    const height = 200;
+    const height = 250;
     const paddingLeft = 36;
     const paddingRight = 8;
     // Extra top padding leaves room for per-bar value labels above the tallest bar.
@@ -78,7 +78,7 @@ function DistributionChart({ title, buckets }: ChartProps) {
     return (
         <div className="col-span-1">
             <h3 className="text-lg font-semibold mb-1">{title}</h3>
-            <p className="text-xs text-gray-500 mb-2">{totalStreamers.toLocaleString()} streamers</p>
+            <p className="text-xs mb-2">{totalStreamers.toLocaleString()} streamers</p>
 
             <svg
                 viewBox={`0 0 ${width} ${height}`}
@@ -112,7 +112,7 @@ function DistributionChart({ title, buckets }: ChartProps) {
                             y={barY}
                             width={barWidth}
                             height={barH}
-                            className="fill-indigo-500 hover:fill-indigo-400"
+                            className="fill-indigo-500"
                         />
                     );
                 })}
@@ -128,8 +128,8 @@ function DistributionChart({ title, buckets }: ChartProps) {
                             x={barX}
                             y={barY - 4}
                             textAnchor="middle"
-                            fontSize="10"
-                            fill="#374151"
+                            fontSize="12"
+                            className="selection:fill-white"
                         >
                             {bucket.y.toLocaleString()}
                         </text>
@@ -145,8 +145,8 @@ function DistributionChart({ title, buckets }: ChartProps) {
                             x={barX}
                             y={height - 10}
                             textAnchor="middle"
-                            fontSize="10"
-                            fill="#6b7280"
+                            fontSize="12"
+                            className="selection:fill-white"
                         >
                             {bucket.x}
                         </text>
