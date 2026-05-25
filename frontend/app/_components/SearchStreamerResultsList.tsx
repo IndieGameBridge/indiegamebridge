@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { formatStreamTime } from "../_lib/format";
+
 export type StreamData = {
     id: number;
     language: string;
@@ -23,13 +25,6 @@ export type StreamerData = {
 
 const PAGE_SIZE = 20;
 
-function formatStreamTime(iso: string) {
-    const d = new Date(iso);
-    const date = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    return `${date} • ${time}`;
-}
-
 export function SearchStreamerResultsList({ search_results, search_results_title }: { search_results: StreamerData[]; search_results_title: string }) {
     const twitchUrl = "https://www.twitch.tv/";
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -40,7 +35,7 @@ export function SearchStreamerResultsList({ search_results, search_results_title
         <div className="pt-16">
             <div className="text-center text-brand-blue uppercase text-lg">{search_results_title}</div>
             {visibleResults.map((one_result, index) => (
-                <div key={`search-result-${index}`} className="border border-gray-200 p-6 mt-6 rounded-sm shadow-sm shadow-gray-200 bg-white">
+                <div key={`search-result-${index}`} className="border border-gray-300 p-6 mt-6 rounded-sm bg-white">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4">
                         <div className="font-bold text-lg">{one_result.display_name}</div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
@@ -50,9 +45,9 @@ export function SearchStreamerResultsList({ search_results, search_results_title
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
                         </div>
                     </div>
-                    <div className="border-gray-200 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="border-gray-300 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {one_result.streams.map((one_stream, stream_index) => (
-                            <div key={`stream-${stream_index}`} className="border border-gray-200 p-4 text-sm rounded-sm">
+                            <div key={`stream-${stream_index}`} className="border border-gray-300 p-4 text-sm rounded-sm">
                                 <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(one_stream.started_at)}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(one_stream.finished_at)}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{one_stream.duration}</span></div>

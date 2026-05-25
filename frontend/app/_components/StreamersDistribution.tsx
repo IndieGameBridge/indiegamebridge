@@ -28,7 +28,7 @@ export async function StreamersDistribution() {
     const data: DistributionData = await response.json();
 
     return (
-        <section className="border-t border-gray-200 px-6">
+        <section className="px-6">
             <div className="max-w-[1000] mx-auto py-16">
                 <h2 className="text-2xl font-bold mb-4">{data.title}</h2>
                 <p className="mb-6">{data.description}</p>

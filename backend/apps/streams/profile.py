@@ -11,6 +11,12 @@ logger = logging.getLogger(__name__)
 STREAMER_PROFILE_CACHE_TTL = timedelta(hours=1)
 STREAMER_PROFILE_STREAMS_LIMIT = 100
 
+LANGUAGE_NAMES = {
+    "en": "English",
+    "fr": "French",
+    "de": "German",
+}
+
 
 class StreamerProfileStreams:
     """Per-streamer cached list of approved streams with snapshots and game names.
@@ -80,8 +86,15 @@ class StreamerProfileStreams:
                 game_names.get(game_id, "N/A")
                 for game_id in (stream.get("host_game_ids") or [])
             ]
-            stream.pop("host_game_ids", None)
             stream["started_at"] = stream["started_at"].isoformat()
             stream["finished_at"] = stream["finished_at"].isoformat()
+            stream["duration"] = self._format_duration(stream["duration"])
+            stream["language"] = LANGUAGE_NAMES.get(stream["language"], stream["language"])
 
         return streams
+
+    @staticmethod
+    def _format_duration(duration_seconds: int) -> str:
+        hours, remainder = divmod(duration_seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        return f"{hours} h {minutes} min"
