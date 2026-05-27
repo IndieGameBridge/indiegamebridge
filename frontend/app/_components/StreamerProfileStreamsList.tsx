@@ -34,7 +34,7 @@ export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[
         <>
             {visibleStreams.map((stream, index) => (
                 <div key={`stream-${stream.id}`}
-                    className="relative border border-gray-300 mt-6 p-6 rounded-sm bg-white text-sm"
+                    className="relative border border-gray-400 mt-8 p-6 rounded-sm bg-white text-sm"
                 >
                     <div className="absolute top-1 left-2 text-xs text-gray-500">#{index + 1}</div>
                     <StreamSnapshotsChart
