@@ -23,7 +23,7 @@ export type TwitchStream = {
     max_viewers: number;
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[] }) {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -32,10 +32,11 @@ export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[
 
     return (
         <>
-            {visibleStreams.map((stream) => (
+            {visibleStreams.map((stream, index) => (
                 <div key={`stream-${stream.id}`}
-                    className="border border-gray-300 mt-6 p-6 rounded-sm bg-white text-sm"
+                    className="relative border border-gray-300 mt-6 p-6 rounded-sm bg-white text-sm"
                 >
+                    <div className="absolute top-1 left-2 text-xs text-gray-500">#{index + 1}</div>
                     <StreamSnapshotsChart
                         snapshots={stream.snapshots}
                         started_at={stream.started_at}

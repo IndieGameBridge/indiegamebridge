@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { formatStreamTime } from "../_lib/format";
+import { loadStreamersPage } from "../streamers/actions";
 
 export type StreamData = {
     id: number;
@@ -23,19 +24,46 @@ export type StreamerData = {
     streams: StreamData[];
 };
 
-const PAGE_SIZE = 20;
+type Props = {
+    search_results: StreamerData[];
+    search_results_title: string;
+    total?: number;
+    can_load_more?: boolean;
+};
 
-export function SearchStreamerResultsList({ search_results, search_results_title }: { search_results: StreamerData[]; search_results_title: string }) {
+export function SearchStreamerResultsList({
+    search_results,
+    search_results_title,
+    total,
+    can_load_more = false,
+}: Props) {
     const twitchUrl = "https://www.twitch.tv/";
-    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-    const visibleResults = search_results.slice(0, visibleCount);
-    const hasMore = visibleCount < search_results.length;
+    const [loadedResults, setLoadedResults] = useState<StreamerData[]>(search_results);
+    const [knownTotal, setKnownTotal] = useState<number>(total ?? search_results.length);
+    const [loadedPage, setLoadedPage] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const hasMore = can_load_more && loadedResults.length < knownTotal;
+
+    async function handleShowMore() {
+        if (loading) return;
+        const nextPage = loadedPage + 1;
+        setLoading(true);
+        try {
+            const data = await loadStreamersPage(window.location.search, nextPage);
+            setLoadedResults((prev) => [...prev, ...data.results]);
+            setKnownTotal(data.total);
+            setLoadedPage(nextPage);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <div className="pt-16">
             <div className="text-center text-brand-blue uppercase text-lg">{search_results_title}</div>
-            {visibleResults.map((one_result, index) => (
-                <div key={`search-result-${index}`} className="border border-gray-300 p-6 mt-6 rounded-sm bg-white">
+            {loadedResults.map((one_result, index) => (
+                <div key={`search-result-${index}`} className="relative border border-gray-300 p-6 mt-6 rounded-sm bg-white">
+                    <div className="absolute top-1 left-2 text-xs text-gray-500">#{index + 1}</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4">
                         <div className="font-bold text-lg">{one_result.display_name}</div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
@@ -66,11 +94,15 @@ export function SearchStreamerResultsList({ search_results, search_results_title
                 <div className="pt-6 text-center">
                     <button
                         type="button"
-                        onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                        className="inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
+                        onClick={handleShowMore}
+                        disabled={loading}
+                        className="inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
                     >
                         Show More
                     </button>
+                    {loading && (
+                        <div className="pt-2 text-sm text-gray-600">Loading...</div>
+                    )}
                 </div>
             )}
         </div>

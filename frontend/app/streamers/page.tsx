@@ -24,6 +24,7 @@ type StreamersPageContent = {
 type SearchResponse = {
     filters: Record<string, unknown>;
     results: StreamerData[];
+    total: number;
 };
 
 async function fetchStreamersContent(): Promise<StreamersPageContent> {
@@ -74,7 +75,7 @@ export default async function StreamersPage({
 
     const [content, searchResp] = await Promise.all([
         fetchStreamersContent(),
-        serverFetch(`${apiBase}/streamers/search/${searchQuery ? `?${searchQuery}` : ""}`),
+        serverFetch(`${apiBase}/streamers/${searchQuery ? `?${searchQuery}` : ""}`),
     ]);
 
     if (!searchResp.ok) {
@@ -98,6 +99,8 @@ export default async function StreamersPage({
                         <SearchStreamerResultsList
                             search_results={search.results}
                             search_results_title={content.search_results_title}
+                            total={search.total}
+                            can_load_more
                         />
                     </div>
                 </section>

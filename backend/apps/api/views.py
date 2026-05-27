@@ -6,7 +6,7 @@ from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
 from apps.streams.models import StreamerProfile
 from apps.streams.profile import StreamerProfileStreams
-from apps.streams.search import StreamerSearch
+from apps.streams.search import PAGE_SIZE as SEARCH_PAGE_SIZE, StreamerSearch
 
 
 class CachedPageContentView(APIView):
@@ -54,18 +54,31 @@ class StreamerSearchView(APIView):
     # Names must match the filter config in StreamerSearch.get_filters_config.
     _LIST_PARAMS = ("wdays",)
 
+    # Query params that control paging rather than filtering — excluded from the
+    # filter dict so they don't affect the cache key.
+    _PAGING_PARAMS = ("p",)
+
     def get(self, request):
         raw_filters = {}
         for key in request.GET.keys():
+            if key in self._PAGING_PARAMS:
+                continue
             if key in self._LIST_PARAMS:
                 raw_filters[key] = request.GET.getlist(key)
             else:
                 raw_filters[key] = request.GET.get(key)
 
+        try:
+            page = max(1, int(request.GET.get("p", "1")))
+        except ValueError:
+            page = 1
+        offset = (page - 1) * SEARCH_PAGE_SIZE
+
         search = StreamerSearch(raw_filters)
         return Response({
             "filters": search.filters,
-            "results": search.results(),
+            "results": search.results(offset=offset, limit=SEARCH_PAGE_SIZE),
+            "total": search.total(),
         })
 
 

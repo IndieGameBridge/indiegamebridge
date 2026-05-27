@@ -5,6 +5,6 @@ from apps.api.views import CachedPageContentView, StreamerSearchView, StreamersD
 
 urlpatterns = [
     path("pages/<slug:key>/", CachedPageContentView.as_view(), name="cached-page-content"),
-    path("streamers/search/", StreamerSearchView.as_view(), name="streamer-search"),
+    path("streamers/", StreamerSearchView.as_view(), name="streamer-search"),
     path("streamers/distribution/", StreamersDistributionView.as_view(), name="streamers-distribution"),
 ]

@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 SEARCH_CACHE_TTL = timedelta(hours=1)
 
+# Hard cap on results stored per cache row. Sized so a single search returns
+# up to MAX_RESULTS streamers; the API then slices this into pages of PAGE_SIZE.
+MAX_RESULTS = 1000
+PAGE_SIZE = 50
+
 
 class StreamerSearch:
     """Single entry point for streamer search.
@@ -32,8 +37,18 @@ class StreamerSearch:
         self.raw_filters = filters or {}
         self.filters = self._normalize_query_params(self.raw_filters)
         self.key_hash = self._hash(self.filters)
+        self._full_results: list[dict] | None = None
 
-    def results(self, limit=100) -> list[dict]:
+    def results(self, offset: int = 0, limit: int = PAGE_SIZE) -> list[dict]:
+        return self._get_full_results()[offset:offset + limit]
+
+    def total(self) -> int:
+        return len(self._get_full_results())
+
+    def _get_full_results(self) -> list[dict]:
+        if self._full_results is not None:
+            return self._full_results
+
         now = timezone.now()
         cached = SearchCache.objects.filter(key_hash=self.key_hash).first()
 
@@ -41,7 +56,8 @@ class StreamerSearch:
             # Hit: touch last_hit_at (used by future eviction) and return as-is.
             SearchCache.objects.filter(pk=cached.pk).update(last_hit_at=now)
             logger.debug("Search cache hit: %s", self.key_hash[:12])
-            return cached.results[:limit]
+            self._full_results = cached.results
+            return self._full_results
 
         # Miss or stale: recompute and upsert. update_or_create resolves the
         # race between two concurrent first-misses into a single row.
@@ -59,7 +75,8 @@ class StreamerSearch:
                 "last_hit_at": now,
             },
         )
-        return fresh[:limit]
+        self._full_results = fresh
+        return self._full_results
 
     @classmethod
     def _normalize_query_params(cls, raw: dict) -> dict:
@@ -188,7 +205,7 @@ class StreamerSearch:
                     )
                 ),
             )
-            .order_by("-peak_viewers", "-max_duration")[: 100]
+            .order_by("-peak_viewers", "-max_duration")[:MAX_RESULTS]
         )
 
         # Resolve every referenced game in a single round-trip.

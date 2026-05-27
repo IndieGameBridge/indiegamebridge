@@ -171,6 +171,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
                         y={baselineY - barH - 4}
                         textAnchor="middle"
                         fontSize="12"
+                        className="selection:fill-white"
                     >
                         {col.viewers.toLocaleString()}
                     </text>
