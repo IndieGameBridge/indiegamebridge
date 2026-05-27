@@ -14,7 +14,7 @@ import {
 
 type StreamerProfilePageContent = {
     title: string;
-    body: string;
+    explain: string;
     streams: TwitchStream[];
     footer_content: PageFooterContent;
 };
@@ -48,6 +48,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
             />
 
             <main className="flex-1 px-6">
+                <div className="max-w-[1000] mx-auto py-16">{content.explain}</div>
                 <div className="max-w-[1000] mx-auto pb-16">
                     <StreamerProfileStreamsList streams={content.streams} />
                 </div>
