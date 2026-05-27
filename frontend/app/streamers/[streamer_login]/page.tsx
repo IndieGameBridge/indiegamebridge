@@ -14,7 +14,7 @@ import {
 
 type StreamerProfilePageContent = {
     title: string;
-    explain: string;
+    notes: string[];
     streams: TwitchStream[];
     footer_content: PageFooterContent;
 };
@@ -48,7 +48,11 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
             />
 
             <main className="flex-1 px-6">
-                <div className="max-w-[1000] mx-auto py-16">{content.explain}</div>
+                <div className="max-w-[1000] mx-auto pt-16 pb-8 text-sm italic">{content.notes.map((one_note, index) => (
+                    <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-2"
+                        style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
+                    >{one_note}</div>
+                ))}</div>
                 <div className="max-w-[1000] mx-auto pb-16">
                     <StreamerProfileStreamsList streams={content.streams} />
                 </div>
