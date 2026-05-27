@@ -145,7 +145,7 @@ export function SearchStreamerForm({
     };
 
     return (
-        <div className="overflow-hidden rounded-sm border border-gray-300 bg-white p-6">
+        <div className="overflow-hidden rounded-sm border border-gray-400 bg-white p-6">
             <form className="text-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5" aria-label={search_form.aria_label} onSubmit={(event) => { event.preventDefault(); submitFilters(); }}>
                 {search_form.filters.map((one_filter, index) => (
                     <fieldset key={one_filter.name}

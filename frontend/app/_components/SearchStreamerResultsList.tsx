@@ -62,7 +62,7 @@ export function SearchStreamerResultsList({
         <div className="pt-16">
             <div className="text-center text-brand-blue uppercase text-lg">{search_results_title}</div>
             {loadedResults.map((one_result, index) => (
-                <div key={`search-result-${index}`} className="relative border border-gray-300 p-6 mt-6 rounded-sm bg-white">
+                <div key={`search-result-${index}`} className="relative border border-gray-400 p-6 mt-6 rounded-sm bg-white">
                     <div className="absolute top-1 left-2 text-xs text-gray-500">#{index + 1}</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4">
                         <div className="font-bold text-lg">{one_result.display_name}</div>
@@ -80,7 +80,7 @@ export function SearchStreamerResultsList({
                                 <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(one_stream.finished_at)}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{one_stream.duration}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Peak Viewers: </span><span>{one_stream.max_viewers.toLocaleString()}</span></div>
-                                <div className="p-1 flex flex-row gap-x-2 gap-y-2 flex-wrap mt-2">{
+                                <div className="p-1 flex flex-row gap-x-2 gap-y-2 flex-wrap mt-2 text-xs">{
                                     one_stream.games.map((game_name, game_index) => (
                                         <div key={`stream-game-${game_index}`} className="py-1 px-2 rounded-sm bg-gray-200">{game_name}</div>
                                     ))

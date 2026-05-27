@@ -86,7 +86,7 @@ export default async function Home() {
                 <StreamersDistribution />
 
                 {/* Demo Search */}
-                <section className="border-t border-gray-300 px-6">
+                <section className="border-t border-gray-400 px-6">
                     <div className="max-w-[1000] mx-auto py-16">
                         <h2 className="text-2xl font-bold mb-4">{content.search_form.title}</h2>
                         <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
@@ -95,7 +95,7 @@ export default async function Home() {
                 </section>
 
                 {/* Methodology */}
-                <section className="border-t border-gray-300 px-6">
+                <section className="border-t border-gray-400 px-6">
                     <div className="max-w-[1000] mx-auto py-16">
                         <h2 className="text-2xl font-bold mb-4">{content.methodology.title}</h2>
                         <p>{content.methodology.description}</p>
