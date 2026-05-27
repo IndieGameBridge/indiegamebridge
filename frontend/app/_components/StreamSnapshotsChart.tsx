@@ -104,7 +104,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
     }
 
     return (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto mb-4">
         <svg
             width={width}
             height={height}
