@@ -104,7 +104,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
     }
 
     return (
-        <div className="overflow-x-auto mb-4">
+        <div className="overflow-x-auto mb-4 overflow-x-scroll">
         <svg
             width={width}
             height={height}
@@ -196,13 +196,6 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
                 x2={paddingLeft + chartWidth}
                 y1={gameRowTop}
                 y2={gameRowTop}
-                stroke="#e5e7eb"
-            />
-            <line
-                x1={paddingLeft}
-                x2={paddingLeft + chartWidth}
-                y1={gameRowTop + gameRowHeight}
-                y2={gameRowTop + gameRowHeight}
                 stroke="#e5e7eb"
             />
 

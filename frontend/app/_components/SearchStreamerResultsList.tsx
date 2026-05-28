@@ -59,13 +59,11 @@ export function SearchStreamerResultsList({
     }
 
     return (
-        <div className="pt-16">
-            <div className="text-center text-brand-blue uppercase text-lg">{search_results_title}</div>
+        <div>
             {loadedResults.map((one_result, index) => (
-                <div key={`search-result-${index}`} className="relative border border-gray-400 p-6 mt-8 rounded-sm bg-white">
-                    <div className="absolute top-1 left-2 text-xs text-gray-500">#{index + 1}</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4">
-                        <div className="font-bold text-lg">{one_result.display_name}</div>
+                <div key={`search-result-${index}`} className="border-t border-t-gray-400 pt-4 mb-24 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4 gap-6">
+                        <div className="font-bold text-lg"><span className="text-gray-500 font-normal">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
                             <a className="text-sm align-baseline inline-block py-2 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark min-w-36 text-center border border-twitch-brand hover:border-twitch-brand-dark"
                                 href={twitchUrl + one_result.login} target="_blank" rel="nofollow">Visit Channel</a>
@@ -73,14 +71,14 @@ export function SearchStreamerResultsList({
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
                         </div>
                     </div>
-                    <div className="border-gray-300 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="border-gray-300 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {one_result.streams.map((one_stream, stream_index) => (
-                            <div key={`stream-${stream_index}`} className="border border-gray-300 p-4 text-sm rounded-sm">
+                            <div key={`stream-${stream_index}`} className="text-sm">
                                 <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(one_stream.started_at)}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(one_stream.finished_at)}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{one_stream.duration}</span></div>
                                 <div className="p-1"><span className="text-brand-blue">Peak Viewers: </span><span>{one_stream.max_viewers.toLocaleString()}</span></div>
-                                <div className="p-1 flex flex-row gap-x-2 gap-y-2 flex-wrap mt-2 text-xs">{
+                                <div className="p-1 flex flex-row gap-x-2 gap-y-2 flex-wrap text-xs">{
                                     one_stream.games.map((game_name, game_index) => (
                                         <div key={`stream-game-${game_index}`} className="py-1 px-2 rounded-sm bg-gray-200">{game_name}</div>
                                     ))
@@ -91,7 +89,7 @@ export function SearchStreamerResultsList({
                 </div>
             ))}
             {hasMore && (
-                <div className="pt-6 text-center">
+                <div className="text-center">
                     <button
                         type="button"
                         onClick={handleShowMore}

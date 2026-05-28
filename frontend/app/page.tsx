@@ -76,7 +76,7 @@ export default async function Home() {
 
                 {/* Project Goal */}
                 <section className="px-6">
-                    <div className="max-w-[1000] mx-auto pt-16 pb-8">
+                    <div className="max-w-[1000] mx-auto pt-24 pb-12">
                         <h2 className="text-2xl font-bold mb-4">{content.project_goal.title}</h2>
                         <p>{content.project_goal.description}</p>
                     </div>
@@ -87,7 +87,7 @@ export default async function Home() {
 
                 {/* Demo Search */}
                 <section className="border-t border-gray-400 px-6">
-                    <div className="max-w-[1000] mx-auto py-16">
+                    <div className="max-w-[1000] mx-auto pt-24">
                         <h2 className="text-2xl font-bold mb-4">{content.search_form.title}</h2>
                         <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
                         <SearchStreamerResultsList search_results={content.search_results} search_results_title={content.search_results_title}></SearchStreamerResultsList>
@@ -96,7 +96,7 @@ export default async function Home() {
 
                 {/* Methodology */}
                 <section className="border-t border-gray-400 px-6">
-                    <div className="max-w-[1000] mx-auto py-16">
+                    <div className="max-w-[1000] mx-auto pt-24 pb-12">
                         <h2 className="text-2xl font-bold mb-4">{content.methodology.title}</h2>
                         <p>{content.methodology.description}</p>
                     </div>
@@ -104,7 +104,7 @@ export default async function Home() {
 
                 {/* Roadmap */}
                 <section className="px-6">
-                    <div className="max-w-[1000] mx-auto py-16">
+                    <div className="max-w-[1000] mx-auto pt-12 pb-24">
                         <h2 className="text-2xl font-bold mb-4">{content.roadmap.title}</h2>
                         <p className="pb-2">{content.roadmap.description}</p>
                         <ul className="list-disc pl-5">

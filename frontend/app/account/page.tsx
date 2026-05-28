@@ -34,11 +34,10 @@ export default async function AccountPage() {
 
     return (
         <Fragment>
-            <PageHeader user={user} />
+            <PageHeader user={user} title={content.title} />
 
             <main className="flex-1 px-6">
                 <div className="max-w-2xl mx-auto py-16">
-                    <h1 className="text-2xl font-bold mb-4">{content.title}</h1>
                     <p className="text-gray-600">{content.body}</p>
                 </div>
             </main>

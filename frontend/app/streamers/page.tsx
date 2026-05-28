@@ -90,7 +90,7 @@ export default async function StreamersPage({
 
             <main className="w-full">
                 <section className="px-6">
-                    <div className="max-w-[1000] mx-auto pt-16 pb-16">
+                    <div className="max-w-[1000] mx-auto py-24">
                         <SearchStreamerForm
                             search_form={content.search_form}
                             user={user}

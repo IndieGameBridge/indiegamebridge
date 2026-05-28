@@ -9,9 +9,9 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         filters_config, _ = StreamerSearch.get_filters_config()
         return {
-            "title": "Search Streamers — IndieGameBridge",
+            "title": "Search Streamers",
             "search_form": {
-                "title": "Search Streamers — IndieGameBridge",
+                "title": "Search Streamers",
                 "aria_label": "Search streamers form",
                 "filters": filters_config,
                 "btn_text": "Apply Filters",

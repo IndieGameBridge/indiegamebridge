@@ -214,7 +214,9 @@ SOCIALACCOUNT_PROVIDERS = {
             "secret": TWITCH_OAUTH_CLIENT_SECRET,
             "key": "",
         },
-        "SCOPE": ["user:read:email"],
+        # No scopes: Twitch still returns id/login/display_name/profile_image
+        # from /helix/users without consent, and we don't use the email.
+        "SCOPE": [],
     },
 }
 

@@ -18,7 +18,7 @@ class PageFooterBuilder(BaseCachedPageBuilder):
                 },
                 {
                     "text": "GitHub",
-                    "url": "/https://github.com/IndieGameBridge/indiegamebridge",
+                    "url": "https://github.com/IndieGameBridge/indiegamebridge",
                     "nofollow": 1,
                     "is_internal": 0,
                 },

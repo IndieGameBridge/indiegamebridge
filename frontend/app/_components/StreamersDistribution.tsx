@@ -29,11 +29,11 @@ export async function StreamersDistribution() {
 
     return (
         <section className="px-6">
-            <div className="max-w-[1000] mx-auto py-16">
+            <div className="max-w-[1000] mx-auto pt-12 pb-24">
                 <h2 className="text-2xl font-bold mb-4">{data.title}</h2>
-                <p className="mb-6">{data.description}</p>
+                <p className="mb-12">{data.description}</p>
 
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 gap-12">
                     {LANGUAGES.map(({ code, label }) => {
                         const buckets = data.buckets[code];
                         if (!buckets) return null;

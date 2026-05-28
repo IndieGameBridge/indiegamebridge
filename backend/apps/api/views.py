@@ -32,7 +32,9 @@ class CachedPageContentView(APIView):
                 "%streamer_display_name%",
                 streamer_profile.host_display_name if streamer_profile else "Not found",
             )
-            page.content["streams"] = StreamerProfileStreams(streamer_profile).results() if streamer_profile else []
+            payload = StreamerProfileStreams(streamer_profile).results() if streamer_profile else {"streams": [], "stats": None}
+            page.content["streams"] = payload["streams"]
+            page.content["stats"] = payload["stats"]
 
         header = page_parts.get("page_header")
         footer = page_parts.get("page_footer")

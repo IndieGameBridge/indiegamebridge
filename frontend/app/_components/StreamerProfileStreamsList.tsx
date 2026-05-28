@@ -32,26 +32,38 @@ export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[
 
     return (
         <>
-            {visibleStreams.map((stream, index) => (
+            {visibleStreams.map((stream, index) => {
+                const avgViewers = stream.snapshots.length > 0
+                    ? Math.round(stream.snapshots.reduce((sum, s) => sum + s.v, 0) / stream.snapshots.length)
+                    : 0;
+                return (
                 <div key={`stream-${stream.id}`}
-                    className="relative border border-gray-400 mt-8 p-6 rounded-sm bg-white text-sm"
+                    className="relative border-t border-t-gray-400 mb-24 pt-8 bg-white text-sm"
                 >
-                    <div className="absolute top-1 left-2 text-xs text-gray-500">#{index + 1}</div>
+                    <div className="absolute top-2 left-2 text-xs text-gray-500">#{index + 1}</div>
                     <StreamSnapshotsChart
                         snapshots={stream.snapshots}
                         started_at={stream.started_at}
                         games={stream.games}
                         host_game_ids={stream.host_game_ids}
                     />
-                    <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(stream.started_at)}</span></div>
-                    <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(stream.finished_at)}</span></div>
-                    <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{stream.duration}</span></div>
-                    <div className="p-1"><span className="text-brand-blue">Peak Viewers: </span><span>{stream.max_viewers}</span></div>
-                    <div className="p-1"><span className="text-brand-blue">Language: </span><span>{stream.language}</span></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                        <div>
+                            <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(stream.started_at)}</span></div>
+                            <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(stream.finished_at)}</span></div>
+                            <div className="p-1"><span className="text-brand-blue">Language: </span><span>{stream.language}</span></div>
+                        </div>
+                        <div>
+                            <div className="p-1"><span className="text-brand-blue">Peak Viewers: </span><span>{stream.max_viewers}</span></div>
+                            <div className="p-1"><span className="text-brand-blue">Avg Viewers: </span><span>{avgViewers}</span></div>
+                            <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{stream.duration}</span></div>
+                        </div>
+                    </div>
                 </div>
-            ))}
+                );
+            })}
             {hasMore && (
-                <div className="pt-6 text-center">
+                <div className="text-center mb-24">
                     <button
                         type="button"
                         onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
