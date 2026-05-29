@@ -3,25 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { formatStreamTime } from "../_lib/format";
 import { loadStreamersPage } from "../streamers/actions";
-
-export type StreamData = {
-    id: number;
-    language: string;
-    max_viewers: number;
-    duration: string;
-    games: string[];
-    started_at: string;
-    finished_at: string;
-};
 
 export type StreamerData = {
     login: string;
     display_name: string;
+    streams_count: number;
+    total_duration: string;
     peak_viewers: number;
-    languages: string[];
-    streams: StreamData[];
+    avg_viewers: number;
+    games: string[];
 };
 
 type Props = {
@@ -71,20 +62,21 @@ export function SearchStreamerResultsList({
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
                         </div>
                     </div>
-                    <div className="border-gray-300 border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {one_result.streams.map((one_stream, stream_index) => (
-                            <div key={`stream-${stream_index}`} className="text-sm">
-                                <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(one_stream.started_at)}</span></div>
-                                <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(one_stream.finished_at)}</span></div>
-                                <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{one_stream.duration}</span></div>
-                                <div className="p-1"><span className="text-brand-blue">Peak Viewers: </span><span>{one_stream.max_viewers.toLocaleString()}</span></div>
-                                <div className="p-1 flex flex-row gap-x-2 gap-y-2 flex-wrap text-xs">{
-                                    one_stream.games.map((game_name, game_index) => (
-                                        <div key={`stream-game-${game_index}`} className="py-1 px-2 rounded-sm bg-gray-200">{game_name}</div>
-                                    ))
-                                }</div>
+                    <div className="border-gray-300 border-t pt-4 text-sm">
+                        <div className="mb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="col-span-1 md:col-span-2 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                                    <div className="text-nowrap">Peak {one_result.peak_viewers.toLocaleString()}</div>
+                                    <div className="text-nowrap">Avg {one_result.avg_viewers.toLocaleString()}</div>
+                                </div>
+                                <div className="text-nowrap">{one_result.streams_count.toLocaleString()} {one_result.streams_count > 1 ? 'streams' : 'stream'} • {one_result.total_duration}</div>
                             </div>
-                        ))}
+                        </div>
+                        <div className="flex flex-row gap-x-2 gap-y-2 flex-wrap">{
+                            one_result.games.map((game_name, game_index) => (
+                                <div key={`streamer-game-${game_index}`} className="py-1 px-2 rounded-sm bg-gray-200">{game_name}</div>
+                            ))
+                        }</div>
                     </div>
                 </div>
             ))}

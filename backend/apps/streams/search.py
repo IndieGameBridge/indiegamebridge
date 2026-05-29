@@ -5,8 +5,8 @@ from datetime import timedelta
 from functools import cache
 
 from django.contrib.postgres.aggregates import JSONBAgg
-from django.db.models import Max, F
-from django.db.models.functions import ExtractIsoWeekDay, JSONObject
+from django.db.models import Avg, Count, F, Max, Sum
+from django.db.models.functions import ExtractIsoWeekDay
 from django.utils import timezone
 
 from apps.streams.models import Game, SearchCache, Stream, GameGenre
@@ -165,6 +165,10 @@ class StreamerSearch:
             stream_qs = stream_qs.filter(max_viewers__gte=filters["peakmin"])
         if filters.get("peakmax") is not None:
             stream_qs = stream_qs.filter(max_viewers__lte=filters["peakmax"])
+        if filters.get("avgmin") is not None:
+            stream_qs = stream_qs.filter(avg_viewers__gte=filters["avgmin"])
+        if filters.get("avgmax") is not None:
+            stream_qs = stream_qs.filter(avg_viewers__lte=filters["avgmax"])
         if filters.get("durmin") is not None:
             stream_qs = stream_qs.filter(duration__gte=filters["durmin"])
         if filters.get("durmax") is not None:
@@ -179,6 +183,9 @@ class StreamerSearch:
         if filters.get("wdays"):
             stream_qs = stream_qs.filter(finished_dow__in=filters["wdays"])
 
+        # One row per streamer, aggregating only the streams that matched the
+        # filters above. Sort key mirrors the displayed metrics: peak viewers,
+        # then average viewers, then total watch time.
         top_streamer_aggregates = list(
             stream_qs
             .annotate(
@@ -191,29 +198,24 @@ class StreamerSearch:
                 profile_id=F("streamer_profile_id"),
             )
             .annotate(
+                streams_count=Count("id"),
                 peak_viewers=Max("max_viewers"),
-                max_duration=Max("duration"),
-                streams=JSONBAgg(
-                    JSONObject(
-                        id="id",
-                        duration="duration",
-                        max_viewers="max_viewers",
-                        language="language",
-                        game_ids="host_game_ids",
-                        started_at="started_at",
-                        finished_at="finished_at",
-                    )
-                ),
+                avg_viewers=Avg("avg_viewers"),
+                total_duration_seconds=Sum("duration"),
+                # JSONBAgg (not ArrayAgg) because host_game_ids is itself an array
+                # and Postgres rejects array_agg of ragged arrays. The JSON array
+                # of arrays is flattened + de-duped per streamer below.
+                game_id_lists=JSONBAgg("host_game_ids"),
             )
-            .order_by("-peak_viewers", "-max_duration")[:MAX_RESULTS]
+            .order_by("-peak_viewers", "-avg_viewers", "-total_duration_seconds")[:MAX_RESULTS]
         )
 
-        # Resolve every referenced game in a single round-trip.
+        # Resolve every referenced game name in a single round-trip.
         all_game_ids = {
             one_game_id
             for one_streamer in top_streamer_aggregates
-            for one_stream in one_streamer.get("streams", [])
-            for one_game_id in (one_stream.get("game_ids") or [])
+            for one_list in (one_streamer.get("game_id_lists") or [])
+            for one_game_id in (one_list or [])
         }
         game_names_map = dict(
             Game.objects.filter(host_game_id__in=all_game_ids)
@@ -221,13 +223,18 @@ class StreamerSearch:
         )
 
         for one_streamer in top_streamer_aggregates:
-            for one_stream in one_streamer.get("streams", []):
-                one_stream["games"] = [
-                    game_names_map.get(game_id, "N/A")
-                    for game_id in (one_stream.get("game_ids") or [])
-                ]
-                one_stream["duration"] = cls._format_duration(one_stream["duration"])
-                one_stream.pop("game_ids", None)
+            distinct_game_ids = {
+                one_game_id
+                for one_list in (one_streamer.pop("game_id_lists", None) or [])
+                for one_game_id in (one_list or [])
+            }
+            one_streamer["games"] = sorted(
+                {game_names_map.get(one_game_id, "N/A") for one_game_id in distinct_game_ids}
+            )
+            one_streamer["total_duration"] = cls._format_duration(
+                one_streamer.pop("total_duration_seconds", None) or 0
+            )
+            one_streamer["avg_viewers"] = int(round(one_streamer["avg_viewers"] or 0))
 
         return top_streamer_aggregates
 
@@ -243,15 +250,31 @@ class StreamerSearch:
         game_genres = [("any", "Any genre")] + list(GameGenre.objects.values_list("host_genre_id", "host_name"))
         return [
             __class__._filter_defaults(
-                ui_control="dropdown",
-                name="lang",
-                label="Language",
-                values=[
-                    {"v": "en", "l": "English"},
-                    {"v": "fr", "l": "French"},
-                    {"v": "de", "l": "German"}
-                ],
-                default="en",
+                ui_control="range",
+                name="peak",
+                label="Max Viewers",
+                min_values=[{"v": "any", "l": "Min"}] + __class__._get_viewers_filter_values(),
+                min_default=5,
+                max_values=__class__._get_viewers_filter_values() + [{"v": "any", "l": "Max"}],
+                max_default=200,
+            ),
+            __class__._filter_defaults(
+                ui_control="range",
+                name="avg",
+                label="Avg Viewers",
+                min_values=[{"v": "any", "l": "Min"}] + __class__._get_viewers_filter_values(),
+                min_default=5,
+                max_values=__class__._get_viewers_filter_values() + [{"v": "any", "l": "Max"}],
+                max_default=200,
+            ),
+            __class__._filter_defaults(
+                ui_control="range",
+                name="dur",
+                label="Duration",
+                min_values=[{"v": "any", "l": "Min"}] + __class__._get_time_filter_values(),
+                min_default=7200,
+                max_values=__class__._get_time_filter_values() + [{"v": "any", "l": "Max"}],
+                max_default="any",
             ),
             __class__._filter_defaults(
                 ui_control="dropdown",
@@ -263,25 +286,7 @@ class StreamerSearch:
                     {"v": 21, "l": "3 Weeks"},
                     {"v": 28, "l": "4 Weeks"},
                 ],
-                default=7,
-            ),
-            __class__._filter_defaults(
-                ui_control="range",
-                name="peak",
-                label="Max Viewers",
-                min_values=[{"v": "any", "l": "Min"}] + __class__._get_viewers_filter_values(),
-                min_default=5,
-                max_values=__class__._get_viewers_filter_values() + [{"v": "any", "l": "Max"}],
-                max_default=200,
-            ),
-            __class__._filter_defaults(
-                ui_control="range",
-                name="dur",
-                label="Duration",
-                min_values=[{"v": "any", "l": "Min"}] + __class__._get_time_filter_values(),
-                min_default="any",
-                max_values=__class__._get_time_filter_values() + [{"v": "any", "l": "Max"}],
-                max_default="any",
+                default=14,
             ),
             __class__._filter_defaults(
                 ui_control="dropdown",
@@ -289,6 +294,17 @@ class StreamerSearch:
                 label="Game Genre",
                 values=[{"v": str(one_value), "l": one_label} for one_value, one_label in game_genres],
                 default="any",
+            ),
+            __class__._filter_defaults(
+                ui_control="dropdown",
+                name="lang",
+                label="Language",
+                values=[
+                    {"v": "en", "l": "English"},
+                    {"v": "fr", "l": "French"},
+                    {"v": "de", "l": "German"}
+                ],
+                default="en",
             ),
             __class__._filter_defaults(
                 ui_control="multiselect",
@@ -305,7 +321,7 @@ class StreamerSearch:
                 ],
                 default=[1, 5, 6, 7],
             ),
-        ], ["lang", "window", "peakmin", "peakmax", "durmin", "durmax", "genres", "wdays"]
+        ], ["lang", "window", "peakmin", "peakmax", "avgmin", "avgmax", "durmin", "durmax", "genres", "wdays"]
 
     @staticmethod
     def _get_viewers_filter_values():
@@ -319,7 +335,9 @@ class StreamerSearch:
             {"v": 50, "l": "50"},
             {"v": 75, "l": "75"},
             {"v": 100, "l": "100"},
+            {"v": 150, "l": "150"},
             {"v": 200, "l": "200"},
+            {"v": 250, "l": "250"},
             {"v": 300, "l": "300"},
             {"v": 400, "l": "400"},
             {"v": 500, "l": "500"},
