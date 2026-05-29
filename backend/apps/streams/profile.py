@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone as dt_timezone
 
+from django.db.models import Count, Sum
 from django.utils import timezone
 
 from apps.streams.models import Game, Stream, StreamerProfile, StreamerProfileCache
@@ -67,6 +68,7 @@ class StreamerProfileStreams:
             status=Stream.Status.APPROVED,
         )
         recent_cutoff = now - STREAMER_PROFILE_RECENT_WINDOW
+        recent = approved.filter(finished_at__gte=recent_cutoff)
 
         streams = list(
             approved
@@ -83,38 +85,26 @@ class StreamerProfileStreams:
             )[:STREAMER_PROFILE_STREAMS_LIMIT]
         )
 
-        # One compact scan over all approved streams yields total counts + the union of game ids,
-        # split by overall vs last-4-weeks window. Snapshot blobs are not pulled.
-        all_meta = list(approved.values("host_game_ids", "finished_at", "duration"))
-        total_all = len(all_meta)
-        total_recent = 0
-        time_all = 0
-        time_recent = 0
-        ids_all: set[int] = set()
-        ids_recent: set[int] = set()
-        for row in all_meta:
-            ids = row.get("host_game_ids") or []
-            duration = row.get("duration") or 0
-            ids_all.update(ids)
-            time_all += duration
-            if row["finished_at"] >= recent_cutoff:
-                total_recent += 1
-                time_recent += duration
-                ids_recent.update(ids)
-
-        games_index = self._build_games_index(ids_all)
-
-        top_all = (
-            approved.order_by("-max_viewers")
-            .only("snapshots")
-            .first()
+        recent_stats = recent.aggregate(
+            nof_streams=Count("id"),
+            total_seconds=Sum("duration"),
         )
-        top_recent = (
-            approved.filter(finished_at__gte=recent_cutoff)
-            .order_by("-max_viewers")
-            .only("snapshots")
-            .first()
-        )
+
+        top_recent = recent.order_by("-max_viewers").only("snapshots").first()
+
+        # Per-game breakdown over the recent window, folded from snapshots (one stream can span games).
+        per_game_acc = self._accumulate_per_game(recent.values("duration", "snapshots"))
+
+        # Games needing names/genres: every recent game, the games in the listed streams, and the peak game.
+        ids_shown: set[int] = set(per_game_acc)
+        for stream in streams:
+            ids_shown.update(stream.get("host_game_ids") or [])
+        if top_recent and top_recent.snapshots:
+            peak_game = max(top_recent.snapshots, key=lambda s: s.get("v", 0)).get("g")
+            if peak_game is not None:
+                ids_shown.add(peak_game)
+
+        games_index = self._build_games_index(ids_shown)
 
         for stream in streams:
             stream["games"] = [
@@ -129,18 +119,12 @@ class StreamerProfileStreams:
         return {
             "streams": streams,
             "stats": {
-                "all_time": {
-                    "total_streams": total_all,
-                    "total_time": self._format_duration(time_all),
-                    "max_viewers": self._max_viewers_snapshot(top_all, games_index),
-                    "games": self._games_list(ids_all, games_index),
+                "recent": {
+                    "streams": recent_stats["nof_streams"],
+                    "duration": self._format_duration(recent_stats["total_seconds"] or 0),
+                    "maxv": self._max_viewers_snapshot(top_recent, games_index),
                 },
-                "last_4_weeks": {
-                    "total_streams": total_recent,
-                    "total_time": self._format_duration(time_recent),
-                    "max_viewers": self._max_viewers_snapshot(top_recent, games_index),
-                    "games": self._games_list(ids_recent, games_index),
-                },
+                "per_game": self._build_per_game(per_game_acc, games_index),
             },
         }
 
@@ -161,9 +145,55 @@ class StreamerProfileStreams:
         }
 
     @staticmethod
-    def _games_list(host_game_ids, games_index) -> list[dict]:
-        entries = [games_index[gid] for gid in host_game_ids if gid in games_index]
-        return sorted(entries, key=lambda e: e["name"].lower())
+    def _accumulate_per_game(rows) -> dict:
+        """Fold recent streams' snapshots into per-game totals keyed by host_game_id.
+
+        Viewer figures come from the per-snapshot game tag, and each game's share of a
+        stream's running time is prorated by how many of that stream's snapshots it holds.
+        """
+        acc: dict[int, dict] = {}
+        for row in rows:
+            snapshots = row.get("snapshots") or []
+            duration = row.get("duration") or 0
+            in_stream: dict[int, dict] = {}
+            for snap in snapshots:
+                gid = snap.get("g")
+                if gid is None:
+                    continue
+                viewers = snap.get("v") or 0
+                seen = in_stream.setdefault(gid, {"n": 0, "sum_v": 0, "max_v": 0})
+                seen["n"] += 1
+                seen["sum_v"] += viewers
+                seen["max_v"] = max(seen["max_v"], viewers)
+            total_snaps = sum(seen["n"] for seen in in_stream.values())
+            for gid, seen in in_stream.items():
+                game = acc.setdefault(
+                    gid, {"snapshots": 0, "sum_v": 0, "max_v": 0, "seconds": 0.0, "streams": 0}
+                )
+                game["snapshots"] += seen["n"]
+                game["sum_v"] += seen["sum_v"]
+                game["max_v"] = max(game["max_v"], seen["max_v"])
+                game["streams"] += 1
+                if total_snaps:
+                    game["seconds"] += duration * seen["n"] / total_snaps
+        return acc
+
+    def _build_per_game(self, acc, games_index) -> list[dict]:
+        # Most-played game first.
+        ordered = sorted(acc.items(), key=lambda kv: kv[1]["seconds"], reverse=True)
+        per_game = []
+        for gid, game in ordered:
+            info = games_index.get(gid) or {}
+            snaps = game["snapshots"]
+            per_game.append({
+                "name": info.get("name") or "N/A",
+                "genres": info.get("genres") or [],
+                "duration": self._format_duration(round(game["seconds"])),
+                "streams": game["streams"],
+                "maxv": game["max_v"],
+                "avgv": round(game["sum_v"] / snaps) if snaps else 0,
+            })
+        return per_game
 
     @staticmethod
     def _max_viewers_snapshot(stream, games_index) -> dict | None:
@@ -175,7 +205,7 @@ class StreamerProfileStreams:
         peak = max(snapshots, key=lambda s: s.get("v", 0))
         ts = peak.get("t")
         return {
-            "value": peak.get("v", 0),
+            "val": peak.get("v", 0),
             "at": datetime.fromtimestamp(ts, tz=dt_timezone.utc).isoformat() if ts else None,
             "game": (games_index.get(peak.get("g")) or {}).get("name") or "N/A",
         }

@@ -49,14 +49,14 @@ export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[
                     />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                         <div>
-                            <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(stream.started_at)}</span></div>
-                            <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(stream.finished_at)}</span></div>
-                            <div className="p-1"><span className="text-brand-blue">Language: </span><span>{stream.language}</span></div>
-                        </div>
-                        <div>
                             <div className="p-1"><span className="text-brand-blue">Peak Viewers: </span><span>{stream.max_viewers}</span></div>
                             <div className="p-1"><span className="text-brand-blue">Avg Viewers: </span><span>{avgViewers}</span></div>
                             <div className="p-1"><span className="text-brand-blue">Duration: </span><span>{stream.duration}</span></div>
+                        </div>
+                        <div>
+                            <div className="p-1"><span className="text-brand-blue">Started: </span><span>{formatStreamTime(stream.started_at)}</span></div>
+                            <div className="p-1"><span className="text-brand-blue">Finished: </span><span>{formatStreamTime(stream.finished_at)}</span></div>
+                            <div className="p-1"><span className="text-brand-blue">Language: </span><span>{stream.language}</span></div>
                         </div>
                     </div>
                 </div>

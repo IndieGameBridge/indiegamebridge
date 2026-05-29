@@ -75,7 +75,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
     const timeLabelGap = 4;
     const timeLabelHeight = 14;
     const gameRowGap = 6;
-    const gameRowHeight = 28;
+    const gameRowHeight = 36;
     const paddingBottom = 4;
     const height = paddingTop + barsHeight + timeLabelGap + timeLabelHeight + gameRowGap + gameRowHeight + paddingBottom;
 
@@ -104,7 +104,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
     }
 
     return (
-        <div className="overflow-x-auto mb-4 overflow-x-scroll">
+        <div className="mb-4 overflow-x-scroll">
         <svg
             width={width}
             height={height}

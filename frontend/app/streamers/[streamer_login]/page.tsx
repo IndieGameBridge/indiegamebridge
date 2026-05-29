@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "../../_lib/auth";
 import { serverFetch } from "../../_lib/server-fetch";
+import { formatStreamTime } from "../../_lib/format";
 import {
     PageHeader,
     PageFooter,
@@ -17,26 +18,25 @@ type StreamerProfilePageContent = {
     notes: string[];
     streams: TwitchStream[];
     footer_content: PageFooterContent;
-    stats: StreamerStats;
-};
-
-type StreamerStatsSection = {
-    games: {
-        name: string;
-        genres: string[];
-    }[];
-    max_viewers: {
-        at: string;
-        game: string;
-        value: number;
+    stats: {
+        recent: {
+            streams: number;
+            duration: string;
+            maxv: {
+                val: number;
+                at: string;
+                game: string;
+            };
+        };
+        per_game: {
+            name: string;
+            genres: string[];
+            duration: string;
+            streams: number;
+            maxv: number;
+            avgv: number;
+        }[];
     };
-    total_streams: number;
-    total_time: string;
-};
-
-type StreamerStats = {
-    all_time: StreamerStatsSection,
-    last_4_weeks: StreamerStatsSection,
 };
 
 export const metadata: Metadata = {
@@ -68,49 +68,63 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
             />
 
             <main className="flex-1">
+
+                {/* Last 4-Week Stats */}
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
-                        <div className="text-2xl font-bold mb-4">Games in the Last 4 Weeks</div>
-                        <div className="mb-8">
-                            {content.stats.last_4_weeks.games.map((game, index) => (
-                                <div key={`game-${index}`}>
-                                    <div className="mb-4">
-                                        <div className="text-brand-blue font-bold">{game.name}</div>
-                                        <div>{game.genres.join(', ')}</div>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="text-2xl font-bold mb-8">Last 4-Week Stats</div>
+                        <div>
+                            <div className="mb-2"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
+                            <div className="mb-2"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
+                            <div className="text-brand-blue mb-2">Peak: </div>
+                            <div className="ml-4">
+                                <div className="mb-2">{content.stats.recent.maxv.val} viewers</div>
+                                <div className="mb-2">{content.stats.recent.maxv.game}</div>
+                                <div>{formatStreamTime(content.stats.recent.maxv.at)}</div>
+                            </div>
                         </div>
-                        <div className="border-t border-t-gray-400 pb-4 pt-8"><span>Total Streams: </span><span>{content.stats.last_4_weeks.total_streams}</span></div>
-                        <div><span>Total Time: </span><span>{content.stats.last_4_weeks.total_time}</span></div>
-                    </div>
-                    <div className="max-w-[1000] mx-auto mb-24">
-                        <div className="text-2xl font-bold mb-4">All Games Played</div>
-                        <div className="mb-8">
-                            {content.stats.all_time.games.map((game, index) => (
-                                <div key={`game-${index}`}>
-                                    <div className="mb-4">
-                                        <div className="text-brand-blue font-bold">{game.name}</div>
-                                        <div>{game.genres.join(', ')}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="border-t border-t-gray-400 pb-4 pt-8"><span>Total Streams: </span><span>{content.stats.all_time.total_streams}</span></div>
-                        <div><span>Total Time: </span><span>{content.stats.all_time.total_time}</span></div>
                     </div>
                 </section>
 
-                <div className="max-w-[1000] mx-auto mb-24">
-                    <div className="text-2xl font-bold mb-4">Streams</div>
-                    <StreamerProfileStreamsList streams={content.streams} />
-                </div>
+                {/* Last 4-Week Games */}
+                <section className="px-6 border-t border-t-gray-400">
+                    <div className="max-w-[1000] mx-auto mb-24 pt-24">
+                        <div className="text-2xl font-bold mb-8">Last 4-Week Games</div>
+                        {content.stats.per_game.length === 0 ? (
+                            <div className="italic">No games in the last 4 weeks.</div>
+                        ) : (content.stats.per_game.map((game, index) => (
+                                <div key={`game-${index}`} className="mb-24">
+                                    <div className="font-bold mb-2">{game.name}</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-4 border-t border-t-gray-400 pt-4 text-sm">
+                                        <div className="mb-1">Peak {game.maxv}</div>
+                                        <div className="mb-1">Avg {game.avgv}</div>
+                                        <div className="mb-1">{game.streams} streams • {game.duration}</div>
+                                    </div>
+                                    <div className="mb-4 flex flex-row items-center text-sm">
+                                        <div className="flex flex-row">
+                                            {game.genres.map((genre, index) => (
+                                                <div key={`genre-${index}`} className="py-1 px-2 bg-gray-200 mr-2 rounded-sm">{genre}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </section>
 
-                <div className="max-w-[1000] mx-auto pb-24 italic">{content.notes.map((one_note, index) => (
-                    <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4"
-                        style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
-                    >{one_note}</div>
-                ))}</div>
+                {/* Streams */}
+                <section className="px-6 border-t border-t-gray-400">
+                    <div className="max-w-[1000] mx-auto mb-24 pt-24">
+                        <div className="text-2xl font-bold mb-8">Streams</div>
+                        <StreamerProfileStreamsList streams={content.streams} />
+                    </div>
+                    <div className="max-w-[1000] mx-auto pb-24 italic">{content.notes.map((one_note, index) => (
+                        <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4"
+                            style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
+                        >{one_note}</div>
+                    ))}</div>
+                </section>
             </main>
 
             <PageFooter content={content.footer_content}></PageFooter>
