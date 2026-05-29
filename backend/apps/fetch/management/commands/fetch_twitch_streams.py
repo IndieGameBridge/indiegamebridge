@@ -221,6 +221,7 @@ class Command(BaseCommand):
 
         For each stale stream, derives:
         - `max_viewers` = max viewer value observed across all snapshots (`max(s["v"] ...)`)
+        - `avg_viewers` = mean viewer value across all snapshots, rounded (`sum / count`)
         - `duration`    = stream length in seconds (`finished_at - started_at`)
         - `host_game_ids`    = sorted distinct game ids observed (`sorted({s["g"] ...})`)
         Then bulk-updates status=OFFLINE plus those summary fields. Streams with
@@ -252,12 +253,14 @@ class Command(BaseCommand):
             if len(snaps) <= 1:
                 insufficient_ids.append(stream.id)
                 continue
-            max_viewers = max(s["v"] for s in snaps)
+            viewer_values = [s["v"] for s in snaps]
+            max_viewers = max(viewer_values)
             if max_viewers < 3:
                 insufficient_ids.append(stream.id)
                 continue
             stream.status = Stream.Status.OFFLINE
             stream.max_viewers = max_viewers
+            stream.avg_viewers = round(sum(viewer_values) / len(viewer_values))
             stream.duration = max(int((stream.finished_at - stream.started_at).total_seconds()), 0)
             stream.host_game_ids = sorted({s["g"] for s in snaps})
             streams_to_update.append(stream)
@@ -269,7 +272,7 @@ class Command(BaseCommand):
             if streams_to_update:
                 Stream.objects.bulk_update(
                     streams_to_update,
-                    ["status", "max_viewers", "duration", "host_game_ids"],
+                    ["status", "max_viewers", "avg_viewers", "duration", "host_game_ids"],
                     batch_size=500,
                 )
 

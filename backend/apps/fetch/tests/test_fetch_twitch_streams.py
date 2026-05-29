@@ -223,6 +223,8 @@ class FinalizeOfflineStreamsTests(TestCase):
         self.assertEqual((finalized, deleted), (1, 0))
         self.assertEqual(stale.status, Stream.Status.OFFLINE)
         self.assertEqual(stale.max_viewers, 120)
+        # mean of 80, 120, 50 = 83.33 -> rounded to 83
+        self.assertEqual(stale.avg_viewers, 83)
         self.assertEqual(stale.host_game_ids, [100, 200])
 
     def test_fresh_live_stream_is_left_alone(self):
@@ -242,6 +244,7 @@ class FinalizeOfflineStreamsTests(TestCase):
         self.assertEqual((finalized, deleted), (0, 0))
         self.assertEqual(fresh.status, Stream.Status.LIVE)
         self.assertEqual(fresh.max_viewers, 0)
+        self.assertEqual(fresh.avg_viewers, 0)
         self.assertEqual(fresh.host_game_ids, [])
 
     def test_already_offline_stream_is_untouched(self):
@@ -326,6 +329,8 @@ class FinalizeOfflineStreamsTests(TestCase):
         self.assertEqual((finalized, deleted), (1, 1))
         self.assertEqual(ok.status, Stream.Status.OFFLINE)
         self.assertEqual(ok.max_viewers, 90)
+        # mean of 80, 90 = 85
+        self.assertEqual(ok.avg_viewers, 85)
         self.assertEqual(ok.host_game_ids, [100])
         self.assertFalse(Stream.objects.filter(pk=single.pk).exists())
 
