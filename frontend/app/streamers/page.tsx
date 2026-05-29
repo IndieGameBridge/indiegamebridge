@@ -97,6 +97,7 @@ export default async function StreamersPage({
                             initial_values={sp}
                         />
                         <SearchStreamerResultsList
+                            key={searchQuery}
                             search_results={search.results}
                             search_results_title={content.search_results_title}
                             total={search.total}

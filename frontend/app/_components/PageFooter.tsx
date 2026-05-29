@@ -20,7 +20,7 @@ export function PageFooter({ content }: { content: PageFooterContent; } ) {
     const link_styles = "hover:underline underline-offset-3 decoration-2";
     const opt_out_link = <Link className={`text-blue-400 hover:text-white ${link_styles}`} href={`/optout`} rel="nofollow">{content.opt_out_text}</Link>;
     return (
-        <footer className="pt-16 pb-12 px-6 bg-brand-blue text-white">
+        <footer className="pt-16 pb-12 px-6 bg-brand-blue text-white shadow-sm shadow-gray-200">
             <section className="max-w-[1000] mx-auto text-white font-thin mb-4">
                 {content.footer_links.map((one_link, index) => (
                     one_link.is_internal
