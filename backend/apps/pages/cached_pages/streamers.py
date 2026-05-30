@@ -22,5 +22,4 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                 "demo_note": "",
                 "cta_link_text": "",
             },
-            "search_results_title": "Search Results",
         }

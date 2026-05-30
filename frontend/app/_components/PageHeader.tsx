@@ -15,11 +15,12 @@ export function NavLink({ href, className, children }: { href: string; className
 }
 
 export function PageHeader(
-    { user, title, description, info }: {
+    { user, title, description, info, link_to_twitch }: {
         user: CurrentUser | null;
         title?: string;
         description?: string;
         info?: string;
+        link_to_twitch?: string;
     }
 ) {
     return (
@@ -37,7 +38,13 @@ export function PageHeader(
             </section>
             <section className="px-6">
                 <div className="max-w-[1000] mx-auto">
-                    {title && <h1 className="text-3xl font-bold">{title}</h1>}
+                    <div className="flex flex-row items-center justify-between flex-wrap gap-y-8">
+                        {title && <h1 className="text-3xl font-bold">{title}</h1>}
+                        {link_to_twitch
+                            && <a className="text-sm align-baseline inline-block py-2 px-4 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark text-center border border-twitch-brand hover:border-twitch-brand-dark"
+                                href={link_to_twitch} target="_blank" rel="nofollow">Visit Twitch Channel</a>
+                        }
+                    </div>
                     {description && <p className="mt-6 text-lg">{description}</p>}
                     {info && <p className="mt-6 opacity-70">{info}</p>}
                 </div>

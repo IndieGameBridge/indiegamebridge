@@ -17,18 +17,17 @@ export type StreamerData = {
 
 type Props = {
     search_results: StreamerData[];
-    search_results_title: string;
     total?: number;
     can_load_more?: boolean;
+    more_href?: string;
 };
 
 export function SearchStreamerResultsList({
     search_results,
-    search_results_title,
     total,
     can_load_more = false,
+    more_href,
 }: Props) {
-    const twitchUrl = "https://www.twitch.tv/";
     const [loadedResults, setLoadedResults] = useState<StreamerData[]>(search_results);
     const [knownTotal, setKnownTotal] = useState<number>(total ?? search_results.length);
     const [loadedPage, setLoadedPage] = useState(1);
@@ -56,8 +55,6 @@ export function SearchStreamerResultsList({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4 gap-6">
                         <div className="font-bold text-lg"><span className="text-gray-500 font-normal">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
-                            <a className="text-sm align-baseline inline-block py-2 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark min-w-36 text-center border border-twitch-brand hover:border-twitch-brand-dark"
-                                href={twitchUrl + one_result.login} target="_blank" rel="nofollow">Visit Channel</a>
                             <Link className="text-sm align-baseline inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
                         </div>
@@ -86,13 +83,23 @@ export function SearchStreamerResultsList({
                         type="button"
                         onClick={handleShowMore}
                         disabled={loading}
-                        className="inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
+                        className="text-sm inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
                     >
                         Show More
                     </button>
                     {loading && (
                         <div className="pt-2 text-sm text-gray-600">Loading...</div>
                     )}
+                </div>
+            )}
+            {more_href && (
+                <div className="text-center">
+                    <Link
+                        href={more_href}
+                        className="text-sm inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
+                    >
+                        Show More
+                    </Link>
                 </div>
             )}
         </div>

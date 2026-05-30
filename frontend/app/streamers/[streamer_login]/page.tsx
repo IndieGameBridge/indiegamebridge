@@ -60,11 +60,14 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
 
     const content: StreamerProfilePageContent = await response.json();
 
+    const twitchUrl = "https://www.twitch.tv/";
+
     return (
         <Fragment>
             <PageHeader
                 user={user}
                 title={content.title}
+                link_to_twitch={twitchUrl + streamer_login}
             />
 
             <main className="flex-1">

@@ -17,7 +17,6 @@ import { serverFetch } from "../_lib/server-fetch";
 type StreamersPageContent = {
     title: string;
     search_form: SearchFormData;
-    search_results_title: string;
     footer_content: PageFooterContent;
 };
 
@@ -99,7 +98,6 @@ export default async function StreamersPage({
                         <SearchStreamerResultsList
                             key={searchQuery}
                             search_results={search.results}
-                            search_results_title={content.search_results_title}
                             total={search.total}
                             can_load_more
                         />

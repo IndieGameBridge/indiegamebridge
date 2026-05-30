@@ -42,8 +42,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" The results below are real, matching the search parameters prefilled in the form and updating hourly.",
                 "cta_link_text": f"Log in to use the search"
             },
-            "search_results": StreamerSearch().results(limit=10),
-            "search_results_title": "Search Results",
+            "search_results": StreamerSearch().results(limit=50),
             "roadmap": {
                 "title": f"What's Coming",
                 "description": f"The project is in active development."

@@ -30,7 +30,6 @@ type HomePageContent = {
     info: string;
     project_goal: Section;
     search_form: SearchFormData;
-    search_results_title: string;
     search_results: StreamerData[];
     methodology: Section;
     roadmap: FeaturedSection;
@@ -87,10 +86,13 @@ export default async function Home() {
 
                 {/* Demo Search */}
                 <section className="border-t border-gray-400 px-6">
-                    <div className="max-w-[1000] mx-auto pt-24">
+                    <div className="max-w-[1000] mx-auto pt-24 pb-24">
                         <h2 className="text-2xl font-bold mb-8">{content.search_form.title}</h2>
                         <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
-                        <SearchStreamerResultsList search_results={content.search_results} search_results_title={content.search_results_title}></SearchStreamerResultsList>
+                        <SearchStreamerResultsList
+                            search_results={content.search_results}
+                            more_href={user ? "/streamers" : `/login?next=${encodeURIComponent("/streamers")}`}
+                        ></SearchStreamerResultsList>
                     </div>
                 </section>
 
