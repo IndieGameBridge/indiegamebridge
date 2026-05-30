@@ -79,7 +79,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
     const paddingBottom = 4;
     const height = paddingTop + barsHeight + timeLabelGap + timeLabelHeight + gameRowGap + gameRowHeight + paddingBottom;
 
-    const colWidth = 40;
+    const colWidth = 60;
     const barGap = 2;
     const chartWidth = colWidth * columns.length + barGap * Math.max(0, columns.length - 1);
     const width = chartWidth + paddingLeft + paddingRight;
@@ -159,7 +159,7 @@ export function StreamSnapshotsChart({ snapshots, started_at, games, host_game_i
                             fontSize="12"
                             className="selection:fill-white"
                         >
-                            no data
+                            * no data
                         </text>
                     );
                 }

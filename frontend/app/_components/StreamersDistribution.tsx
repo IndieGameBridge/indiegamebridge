@@ -61,7 +61,8 @@ function DistributionChart({ title, buckets }: ChartProps) {
     const maxY = Math.max(...buckets.map((b) => b.y), 1);
     const totalStreamers = buckets.reduce((sum, b) => sum + b.y, 0);
 
-    // viewBox-relative units; SVG scales with container width via w-full h-auto.
+    // Fixed pixel dimensions so bars and labels keep a readable size; on narrow
+    // screens the chart keeps its width and scrolls horizontally instead of shrinking.
     const width = 1000;
     const height = 250;
     const paddingLeft = 36;
@@ -80,11 +81,13 @@ function DistributionChart({ title, buckets }: ChartProps) {
             <h3 className="text-lg font-semibold mb-1">{title}</h3>
             <p className="text-xs mb-2">{totalStreamers.toLocaleString()} streamers</p>
 
+            <div className="overflow-x-auto">
             <svg
+                width={width}
+                height={height}
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
                 aria-label={`${title} streamer peak-viewer distribution`}
-                className="w-full h-auto"
             >
                 <title>{`${title} streamer peak-viewer distribution`}</title>
                 <desc>
@@ -153,6 +156,7 @@ function DistributionChart({ title, buckets }: ChartProps) {
                     );
                 })}
             </svg>
+            </div>
 
             {/* Screen-reader + SEO-friendly data table mirroring the chart. */}
             <table className="sr-only">
