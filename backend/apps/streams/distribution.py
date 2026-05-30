@@ -14,8 +14,10 @@ DISTRIBUTION_CACHE_TTL = timedelta(hours=24)
 DISTRIBUTION_WINDOW_DAYS = 28
 
 # Mirrors StreamerSearch._get_viewers_filter_values() so each bar maps 1:1 to a
-# selectable "max viewers" value in the search form. Last bucket catches everything
-# at or above the final threshold.
+# selectable "max viewers" value in the search form. Each threshold is an inclusive
+# upper bound (matching the search filter's max_viewers__lte), so a streamer whose
+# peak equals a threshold falls in that threshold's bucket. The last bucket catches
+# everything strictly above the final threshold.
 PEAK_BUCKET_THRESHOLDS = [5, 10, 15, 20, 30, 40, 50, 75, 100, 200]
 
 # Mirrors the language filter in StreamerSearch. Hardcoded in both places for now;
@@ -81,7 +83,7 @@ class StreamersDistribution:
         for language, peak in peaks_per_language:
             bucket_counts = counts_by_language[language]
             for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS):
-                if peak < threshold:
+                if peak <= threshold:
                     bucket_counts[index] += 1
                     break
             else:
@@ -102,7 +104,7 @@ class StreamersDistribution:
     def _build_buckets(bucket_counts: list[int]) -> list[dict]:
         buckets = []
         for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS):
-            lower = MIN_PEAK if index == 0 else PEAK_BUCKET_THRESHOLDS[index - 1]
+            lower = MIN_PEAK if index == 0 else PEAK_BUCKET_THRESHOLDS[index - 1] + 1
             buckets.append({"x": f"{lower}-{threshold}", "y": bucket_counts[index]})
-        buckets.append({"x": f"{PEAK_BUCKET_THRESHOLDS[-1]}+", "y": bucket_counts[-1]})
+        buckets.append({"x": f"{PEAK_BUCKET_THRESHOLDS[-1] + 1}+", "y": bucket_counts[-1]})
         return buckets
