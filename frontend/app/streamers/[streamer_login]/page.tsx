@@ -83,7 +83,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                             <div className="ml-4">
                                 <div className="mb-2">{content.stats.recent.maxv.val} viewers</div>
                                 <div className="mb-2">{content.stats.recent.maxv.game}</div>
-                                <div>{formatStreamTime(content.stats.recent.maxv.at)}</div>
+                                <div>{formatStreamTime(content.stats.recent.maxv.at)} UTC</div>
                             </div>
                         </div>
                     </div>
@@ -98,15 +98,17 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                         ) : (content.stats.per_game.map((game, index) => (
                                 <div key={`game-${index}`} className="mb-24">
                                     <div className="font-bold mb-2">{game.name}</div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-4 border-t border-t-gray-400 pt-4 text-sm">
-                                        <div className="mb-1">Peak {game.maxv}</div>
-                                        <div className="mb-1">Avg {game.avgv}</div>
-                                        <div className="mb-1">{game.streams} streams • {game.duration}</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-4 border-t border-t-gray-400 pt-4 text-sm gap-4">
+                                        <div className="col-span-1 md:col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-4">
+                                            <div className="text-nowrap">Peak {game.maxv}</div>
+                                            <div className="text-nowrap">Avg {game.avgv}</div>
+                                        </div>
+                                        <div className="text-nowrap">{game.streams} streams • {game.duration}</div>
                                     </div>
                                     <div className="mb-4 flex flex-row items-center text-sm">
-                                        <div className="flex flex-row">
+                                        <div className="flex flex-row flex-wrap gap-2">
                                             {game.genres.map((genre, index) => (
-                                                <div key={`genre-${index}`} className="py-1 px-2 bg-gray-200 mr-2 rounded-sm">{genre}</div>
+                                                <div key={`genre-${index}`} className="py-1 px-2 bg-gray-200 rounded-sm">{genre}</div>
                                             ))}
                                         </div>
                                     </div>
