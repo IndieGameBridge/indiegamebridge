@@ -10,5 +10,6 @@ class LoginPageBuilder(BaseCachedPageBuilder):
             "title": f"Log in",
             "prompt": f"IndieGameBridge uses your Twitch account to verify you. We never see your password.",
             "twitch_login_btn": f"Log in with Twitch",
+            "signing_in": f"Redirecting you to Twitch to sign in…",
             "more_options_note": f"More login options coming later.",
         }

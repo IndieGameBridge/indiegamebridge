@@ -38,32 +38,34 @@ export default async function AccountPage() {
         <Fragment>
             <PageHeader user={user} title={content.title} />
 
-            <main className="flex-1 px-6">
-                <div className="max-w-2xl mx-auto py-24">
-                    <div className="mb-8 flex items-center justify-between gap-4 border-t border-t-gray-400 pt-8">
-                        <span className="text-gray-800">Allow feature-usage tracking for service improvement</span>
-                        <TrackingToggle initialValue={user.allow_tracking} />
-                    </div>
+            <main className="flex-1">
+                <section className="px-6">
+                    <div className="max-w-[1000] mx-auto py-24">
+                        <div className="mb-8 flex items-center justify-between gap-4 border-t border-t-gray-400 pt-8">
+                            <span className="text-gray-800">Allow feature-usage tracking for service improvement</span>
+                            <TrackingToggle initialValue={user.allow_tracking} />
+                        </div>
 
-                    <div className="mb-2 flex items-center justify-between gap-4 border-t border-t-gray-400 pt-8">
-                        <span className="text-gray-800">Allow streams tracking for my Twitch ID</span>
-                        <ExclusionToggle initialExcluded={user.is_twitch_excluded} />
-                    </div>
-                    <p className="text-sm text-red-600">
-                        Turning this off removes all data tied to your Twitch ID and excludes it from future collection.
-                        The removed data cannot be restored, though you can turn tracking back on anytime to re-enable future collection.
-                        The public page and search results may still show your data for up to an hour while caches refresh.
-                    </p>
-
-                    <div className="mt-12 border-t border-t-red-300 pt-8">
-                        <h2 className="text-lg font-semibold text-red-700 mb-2">Danger zone</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Permanently delete your account and account settings. This cannot be undone.
-                            Your Twitch streams data is only removed if you tick the option below.
+                        <div className="mb-4 flex items-center justify-between gap-4 border-t border-t-gray-400 pt-8">
+                            <span className="text-gray-800">Allow streams tracking for my Twitch ID</span>
+                            <ExclusionToggle initialExcluded={user.is_twitch_excluded} />
+                        </div>
+                        <p className="text-sm text-red-600">
+                            Turning this off removes all data tied to your Twitch ID and excludes it from future collection.
+                            The removed data cannot be restored, though you can turn tracking back on anytime to re-enable future collection.
+                            The public page and search results may still show your data for up to an hour while caches refresh.
                         </p>
-                        <DeleteAccountButton />
+
+                        <div className="mt-24 border-t border-t-red-300 pt-8">
+                            <h2 className="text-lg font-semibold text-red-700 mb-4">Danger zone</h2>
+                            <p className="text-sm text-gray-600 mb-8">
+                                Permanently delete your account and account settings. This cannot be undone.
+                                Your Twitch streams data is only removed if you tick the option below.
+                            </p>
+                            <DeleteAccountButton />
+                        </div>
                     </div>
-                </div>
+                </section>
             </main>
 
             <PageFooter content={content.footer_content} />

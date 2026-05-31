@@ -38,6 +38,10 @@ TWITCH_OAUTH_CLIENT_SECRET = env("TWITCH_OAUTH_CLIENT_SECRET", default="")
 # Frontend origin (post-login redirect target, CSRF/CORS trusted origin)
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 
+# Cloudflare Turnstile secret for verifying contact-form submissions. When
+# unset (local dev), the backend skips verification so the form still works.
+TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
+
 # Next.js sits in front of Django and forwards X-Forwarded-Host with the
 # browser's original host (localhost:3000). Trust it so allauth's redirect_uri
 # is built against the frontend origin - otherwise Twitch sends the user back
@@ -68,6 +72,7 @@ INSTALLED_APPS = [
     "apps.api",
     "apps.fetch",
     "apps.pages",
+    "apps.contact",
 ]
 
 SITE_ID = 1
@@ -175,6 +180,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.AllowAny",
     ),
+    # Only the contact endpoint opts into throttling (via ScopedRateThrottle);
+    # this just supplies the rate for that scope. Backed by the default
+    # (local-memory) cache - per-process, which is fine for a contact form.
+    "DEFAULT_THROTTLE_RATES": {
+        "contact": "5/hour",
+    },
 }
 
 # JWT lifetimes intentionally short for access, long for refresh, with rotation

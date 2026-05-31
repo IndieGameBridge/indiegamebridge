@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { Fragment } from "react/jsx-runtime";
 
 type OptOutSuccessContent = {
-    title: string;
-    return_home: string;
     already_optout: string;
     success_optout: string;
 };
@@ -20,14 +16,6 @@ export function OptOutSuccess({ content, isNewOptOut }: { content: OptOutSuccess
     }, []);
 
     return (
-        <main className="flex-1 px-6">
-            <div className="max-w-md mx-auto py-24">
-                <h1 className="text-2xl font-bold mb-6 text-center">{content.title}</h1>
-                <p className="text-gray-600 mb-8 text-center">{isNewOptOut === 'yes' ? content.success_optout : content.already_optout}</p>
-                <Link href="/"className="block text-center text-blue-700 hover:text-blue-500 underline">
-                    {content.return_home}
-                </Link>
-            </div>
-        </main>
+        <p className="text-gray-600 mb-8">{isNewOptOut === 'yes' ? content.success_optout : content.already_optout}</p>
     );
 }

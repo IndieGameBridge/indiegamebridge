@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Fragment } from "react/jsx-runtime";
 import { useRouter } from "next/navigation";
 
 function readCookie(name: string): string {
@@ -8,7 +9,7 @@ function readCookie(name: string): string {
     return match ? decodeURIComponent(match[1]) : "";
 }
 
-export function OptOutButton({ label }: { label: string }) {
+export function OptOutButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
     const router = useRouter();
     const [pending, setPending] = useState(false);
 
@@ -23,13 +24,20 @@ export function OptOutButton({ label }: { label: string }) {
     }
 
     return (
-        <button
-            type="button"
-            onClick={handleOptOut}
-            disabled={pending}
-            className="flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white font-medium rounded hover:bg-red-700 border border-red-600 hover:border-red-700 w-full disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-        >
-            {label}
-        </button>
+        <Fragment>
+            <button
+                type="button"
+                onClick={handleOptOut}
+                disabled={pending}
+                className="text-sm items-center justify-center gap-3 px-8 py-2 bg-red-600 text-white font-medium rounded hover:bg-red-700 border border-red-600 hover:border-red-700 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            >
+                {label}
+            </button>
+            {pending && (
+                <p role="status" aria-live="polite" className="text-sm text-gray-600 mt-4">
+                    {pendingLabel}
+                </p>
+            )}
+        </Fragment>
     );
 }

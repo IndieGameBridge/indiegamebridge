@@ -43,37 +43,4 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "cta_link_text": f"Log in to use the search"
             },
             "search_results": StreamerSearch().results(limit=50),
-            "roadmap": {
-                "title": f"What's Coming",
-                "description": f"The project is in active development."
-                    f" Planned features include:",
-                "features": [
-                    f"Developer profile with extra features.",
-                    f"Streamer profile with extra features.",
-                    # Possible next features:
-                    #   'Developer profile' with extra features:
-                    #       - Create a favorites list of streamers - pick selected streamers from the search results and save them to a stored list
-                    #           (useful for narrowing a larger result set down to the ones worth following up on).
-                    #       - Add notes to streamers in the favorites list - e.g. whether and when the developer contacted the streamer, and what the streamer
-                    #           replied or whether they ignored the message. Communication itself is assumed to happen outside the platform for now, but these notes
-                    #           help organize the search results.
-                    #       - Mark streamers in the favorites list with different colors to visually distinguish them - helps with organization.
-                    #       - Sort streamers in the favorites list - reorder entries manually.
-                    #       - Per-list notes and custom names for each favorites list - makes it easier to navigate between multiple lists.
-                    #       - Store up to N past search results - lets the user revisit previous searches and compare them with newer ones
-                    #           (maybe also a 'compare tool' to find streamers appearing in two or more search results).
-                    # MAYBE LATER:
-                    #   'Streamer profile' - lets streamers be discovered by developers interested in collaboration; streamers can voluntarily
-                    #       leave a message and contact info. Likely needs manual moderation, AI moderation, or both.
-                    #   'Public developer profile' - for developers who want to use the platform as an additional promotion channel
-                    #       for their game(s). Likely needs manual moderation, AI moderation, or both.
-                    #   Features to make communication easier on both sides (the idea is to offer a dedicated place for communication without forcing anyone
-                    #   to use the platform if they prefer other channels):
-                    #       - direct messages
-                    #       - built-in Zoom-style calls and meetings
-                    #       - ratings and statistics
-                    #       - integrated promo codes (to make collaboration more automated and reduce overhead for both sides)
-                    #       - AI best-match search (a quick-start option for users who don't want to spend time on a thorough search or want to reduce overhead)
-                ]
-            },
         }

@@ -38,7 +38,7 @@ export function TrackingToggle({ initialValue }: { initialValue: boolean }) {
             aria-checked={allowed}
             onClick={() => setValue(!allowed)}
             disabled={pending}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${allowed ? "bg-green-600" : "bg-gray-300"}`}
+            className={`relative inline-flex h-6 w-11 min-w-11 items-center rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${allowed ? "bg-green-600" : "bg-gray-300"}`}
         >
             <span className="sr-only">Allow feature-usage tracking</span>
             <span

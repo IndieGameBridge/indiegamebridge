@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Fragment } from "react/jsx-runtime";
 import { NavLink } from "./PageHeader";
 
@@ -21,6 +20,7 @@ function readCookie(name: string): string {
 
 export function AuthStatus({ user }: AuthStatusProps) {
     const router = useRouter();
+    const pathname = usePathname();
 
     async function handleLogout() {
         await fetch("/auth/logout/", {
@@ -34,7 +34,9 @@ export function AuthStatus({ user }: AuthStatusProps) {
     return (
         <div className="flex gap-x-8 gap-y-4 flex-col justify-center items-center md:flex-row md:items-end lg:flex-row lg:items-end">
             {!user
-                ? <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3 text-nowrap">Log in</a>
+                ? (pathname === "/login"
+                    ? <span className="text-white underline underline-offset-3 text-nowrap">Log in</span>
+                    : <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3 text-nowrap">Log in</a>)
                 : <Fragment>
                         <NavLink href="/account">Settings</NavLink>
                         <button type="button" onClick={handleLogout} className="text-white cursor-pointer hover:underline underline-offset-3 text-nowrap">Log out</button>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { Fragment } from "react/jsx-runtime";
+
 import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
+import { PageHeader, PageFooter, PageFooterContent, TwitchLoginButton } from "../_components";
 import { OptOutButton } from "./_components/OptOutButton";
 import { OptOutSuccess } from "./_components/OptOutSuccess";
-import { Fragment } from "react/jsx-runtime";
-import Link from "next/link";
 
 export const metadata: Metadata = {
     title: "Opt out — IndieGameBridge",
@@ -13,11 +14,12 @@ export const metadata: Metadata = {
 
 export type OptOutPageContent = {
     title: string;
-    return_home: string;
-    not_logged_in: { prompt: string; login_btn: string };
-    logged_in: { prompt: string; optout_btn: string };
+    prompt_title: string;
+    not_logged_in: { prompt_content: string; login_btn: string; verifying: string };
+    logged_in: { prompt_content: string; optout_btn: string; optout_btn_pending: string };
     already_optout: string;
     success_optout: string;
+    footer_content: PageFooterContent;
 };
 
 function buildTwitchOptOutUrl(): string {
@@ -41,43 +43,47 @@ export default async function OptOutPage({ searchParams }: { searchParams: Promi
     }
 
     const content: OptOutPageContent = await response.json();
-
-    if (status === "done") {
-        return isNewOptOut ? <OptOutSuccess content={content} isNewOptOut={isNewOptOut} /> : <OptOutSuccess content={content} />;
-    }
-
     const twitchLoginUrl = buildTwitchOptOutUrl();
 
     return (
-        <main className="flex-1 px-6">
-            <div className="max-w-md mx-auto py-24">
-                <h1 className="text-2xl font-bold mb-6 text-center">{content.title}</h1>
-                {user
-                    ? (user.is_twitch_excluded
-                        ? (
-                            <Fragment>
-                                <p className="text-gray-600 mb-8 text-center">{content.already_optout}</p>
-                                <Link href="/" className="block text-center text-blue-700 hover:text-blue-500 underline">{content.return_home}</Link>
-                            </Fragment>
-                        ) : (
-                            <Fragment>
-                                <p className="text-gray-600 mb-8 text-center">{content.logged_in.prompt}</p>
-                                <OptOutButton label={content.logged_in.optout_btn} />
-                            </Fragment>
-                        )
-                    ) : (
-                        <Fragment>
-                            <p className="text-gray-600 mb-8 text-center">{content.not_logged_in.prompt}</p>
-                            <a href={twitchLoginUrl} className="flex items-center justify-center gap-3 px-6 py-3 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark border border-twitch-brand hover:border-twitch-brand-dark w-full">
-                                <svg aria-hidden="true" viewBox="0 0 24 24" className="w-5 h-5 fill-current">
-                                    <path d="M4.265 0L1 3.265v17.47h5.47V24h3.265l3.265-3.265h5.47L24 14.47V0H4.265zm17.47 13.265L18.47 16.53h-5.47l-3.265 3.265V16.53H5.47V2.265h16.265v11zm-5.47-6.53h-2.265v6.53h2.265v-6.53zm-5.47 0H8.53v6.53h2.265v-6.53z" />
-                                </svg>
-                                <span>{content.not_logged_in.login_btn}</span>
-                            </a>
-                        </Fragment>
-                    )
-                }
-            </div>
-        </main>
+        <Fragment>
+            <PageHeader user={user} title={content.title} />
+
+            <main className="flex-1">
+                <section className="px-6">
+                    <div className="max-w-[1000] mx-auto py-24">
+                        {status === "done"
+                            ? <OptOutSuccess content={content} isNewOptOut={isNewOptOut} />
+                            : user
+                                ? (user.is_twitch_excluded
+                                    ? <p className="text-gray-600 mb-16">{content.already_optout}</p>
+                                    : (
+                                        <Fragment>
+                                            <h2 className="text-2xl font-bold mb-8">{content.prompt_title}</h2>
+                                            <p className="text-gray-600 mb-16">{content.logged_in.prompt_content}</p>
+                                            <OptOutButton label={content.logged_in.optout_btn} pendingLabel={content.logged_in.optout_btn_pending} />
+                                        </Fragment>
+                                    )
+                                )
+                                : (
+                                    <Fragment>
+                                        <h2 className="text-2xl font-bold mb-8">{content.prompt_title}</h2>
+                                        <p className="text-gray-600 mb-16">{content.not_logged_in.prompt_content}</p>
+                                        <TwitchLoginButton
+                                            href={twitchLoginUrl}
+                                            label={content.not_logged_in.login_btn}
+                                            pendingLabel={content.not_logged_in.verifying}
+                                            variant="danger"
+                                        />
+                                    </Fragment>
+                                )
+                        }
+                    </div>
+                </section>
+                
+            </main>
+
+            <PageFooter content={content.footer_content} />
+        </Fragment>
     );
 }

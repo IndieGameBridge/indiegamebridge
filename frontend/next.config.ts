@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
       // prefix Django mounts.
       { source: "/accounts/:path*", destination: `${apiBase}/accounts/:path*/` },
       { source: "/auth/:path*", destination: `${apiBase}/auth/:path*/` },
+      { source: "/api/:path*", destination: `${apiBase}/api/:path*/` },
     ];
   },
 };

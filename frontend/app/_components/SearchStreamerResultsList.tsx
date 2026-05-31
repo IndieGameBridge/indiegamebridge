@@ -55,7 +55,7 @@ export function SearchStreamerResultsList({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4 gap-6">
                         <div className="font-bold text-lg"><span className="text-gray-500 font-normal">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
-                            <Link className="text-sm align-baseline inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
+                            <Link className="text-sm align-baseline inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
                         </div>
                     </div>
@@ -83,7 +83,7 @@ export function SearchStreamerResultsList({
                         type="button"
                         onClick={handleShowMore}
                         disabled={loading}
-                        className="text-sm inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
+                        className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
                     >
                         Show More
                     </button>
@@ -96,7 +96,7 @@ export function SearchStreamerResultsList({
                 <div className="text-center">
                     <Link
                         href={more_href}
-                        className="text-sm inline-block py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
+                        className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
                     >
                         Show More
                     </Link>

@@ -32,7 +32,6 @@ type HomePageContent = {
     search_form: SearchFormData;
     search_results: StreamerData[];
     methodology: Section;
-    roadmap: FeaturedSection;
     footer_content: PageFooterContent;
 };
 
@@ -98,22 +97,9 @@ export default async function Home() {
 
                 {/* Methodology */}
                 <section className="border-t border-gray-400 px-6">
-                    <div className="max-w-[1000] mx-auto pt-24 pb-12">
+                    <div className="max-w-[1000] mx-auto pt-24 pb-24">
                         <h2 className="text-2xl font-bold mb-8">{content.methodology.title}</h2>
                         <p>{content.methodology.description}</p>
-                    </div>
-                </section>
-
-                {/* Roadmap */}
-                <section className="px-6">
-                    <div className="max-w-[1000] mx-auto pt-12 pb-24">
-                        <h2 className="text-2xl font-bold mb-8">{content.roadmap.title}</h2>
-                        <p className="pb-2">{content.roadmap.description}</p>
-                        <ul className="list-disc pl-5 ml-4">
-                            {content.roadmap.features.map((feature, index) => (
-                                <li key={"coming-feature-" + index} className="py-2">{feature}</li>
-                            ))}
-                        </ul>
                     </div>
                 </section>
             </main>

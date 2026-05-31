@@ -6,3 +6,4 @@ export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";
 export * from "./PageHeader";
 export * from "./PageFooter";
+export * from "./TwitchLoginButton";
