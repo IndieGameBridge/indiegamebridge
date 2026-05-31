@@ -56,7 +56,7 @@ export default async function OptOutPage({ searchParams }: { searchParams: Promi
                     ? (user.is_twitch_excluded
                         ? (
                             <Fragment>
-                                <div>{content.already_optout}</div>
+                                <p className="text-gray-600 mb-8 text-center">{content.already_optout}</p>
                                 <Link href="/" className="block text-center text-blue-700 hover:text-blue-500 underline">{content.return_home}</Link>
                             </Fragment>
                         ) : (

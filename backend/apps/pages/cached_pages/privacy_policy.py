@@ -9,6 +9,7 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
         return {
             "title": f"Privacy Policy",
             "return_home": f"Return to Home Page",
+            "contact_link_text": f"Contact page",
             "last_updated": f"Last updated: May 31, 2026",
             "intro": f"This Privacy Policy explains what data IndieGameBridge collects, why we"
                 f" collect it, and the choices you have. IndieGameBridge helps indie game"
@@ -21,8 +22,9 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" on Twitch, we collect stream information exposed by the Twitch API,"
                         f" including the Twitch user ID, login and display name, game categories,"
                         f" viewer counts, language, and timestamps. Account data: when you sign in"
-                        f" with Twitch, we receive your Twitch user ID, username, display name, and"
-                        f" email address from Twitch. Usage data: unless you disable it in your"
+                        f" with Twitch, we receive your Twitch user ID, username, and display name"
+                        f" from Twitch. We do not request or store your email address. Usage data:"
+                        f" unless you disable it in your"
                         f" account settings, we may collect anonymous information about which"
                         f" features you use, to help us improve the service.",
                 },
@@ -59,10 +61,13 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                     "body": f"Streamers can opt out at any time. Removing your Twitch ID from data"
                         f" collection — via the opt-out page or your account settings — deletes the"
                         f" data we have collected about your streams and excludes your Twitch ID"
-                        f" from future collection. You can disable feature-usage analytics in your"
-                        f" account settings. Depending on your location, you may have rights to"
-                        f" access, correct, or delete your personal data; contact us to exercise"
-                        f" them.",
+                        f" from future collection. You do not need an account to opt out, and"
+                        f" opting out from the opt-out page does not create one. To re-enable"
+                        f" collection later, log in with Twitch (which creates an account) and turn"
+                        f" tracking back on in your account settings. You can disable feature-usage"
+                        f" analytics in your account settings. Depending on your location, you may"
+                        f" have rights to access, correct, or delete your personal data; contact us"
+                        f" to exercise them.",
                 },
                 {
                     "heading": f"Data Retention",
@@ -77,8 +82,9 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                 },
                 {
                     "heading": f"Contact",
-                    "body": f"Questions about this policy or your data can be raised via our"
-                        f" GitHub repository.",
+                    "body": f"For questions about this policy or your data, please reach out"
+                        f" through our %contact_link%. Our GitHub repository remains available as a"
+                        f" secondary channel.",
                 },
             ],
         }

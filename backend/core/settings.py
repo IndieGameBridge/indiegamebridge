@@ -206,6 +206,9 @@ ACCOUNT_LOGIN_METHODS = {"username"}
 ACCOUNT_SIGNUP_FIELDS = ["username*"]
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
+# Custom adapter: the opt-out OAuth flow is short-circuited before any account
+# is created (see apps.users.adapters.OptOutSocialAccountAdapter).
+SOCIALACCOUNT_ADAPTER = "apps.users.adapters.OptOutSocialAccountAdapter"
 SOCIALACCOUNT_PROVIDERS = {
     "twitch": {
         # Configure via Django settings instead of admin SocialApp record.

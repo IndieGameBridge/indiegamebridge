@@ -1,3 +1,4 @@
+import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
 export type PrivacyPolicyPageContent = {
     title: string;
     return_home: string;
+    contact_link_text: string;
     last_updated: string;
     intro: string;
     sections: { heading: string; body: string }[];
@@ -38,7 +40,16 @@ export default async function PrivacyPolicyPage() {
                 {content.sections.map((section) => (
                     <section key={section.heading} className="mb-6">
                         <h2 className="text-lg font-semibold mb-2">{section.heading}</h2>
-                        <p className="text-gray-600">{section.body}</p>
+                        <p className="text-gray-600">
+                            {section.body.split("%contact_link%").map((part, i, arr) => (
+                                <Fragment key={i}>
+                                    {part}
+                                    {i < arr.length - 1 && (
+                                        <Link href="/contact" className="text-blue-700 hover:text-blue-500 underline">{content.contact_link_text}</Link>
+                                    )}
+                                </Fragment>
+                            ))}
+                        </p>
                     </section>
                 ))}
 

@@ -23,12 +23,7 @@ export function OptOutSuccess({ content, isNewOptOut }: { content: OptOutSuccess
         <main className="flex-1 px-6">
             <div className="max-w-md mx-auto py-24">
                 <h1 className="text-2xl font-bold mb-6 text-center">{content.title}</h1>
-                {isNewOptOut === 'yes'
-                    ? <p className="text-gray-600 mb-8 text-center">{content.success_optout}</p>
-                    : <Fragment>
-                            <div>{content.already_optout}</div>
-                        </Fragment>
-                }
+                <p className="text-gray-600 mb-8 text-center">{isNewOptOut === 'yes' ? content.success_optout : content.already_optout}</p>
                 <Link href="/"className="block text-center text-blue-700 hover:text-blue-500 underline">
                     {content.return_home}
                 </Link>
