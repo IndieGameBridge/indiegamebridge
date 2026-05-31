@@ -7,6 +7,7 @@ import { serverFetch } from "../_lib/server-fetch";
 import { PageHeader, PageFooter, PageFooterContent } from "../_components";
 import { TrackingToggle } from "./_components/TrackingToggle";
 import { ExclusionToggle } from "./_components/ExclusionToggle";
+import { DeleteAccountButton } from "./_components/DeleteAccountButton";
 
 type AccountPageContent = {
     title: string;
@@ -53,6 +54,15 @@ export default async function AccountPage() {
                         The removed data cannot be restored, though you can turn tracking back on anytime to re-enable future collection.
                         The public page and search results may still show your data for up to an hour while caches refresh.
                     </p>
+
+                    <div className="mt-12 border-t border-t-red-300 pt-8">
+                        <h2 className="text-lg font-semibold text-red-700 mb-2">Danger zone</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Permanently delete your account and account settings. This cannot be undone.
+                            Your Twitch streams data is only removed if you tick the option below.
+                        </p>
+                        <DeleteAccountButton />
+                    </div>
                 </div>
             </main>
 

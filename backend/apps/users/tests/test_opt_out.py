@@ -14,10 +14,12 @@ from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.streams.models import Stream, StreamerProfile, StreamerProfileCache
 from apps.users.adapters import OptOutSocialAccountAdapter
-from apps.users.models import TwitchExclusion
+from apps.users.models import AccountSettings, TwitchExclusion
+from apps.users.views.delete_account import DeleteAccountView
 from apps.users.views.opt_out import perform_opt_out
 
 User = get_user_model()
@@ -151,3 +153,58 @@ class OptOutSocialAdapterTests(TestCase):
 
         self.assertIsNone(result)
         self.assertEqual(TwitchExclusion.objects.count(), 0)
+
+
+class DeleteAccountTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="streamer")
+        SocialAccount.objects.create(user=self.user, provider="twitch", uid=str(TWITCH_ID))
+        AccountSettings.objects.create(user=self.user)
+
+    def _make_streamer_with_data(self):
+        profile = StreamerProfile.objects.create(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=TWITCH_ID,
+            host_login="streamer",
+            host_display_name="Streamer",
+        )
+        Stream.objects.create(
+            streamer_profile=profile,
+            host_stream_id=1,
+            status=Stream.Status.APPROVED,
+            language="en",
+            started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
+            finished_at=timezone.now() - timedelta(days=1),
+            snapshots=[],
+        )
+
+    def _delete(self, opt_out):
+        request = APIRequestFactory().delete("/auth/account/", {"opt_out": opt_out}, format="json")
+        force_authenticate(request, user=self.user)
+        request._dont_enforce_csrf_checks = True
+        return DeleteAccountView.as_view()(request)
+
+    def test_delete_account_without_opt_out_leaves_streams(self):
+        self._make_streamer_with_data()
+
+        response = self._delete(opt_out=False)
+
+        self.assertEqual(response.status_code, 204)
+        # Account data is gone (settings + social account cascade with the user).
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+        self.assertEqual(SocialAccount.objects.count(), 0)
+        self.assertEqual(AccountSettings.objects.count(), 0)
+        # Streams data is untouched and no exclusion was recorded.
+        self.assertTrue(StreamerProfile.objects.filter(host_user_id=TWITCH_ID).exists())
+        self.assertEqual(TwitchExclusion.objects.count(), 0)
+
+    def test_delete_account_with_opt_out_removes_streams(self):
+        self._make_streamer_with_data()
+
+        response = self._delete(opt_out=True)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+        # Opt-out ran before deletion: exclusion recorded, streamer data erased.
+        self.assertTrue(TwitchExclusion.objects.filter(twitch_id=TWITCH_ID).exists())
+        self.assertFalse(StreamerProfile.objects.filter(host_user_id=TWITCH_ID).exists())

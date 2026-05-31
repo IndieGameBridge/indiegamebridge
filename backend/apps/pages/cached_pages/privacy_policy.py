@@ -65,7 +65,11 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" opting out from the opt-out page does not create one. To re-enable"
                         f" collection later, log in with Twitch (which creates an account) and turn"
                         f" tracking back on in your account settings. You can disable feature-usage"
-                        f" analytics in your account settings. Depending on your location, you may"
+                        f" analytics in your account settings. You can also permanently delete your"
+                        f" account at any time from your account settings; this removes your account,"
+                        f" settings, and Twitch login link, and you can optionally choose to also"
+                        f" delete the streams data tied to your Twitch ID at the same time."
+                        f" Depending on your location, you may"
                         f" have rights to access, correct, or delete your personal data; contact us"
                         f" to exercise them.",
                 },
@@ -73,7 +77,9 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                     "heading": f"Data Retention",
                     "body": f"We retain collected stream data while it remains useful for the"
                         f" service. When you opt out, data tied to your Twitch ID is removed, though"
-                        f" copies may persist in caches for up to an hour while they refresh.",
+                        f" copies may persist in caches for up to an hour while they refresh. Account"
+                        f" data is kept until you delete your account, after which your account,"
+                        f" settings, and Twitch login link are removed.",
                 },
                 {
                     "heading": f"Changes to This Policy",

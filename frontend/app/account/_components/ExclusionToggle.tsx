@@ -15,6 +15,13 @@ export function ExclusionToggle({ initialExcluded }: { initialExcluded: boolean 
 
     async function setAllow(next: boolean) {
         if (pending || next === allowed) return;
+        // Confirm only when opting out (turning tracking off); opting back in needs no warning.
+        if (!next && !window.confirm(
+            "This removes all data tied to your Twitch ID and excludes it from future collection. "
+            + "The removed data cannot be restored. Continue?"
+        )) {
+            return;
+        }
         setPending(true);
         // Optimistic: flip immediately, roll back if the request fails.
         setAllowed(next);
