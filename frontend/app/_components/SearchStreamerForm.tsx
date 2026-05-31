@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { CurrentUser } from "../_lib/auth";
 
 export type FieldData = {
@@ -67,6 +67,7 @@ export function SearchStreamerForm({
     initial_values?: SearchFormInitialValues;
 }) {
     const router = useRouter();
+    const [isPending, startTransition] = useTransition();
 
     const [formData, setFormData] = useState<Record<string, any>>(() => {
         const initial: Record<string, any> = {};
@@ -141,7 +142,9 @@ export function SearchStreamerForm({
             }
         }
 
-        router.push(`/streamers?${params.toString()}`);
+        startTransition(() => {
+            router.push(`/streamers?${params.toString()}`);
+        });
     };
 
     return (
@@ -251,8 +254,8 @@ export function SearchStreamerForm({
                         ))}
                     </div>
                     <fieldset className="flex justify-center col-span-1 items-start">
-                        <button type="submit" disabled={!user}
-                            className={!user
+                        <button type="submit" disabled={!user || isPending}
+                            className={!user || isPending
                                 ? "text-sm align-baseline bg-gray-300 py-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed min-w-36"
                                 : "text-sm align-baseline bg-blue-600 py-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer min-w-36"
                             }

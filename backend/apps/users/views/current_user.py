@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from allauth.socialaccount.models import SocialAccount
 
-from apps.users.models import TwitchExclusion
+from apps.users.models import AccountSettings, TwitchExclusion
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -26,12 +26,15 @@ class CurrentUserView(APIView):
         if twitch_id:
             is_twitch_excluded = TwitchExclusion.objects.filter(twitch_id=twitch_id).exists()
 
+        account_settings, _ = AccountSettings.objects.get_or_create(user=user)
+
         return Response(
             {
                 "twitch_id": twitch_id,
                 "username": user.username,
                 "display_name": user.get_full_name() or user.username,
                 "email": user.email or "",
-                "is_twitch_excluded": is_twitch_excluded
+                "is_twitch_excluded": is_twitch_excluded,
+                "allow_tracking": account_settings.allow_tracking,
             }
         )

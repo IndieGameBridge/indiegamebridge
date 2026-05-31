@@ -39,7 +39,7 @@ export function PageHeader(
             <section className="px-6">
                 <div className="max-w-[1000] mx-auto">
                     <div className="flex flex-row items-center justify-between flex-wrap gap-y-8">
-                        {title && <h1 className="text-3xl font-bold">{title}</h1>}
+                        {title && <h1 className="text-3xl">{title}</h1>}
                         {link_to_twitch
                             && <a className="text-sm align-baseline inline-block py-2 px-4 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark text-center border border-twitch-brand hover:border-twitch-brand-dark"
                                 href={link_to_twitch} target="_blank" rel="nofollow">Visit Twitch Channel</a>

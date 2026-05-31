@@ -28,5 +28,11 @@ class PageFooterBuilder(BaseCachedPageBuilder):
                     "nofollow": 1,
                     "is_internal": 1,
                 },
+                {
+                    "text": "Privacy Policy",
+                    "url": "/privacy",
+                    "nofollow": 1,
+                    "is_internal": 1,
+                },
             ],
         }

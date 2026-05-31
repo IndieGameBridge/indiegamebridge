@@ -9,6 +9,7 @@ from apps.pages.cached_pages import (
     LoginPageBuilder,
     OptOutPageBuilder,
     PageFooterBuilder,
+    PrivacyPolicyPageBuilder,
     StreamerProfilePageBuilder,
     StreamersPageBuilder,
 )
@@ -28,6 +29,7 @@ class Command(BaseCommand):
         OptOutPageBuilder,
         ContactPageBuilder,
         LoginPageBuilder,
+        PrivacyPolicyPageBuilder,
     ]
 
     def handle(self, *args, **kwargs):

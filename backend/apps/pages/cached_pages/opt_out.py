@@ -18,5 +18,5 @@ class OptOutPageBuilder(BaseCachedPageBuilder):
                 "optout_btn": f"Opt Out",
             },
             "already_optout": f"You have already opted out, and we have handled it. We no longer collect or store any data about your streams. You can opt back in anytime from your account settings to re-enable future data collection.",
-            "success_optout": f"We have verified your Twitch ID and removed all data tied to it. Going forward, we will exclude it from future collection. The removed data cannot be restored, but you can opt back in anytime from your account settings to re-enable future collection. The public page may still show your data for up to an hour while caches refresh.",
+            "success_optout": f"We have verified your Twitch ID and removed all data tied to it. Going forward, we will exclude it from future collection. The removed data cannot be restored, but you can opt back in anytime from your account settings to re-enable future collection. The public page and search results may still show your data for up to an hour while caches refresh.",
         }

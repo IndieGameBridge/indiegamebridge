@@ -3,6 +3,8 @@ from .current_user import CurrentUserView
 from .oauth_finalize import OAuthFinalizeView
 from .opt_out import OptOutView
 from .refresh_cookie import RefreshCookieView
+from .account_settings import AccountSettingsView
+from .stream_exclusion import StreamExclusionView
 
 __all__ = [
     "LogoutView",
@@ -10,4 +12,6 @@ __all__ = [
     "OAuthFinalizeView",
     "OptOutView",
     "RefreshCookieView",
+    "AccountSettingsView",
+    "StreamExclusionView",
 ]

@@ -8,6 +8,7 @@ export type CurrentUser = {
     display_name: string;
     email: string;
     is_twitch_excluded: boolean;
+    allow_tracking: boolean;
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {

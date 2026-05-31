@@ -2,6 +2,7 @@
 
 from allauth.socialaccount.models import SocialAccount
 from django.conf import settings
+from django.db import transaction
 from django.views.decorators.csrf import csrf_protect
 from django.utils.decorators import method_decorator
 from rest_framework import status
@@ -11,24 +12,33 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.streams.models import StreamerProfile
 from apps.users.cookies import clear_jwt_cookies
 from apps.users.models import TwitchExclusion
 
 
 def perform_opt_out(user) -> bool | None:
-    """Resolve the user's Twitch ID via allauth's SocialAccount and record the
-    opt-out in TwitchExclusion. Returns True if a new exclusion was created,
-    False if the user was already opted out, or None if no Twitch account is
-    linked. Idempotent: re-clicking does not refresh optout_at.
+    """Resolve the user's Twitch ID via allauth's SocialAccount, record the
+    opt-out in TwitchExclusion, and erase the data collected for that ID.
+    Returns True if a new exclusion was created, False if the user was already
+    opted out, or None if no Twitch account is linked. Idempotent: re-clicking
+    does not refresh optout_at.
 
-    Future work: also erase user-owned data outside the exclusion record.
+    Deleting the StreamerProfile cascades to its streams and cached profile
+    payload. The query/page caches aren't FK-linked here; they expire on their
+    own (hence the "up to an hour" note shown to the user).
     """
     social = SocialAccount.objects.filter(user=user, provider="twitch").first()
     if social is None:
         print("opt out requested but no twitch social account linked")
         return None
 
-    _, is_new_opt_out = TwitchExclusion.objects.get_or_create(twitch_id=social.uid)
+    with transaction.atomic():
+        _, is_new_opt_out = TwitchExclusion.objects.get_or_create(twitch_id=social.uid)
+        StreamerProfile.objects.filter(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=social.uid,
+        ).delete()
     return is_new_opt_out
 
 

@@ -270,7 +270,7 @@ class StreamerSearch:
             __class__._filter_defaults(
                 ui_control="range",
                 name="dur",
-                label="Duration",
+                label="Stream Duration",
                 min_values=[{"v": "any", "l": "Min"}] + __class__._get_time_filter_values(),
                 min_default=7200,
                 max_values=__class__._get_time_filter_values() + [{"v": "any", "l": "Max"}],

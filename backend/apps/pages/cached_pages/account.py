@@ -8,5 +8,4 @@ class AccountPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "title": f"Account Settings",
-            "body": f"Account settings are coming soon. You will be able to manage your profile and preferences here.",
         }

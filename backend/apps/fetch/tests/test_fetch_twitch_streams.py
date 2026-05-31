@@ -77,6 +77,26 @@ class PollStreamsByLangPersistenceTests(TestCase):
         finally:
             patcher.stop()
 
+    def test_skips_excluded_twitch_ids(self):
+        excluded = _make_stream_tuple(host_user_id=2001, host_stream_id=1001)
+        included = _make_stream_tuple(host_user_id=2002, host_stream_id=1002, host_login="keepme")
+        patcher, _ = _patch_iter_streams(([excluded, included], None))
+        try:
+            self.command._poll_streams_by_lang(
+                the_language="en",
+                end_time_anchor=10**12,
+                excluded_twitch_ids=frozenset({2001}),
+            )
+        finally:
+            patcher.stop()
+
+        # Opted-out streamer: neither a profile nor a stream is persisted.
+        self.assertFalse(StreamerProfile.objects.filter(host_user_id=2001).exists())
+        self.assertFalse(Stream.objects.filter(host_stream_id=1001).exists())
+        # A non-excluded streamer in the same batch is still collected.
+        self.assertTrue(StreamerProfile.objects.filter(host_user_id=2002).exists())
+        self.assertTrue(Stream.objects.filter(host_stream_id=1002).exists())
+
     def test_creates_profile_and_stream_with_first_snapshot(self):
         st = _make_stream_tuple()
         self._run(([st], None))
