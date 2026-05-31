@@ -11,6 +11,17 @@ import { DeleteAccountButton } from "./_components/DeleteAccountButton";
 
 type AccountPageContent = {
     title: string;
+    tracking_label: string;
+    exclusion_label: string;
+    exclusion_warning: string;
+    exclusion_confirm: string;
+    danger_zone: {
+        title: string;
+        description: string;
+        optout_label: string;
+        delete_confirm: string;
+        delete_btn: string;
+    };
     footer_content: PageFooterContent;
 };
 
@@ -42,27 +53,24 @@ export default async function AccountPage() {
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto py-24">
                         <div className="mb-8 flex items-center justify-between gap-4 border-t border-t-gray-400 pt-8">
-                            <span className="text-gray-800">Allow feature-usage tracking for service improvement</span>
+                            <span className="text-gray-800">{content.tracking_label}</span>
                             <TrackingToggle initialValue={user.allow_tracking} />
                         </div>
 
                         <div className="mb-4 flex items-center justify-between gap-4 border-t border-t-gray-400 pt-8">
-                            <span className="text-gray-800">Allow streams tracking for my Twitch ID</span>
-                            <ExclusionToggle initialExcluded={user.is_twitch_excluded} />
+                            <span className="text-gray-800">{content.exclusion_label}</span>
+                            <ExclusionToggle initialExcluded={user.is_twitch_excluded} confirmText={content.exclusion_confirm} />
                         </div>
-                        <p className="text-sm text-red-600">
-                            Turning this off removes all data tied to your Twitch ID and excludes it from future collection.
-                            The removed data cannot be restored, though you can turn tracking back on anytime to re-enable future collection.
-                            The public page and search results may still show your data for up to an hour while caches refresh.
-                        </p>
+                        <p className="text-sm text-red-600">{content.exclusion_warning}</p>
 
                         <div className="mt-24 border-t border-t-red-300 pt-8">
-                            <h2 className="text-lg font-semibold text-red-700 mb-4">Danger zone</h2>
-                            <p className="text-sm text-gray-600 mb-8">
-                                Permanently delete your account and account settings. This cannot be undone.
-                                Your Twitch streams data is only removed if you tick the option below.
-                            </p>
-                            <DeleteAccountButton />
+                            <h2 className="text-lg font-semibold text-red-700 mb-4">{content.danger_zone.title}</h2>
+                            <p className="text-sm text-gray-600 mb-8">{content.danger_zone.description}</p>
+                            <DeleteAccountButton
+                                optOutLabel={content.danger_zone.optout_label}
+                                confirmText={content.danger_zone.delete_confirm}
+                                buttonLabel={content.danger_zone.delete_btn}
+                            />
                         </div>
                     </div>
                 </section>

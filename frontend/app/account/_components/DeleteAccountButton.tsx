@@ -8,13 +8,13 @@ function readCookie(name: string): string {
     return match ? decodeURIComponent(match[1]) : "";
 }
 
-export function DeleteAccountButton() {
+export function DeleteAccountButton({ optOutLabel, confirmText, buttonLabel }: { optOutLabel: string; confirmText: string; buttonLabel: string }) {
     const router = useRouter();
     const [alsoOptOut, setAlsoOptOut] = useState(false);
     const [pending, setPending] = useState(false);
 
     async function handleDelete() {
-        if (!window.confirm("This permanently deletes your account and cannot be undone. Continue?")) {
+        if (!window.confirm(confirmText)) {
             return;
         }
         setPending(true);
@@ -45,7 +45,7 @@ export function DeleteAccountButton() {
                     onChange={(e) => setAlsoOptOut(e.target.checked)}
                     className="text-sm w-4 h-4 rounded mr-2 cursor-pointer"
                 />
-                Also stop collecting and delete my Twitch streams data
+                {optOutLabel}
             </label>
             <button
                 type="button"
@@ -53,7 +53,7 @@ export function DeleteAccountButton() {
                 disabled={pending}
                 className="text-sm px-8 py-2 bg-red-600 text-white font-medium rounded hover:bg-red-700 border border-red-600 hover:border-red-700 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
-                Delete account
+                {buttonLabel}
             </button>
         </div>
     );

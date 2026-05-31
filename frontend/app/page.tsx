@@ -5,6 +5,7 @@ import {
     SearchStreamerResultsList,
     SearchFormData,
     StreamerData,
+    ResultsListLabels,
     StreamersDistribution,
     PageHeader,
     PageFooter,
@@ -32,6 +33,7 @@ type HomePageContent = {
     search_form: SearchFormData;
     search_results: StreamerData[];
     methodology: Section;
+    results_labels: ResultsListLabels;
     footer_content: PageFooterContent;
 };
 
@@ -90,6 +92,7 @@ export default async function Home() {
                         <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
                         <SearchStreamerResultsList
                             search_results={content.search_results}
+                            labels={content.results_labels}
                             more_href={user ? "/streamers" : `/login?next=${encodeURIComponent("/streamers")}`}
                         ></SearchStreamerResultsList>
                     </div>

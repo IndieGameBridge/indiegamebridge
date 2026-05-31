@@ -22,4 +22,9 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                 "demo_note": "",
                 "cta_link_text": "",
             },
+            "results_labels": {
+                "view_profile": "View Profile",
+                "show_more": "Show More",
+                "loading": "Loading...",
+            },
         }

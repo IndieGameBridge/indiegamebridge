@@ -9,17 +9,14 @@ function readCookie(name: string): string {
 
 // `initialExcluded` is the opt-out state from the backend (true = excluded).
 // The switch itself reads positively: ON = streams tracking allowed = NOT excluded.
-export function ExclusionToggle({ initialExcluded }: { initialExcluded: boolean }) {
+export function ExclusionToggle({ initialExcluded, confirmText }: { initialExcluded: boolean; confirmText: string }) {
     const [allowed, setAllowed] = useState(!initialExcluded);
     const [pending, setPending] = useState(false);
 
     async function setAllow(next: boolean) {
         if (pending || next === allowed) return;
         // Confirm only when opting out (turning tracking off); opting back in needs no warning.
-        if (!next && !window.confirm(
-            "This removes all data tied to your Twitch ID and excludes it from future collection. "
-            + "The removed data cannot be restored. Continue?"
-        )) {
+        if (!next && !window.confirm(confirmText)) {
             return;
         }
         setPending(true);

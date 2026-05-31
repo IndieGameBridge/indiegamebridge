@@ -43,4 +43,9 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "cta_link_text": f"Log in to use the search"
             },
             "search_results": StreamerSearch().results(limit=50),
+            "results_labels": {
+                "view_profile": f"View Profile",
+                "show_more": f"Show More",
+                "loading": f"Loading...",
+            },
         }

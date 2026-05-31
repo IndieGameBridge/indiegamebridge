@@ -7,6 +7,7 @@ import {
     SearchStreamerResultsList,
     SearchFormData,
     StreamerData,
+    ResultsListLabels,
     PageHeader,
     PageFooter,
     PageFooterContent,
@@ -17,6 +18,7 @@ import { serverFetch } from "../_lib/server-fetch";
 type StreamersPageContent = {
     title: string;
     search_form: SearchFormData;
+    results_labels: ResultsListLabels;
     footer_content: PageFooterContent;
 };
 
@@ -98,6 +100,7 @@ export default async function StreamersPage({
                         <SearchStreamerResultsList
                             key={searchQuery}
                             search_results={search.results}
+                            labels={content.results_labels}
                             total={search.total}
                             can_load_more
                         />

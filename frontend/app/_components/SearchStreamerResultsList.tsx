@@ -15,8 +15,15 @@ export type StreamerData = {
     games: string[];
 };
 
+export type ResultsListLabels = {
+    view_profile: string;
+    show_more: string;
+    loading: string;
+};
+
 type Props = {
     search_results: StreamerData[];
+    labels: ResultsListLabels;
     total?: number;
     can_load_more?: boolean;
     more_href?: string;
@@ -24,6 +31,7 @@ type Props = {
 
 export function SearchStreamerResultsList({
     search_results,
+    labels,
     total,
     can_load_more = false,
     more_href,
@@ -56,7 +64,7 @@ export function SearchStreamerResultsList({
                         <div className="font-bold text-lg"><span className="text-gray-500 font-normal">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
                             <Link className="text-sm align-baseline inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
-                                href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">View Profile</Link>
+                                href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">{labels.view_profile}</Link>
                         </div>
                     </div>
                     <div className="border-gray-300 border-t pt-4 text-sm">
@@ -85,10 +93,10 @@ export function SearchStreamerResultsList({
                         disabled={loading}
                         className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
                     >
-                        Show More
+                        {labels.show_more}
                     </button>
                     {loading && (
-                        <div className="pt-2 text-sm text-gray-600">Loading...</div>
+                        <div className="pt-2 text-sm text-gray-600">{labels.loading}</div>
                     )}
                 </div>
             )}
@@ -98,7 +106,7 @@ export function SearchStreamerResultsList({
                         href={more_href}
                         className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
                     >
-                        Show More
+                        {labels.show_more}
                     </Link>
                 </div>
             )}

@@ -15,6 +15,11 @@ import {
 
 type StreamerProfilePageContent = {
     title: string;
+    stats_title: string;
+    games_title: string;
+    no_games: string;
+    streams_title: string;
+    show_more: string;
     notes: string[];
     streams: TwitchStream[];
     footer_content: PageFooterContent;
@@ -75,7 +80,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                 {/* Last 4-Week Stats */}
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
-                        <div className="text-2xl font-bold mb-8">Last 4-Week Stats</div>
+                        <div className="text-2xl font-bold mb-8">{content.stats_title}</div>
                         <div>
                             <div className="mb-2"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
                             <div className="mb-2"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
@@ -92,9 +97,9 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                 {/* Last 4-Week Games */}
                 <section className="px-6 border-t border-t-gray-400">
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
-                        <div className="text-2xl font-bold mb-8">Last 4-Week Games</div>
+                        <div className="text-2xl font-bold mb-8">{content.games_title}</div>
                         {content.stats.per_game.length === 0 ? (
-                            <div className="italic">No games in the last 4 weeks.</div>
+                            <div className="italic">{content.no_games}</div>
                         ) : (content.stats.per_game.map((game, index) => (
                                 <div key={`game-${index}`} className="mb-24">
                                     <div className="font-bold mb-2">{game.name}</div>
@@ -121,8 +126,8 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                 {/* Streams */}
                 <section className="px-6 border-t border-t-gray-400">
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
-                        <div className="text-2xl font-bold mb-8">Streams</div>
-                        <StreamerProfileStreamsList streams={content.streams} />
+                        <div className="text-2xl font-bold mb-8">{content.streams_title}</div>
+                        <StreamerProfileStreamsList streams={content.streams} showMoreLabel={content.show_more} />
                     </div>
                     <div className="max-w-[1000] mx-auto pb-24 italic">{content.notes.map((one_note, index) => (
                         <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4"

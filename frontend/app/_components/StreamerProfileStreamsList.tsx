@@ -25,7 +25,7 @@ export type TwitchStream = {
 
 const PAGE_SIZE = 20;
 
-export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[] }) {
+export function StreamerProfileStreamsList({ streams, showMoreLabel }: { streams: TwitchStream[]; showMoreLabel: string }) {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const visibleStreams = streams.slice(0, visibleCount);
     const hasMore = visibleCount < streams.length;
@@ -69,7 +69,7 @@ export function StreamerProfileStreamsList({ streams }: { streams: TwitchStream[
                         onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                         className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
                     >
-                        Show More
+                        {showMoreLabel}
                     </button>
                 </div>
             )}
