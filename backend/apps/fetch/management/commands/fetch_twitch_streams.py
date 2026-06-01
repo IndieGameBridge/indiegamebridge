@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from core.utils.twitch_api_client import TwitchApiClient
 from apps.streams.models import StreamerProfile, Stream, Game
+from apps.users.models import TwitchExclusion
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,17 @@ class Command(BaseCommand):
 
         total_collected = 0
 
+        # Opted-out Twitch IDs to skip this run. Loaded once into a frozenset so
+        # the per-stream check is an O(1) in-memory lookup (a query-per-stream
+        # would be thousands of round-trips per poll round). The set is read-only
+        # after this point, so it's safe to share across the language threads.
+        # Staleness window: an ID that opts out mid-run isn't in this set yet, so
+        # its stream may be (re)collected this round; the next run skips it.
+        excluded_twitch_ids = frozenset(
+            TwitchExclusion.objects.values_list("twitch_id", flat=True)
+        )
+        logger.info("Loaded %s excluded Twitch IDs to skip", len(excluded_twitch_ids))
+
         # Poll each language in a separate thread
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(languages)) as executor:
             # Schedule poll for each language and store the future objects
@@ -76,6 +88,7 @@ class Command(BaseCommand):
                     self._poll_streams_by_lang,
                     the_language=one_language,
                     end_time_anchor=end_time_anchor,
+                    excluded_twitch_ids=excluded_twitch_ids,
                 ): f"Fetch streams for language: {one_language}"
                 for one_language in languages
             }
@@ -104,7 +117,7 @@ class Command(BaseCommand):
         logger.info("Marked %s stale streams as offline", finalized_count)
         logger.info("Dropped %s stale streams with insufficient snapshots", deleted_count)
 
-    def _poll_streams_by_lang(self, the_language, end_time_anchor):
+    def _poll_streams_by_lang(self, the_language, end_time_anchor, excluded_twitch_ids=frozenset()):
         """Polls Twitch streams for one language until the cursor is exhausted or the deadline is hit.
 
         Runs sequential poll rounds, each issuing up to
@@ -118,6 +131,8 @@ class Command(BaseCommand):
             end_time_anchor (float): Soft global deadline as a `time.time()` value.
                 Checked after each poll round; if exceeded, polling stops and
                 whatever was collected so far is returned.
+            excluded_twitch_ids (frozenset[int]): Opted-out host_user_ids to skip.
+                Read-only; shared across language threads.
 
         Returns:
             int: Total number of streams collected for this language across all rounds.
@@ -146,6 +161,10 @@ class Command(BaseCommand):
                 # Insert/update data
                 with transaction.atomic():
                     for one_stream in response_streams:
+
+                        # Skip streamers who opted out of data collection (in-memory, O(1)).
+                        if one_stream.host_user_id in excluded_twitch_ids:
+                            continue
 
                         # Avoid duplicated streams due to possible page shifts during the poll
                         if one_stream.host_stream_id in dedup_ids:
@@ -221,6 +240,7 @@ class Command(BaseCommand):
 
         For each stale stream, derives:
         - `max_viewers` = max viewer value observed across all snapshots (`max(s["v"] ...)`)
+        - `avg_viewers` = mean viewer value across all snapshots, rounded (`sum / count`)
         - `duration`    = stream length in seconds (`finished_at - started_at`)
         - `host_game_ids`    = sorted distinct game ids observed (`sorted({s["g"] ...})`)
         Then bulk-updates status=OFFLINE plus those summary fields. Streams with
@@ -252,12 +272,14 @@ class Command(BaseCommand):
             if len(snaps) <= 1:
                 insufficient_ids.append(stream.id)
                 continue
-            max_viewers = max(s["v"] for s in snaps)
+            viewer_values = [s["v"] for s in snaps]
+            max_viewers = max(viewer_values)
             if max_viewers < 3:
                 insufficient_ids.append(stream.id)
                 continue
             stream.status = Stream.Status.OFFLINE
             stream.max_viewers = max_viewers
+            stream.avg_viewers = round(sum(viewer_values) / len(viewer_values))
             stream.duration = max(int((stream.finished_at - stream.started_at).total_seconds()), 0)
             stream.host_game_ids = sorted({s["g"] for s in snaps})
             streams_to_update.append(stream)
@@ -269,7 +291,7 @@ class Command(BaseCommand):
             if streams_to_update:
                 Stream.objects.bulk_update(
                     streams_to_update,
-                    ["status", "max_viewers", "duration", "host_game_ids"],
+                    ["status", "max_viewers", "avg_viewers", "duration", "host_game_ids"],
                     batch_size=500,
                 )
 

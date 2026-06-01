@@ -77,6 +77,26 @@ class PollStreamsByLangPersistenceTests(TestCase):
         finally:
             patcher.stop()
 
+    def test_skips_excluded_twitch_ids(self):
+        excluded = _make_stream_tuple(host_user_id=2001, host_stream_id=1001)
+        included = _make_stream_tuple(host_user_id=2002, host_stream_id=1002, host_login="keepme")
+        patcher, _ = _patch_iter_streams(([excluded, included], None))
+        try:
+            self.command._poll_streams_by_lang(
+                the_language="en",
+                end_time_anchor=10**12,
+                excluded_twitch_ids=frozenset({2001}),
+            )
+        finally:
+            patcher.stop()
+
+        # Opted-out streamer: neither a profile nor a stream is persisted.
+        self.assertFalse(StreamerProfile.objects.filter(host_user_id=2001).exists())
+        self.assertFalse(Stream.objects.filter(host_stream_id=1001).exists())
+        # A non-excluded streamer in the same batch is still collected.
+        self.assertTrue(StreamerProfile.objects.filter(host_user_id=2002).exists())
+        self.assertTrue(Stream.objects.filter(host_stream_id=1002).exists())
+
     def test_creates_profile_and_stream_with_first_snapshot(self):
         st = _make_stream_tuple()
         self._run(([st], None))
@@ -223,6 +243,8 @@ class FinalizeOfflineStreamsTests(TestCase):
         self.assertEqual((finalized, deleted), (1, 0))
         self.assertEqual(stale.status, Stream.Status.OFFLINE)
         self.assertEqual(stale.max_viewers, 120)
+        # mean of 80, 120, 50 = 83.33 -> rounded to 83
+        self.assertEqual(stale.avg_viewers, 83)
         self.assertEqual(stale.host_game_ids, [100, 200])
 
     def test_fresh_live_stream_is_left_alone(self):
@@ -242,6 +264,7 @@ class FinalizeOfflineStreamsTests(TestCase):
         self.assertEqual((finalized, deleted), (0, 0))
         self.assertEqual(fresh.status, Stream.Status.LIVE)
         self.assertEqual(fresh.max_viewers, 0)
+        self.assertEqual(fresh.avg_viewers, 0)
         self.assertEqual(fresh.host_game_ids, [])
 
     def test_already_offline_stream_is_untouched(self):
@@ -326,6 +349,8 @@ class FinalizeOfflineStreamsTests(TestCase):
         self.assertEqual((finalized, deleted), (1, 1))
         self.assertEqual(ok.status, Stream.Status.OFFLINE)
         self.assertEqual(ok.max_viewers, 90)
+        # mean of 80, 90 = 85
+        self.assertEqual(ok.avg_viewers, 85)
         self.assertEqual(ok.host_game_ids, [100])
         self.assertFalse(Stream.objects.filter(pk=single.pk).exists())
 

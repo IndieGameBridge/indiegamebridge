@@ -44,6 +44,13 @@ class Stream(models.Model):
             " Populated when the stream goes offline; live streams stay at 0."
     )
 
+    avg_viewers = models.PositiveIntegerField(
+        default=0,
+        help_text="Mean viewers across all snapshots (sum of per-snapshot viewers / snapshot count, rounded)."
+            " Populated when the stream goes offline; live streams stay at 0."
+            " Slightly distorted by snapshots missed during API page shifts, which is acceptable here."
+    )
+
     started_at = models.DateTimeField(
         help_text="Time when stream started - defined by host"
     )
@@ -100,6 +107,7 @@ class Stream(models.Model):
                 condition=models.Q(status="live"),
             ),
             models.Index(fields=["duration"], name="stream_duration_idx"),
+            models.Index(fields=["avg_viewers"], name="stream_avg_viewers_idx"),
         ]
 
     def __str__(self):

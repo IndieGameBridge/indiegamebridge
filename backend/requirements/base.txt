@@ -1,8 +1,11 @@
 asgiref==3.11.1
 Django==6.0.4
+django-allauth[socialaccount]==65.16.1
 django-environ==0.13.0
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1
+django-redis==5.4.0
+redis==5.2.1
 psycopg2-binary==2.9.12
 PyJWT==2.12.1
 sqlparse==0.5.5
