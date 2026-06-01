@@ -248,6 +248,17 @@ REST_FRAMEWORK = {
     # See NUM_PROXIES above - lets DRF read the real client IP from
     # X-Forwarded-For so per-IP throttles bucket visitors individually.
     "NUM_PROXIES": NUM_PROXIES,
+    # JSON-only in production; keep the browsable HTML API in local dev for
+    # convenience. The browsable UI is extra attack surface and advertises the
+    # endpoint structure, so it's not served when DEBUG=False.
+    "DEFAULT_RENDERER_CLASSES": (
+        ("rest_framework.renderers.JSONRenderer",)
+        if not DEBUG
+        else (
+            "rest_framework.renderers.JSONRenderer",
+            "rest_framework.renderers.BrowsableAPIRenderer",
+        )
+    ),
 }
 
 # JWT lifetimes intentionally short for access, long for refresh, with rotation
