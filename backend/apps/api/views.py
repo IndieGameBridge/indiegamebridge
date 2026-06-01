@@ -1,5 +1,6 @@
 from django.http import Http404
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
@@ -51,6 +52,13 @@ class StreamerSearchView(APIView):
     week_days) can be repeated: ?week_days=1&week_days=5. Missing params fall
     back to StreamerSearch.default_filters().
     """
+
+    # Stricter per-IP cap (the "search" rate) on top of the global anon/user
+    # ceiling, since each search runs a fresh filtered Postgres query. Listing
+    # throttle_classes here replaces the project defaults, so the global
+    # classes are re-included alongside the scoped one.
+    throttle_classes = [AnonRateThrottle, UserRateThrottle, ScopedRateThrottle]
+    throttle_scope = "search"
 
     # Multi-valued query params — read via getlist so repeated keys are preserved.
     # Names must match the filter config in StreamerSearch.get_filters_config.

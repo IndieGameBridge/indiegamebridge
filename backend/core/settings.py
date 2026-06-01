@@ -38,6 +38,20 @@ TWITCH_OAUTH_CLIENT_SECRET = env("TWITCH_OAUTH_CLIENT_SECRET", default="")
 # Frontend origin (post-login redirect target, CSRF/CORS trusted origin)
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 
+# Redis connection for the shared cache (rate-limit counters live here so the
+# count is global across gunicorn workers - not per-process). Leave blank in
+# local dev to fall back to in-process memory; a single dev process doesn't
+# need a shared store. Production must set this so throttling counts correctly.
+REDIS_URL = env("REDIS_URL", default="")
+
+# Number of proxies between the public internet and Django. DRF uses this to
+# pick the real client IP out of X-Forwarded-For for per-IP throttling. Get it
+# wrong and either every visitor shares one bucket (too low) or the limit is
+# spoofable via a forged header (too high). Count the hops: Next.js in front of
+# Django = 1; add 1 for each extra reverse proxy (nginx/Caddy/Cloudflare). See
+# the verification note in .env.example before changing this in production.
+NUM_PROXIES = env.int("NUM_PROXIES", default=1)
+
 # Cloudflare Turnstile secret for verifying contact-form submissions. When
 # unset (local dev), the backend skips verification so the form still works.
 TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
@@ -132,6 +146,34 @@ DATABASES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# Cache
+# Used as the shared backing store for DRF throttle counters. With REDIS_URL
+# set, all workers increment the same counts (real, global rate limits). Blank
+# (local dev) falls back to per-process memory - fine for one runserver.
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                # If Redis is unreachable, fail open (skip the cache) instead of
+                # 500ing every request. A rate limiter going soft during a Redis
+                # outage is preferable to taking the whole API down with it; the
+                # ignored error is logged so the outage is still visible.
+                "IGNORE_EXCEPTIONS": True,
+                "LOG_IGNORED_EXCEPTIONS": True,
+            },
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -168,6 +210,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Where collectstatic gathers files for production to serve (admin CSS/JS, etc.).
+# Django doesn't serve static when DEBUG=False, so the web server (nginx) serves
+# this directory. Run `manage.py collectstatic` on deploy.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 
 # Auth: DRF reads JWT from an HttpOnly cookie OR Authorization: Bearer header.
 # Bearer path future-proofs for a native/mobile client; cookie path is what the
@@ -180,12 +227,27 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.AllowAny",
     ),
-    # Only the contact endpoint opts into throttling (via ScopedRateThrottle);
-    # this just supplies the rate for that scope. Backed by the default
-    # (local-memory) cache - per-process, which is fine for a contact form.
+    # Global ceiling applied to every endpoint that doesn't override
+    # throttle_classes: anon requests keyed by client IP, authed by user id.
+    # Views that need a tighter, endpoint-specific cap layer ScopedRateThrottle
+    # on top (see the contact and streamer-search views).
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
     "DEFAULT_THROTTLE_RATES": {
+        # Generous per-visitor ceiling - a real browser session (a page load is
+        # a few requests) stays well under it; brute hammering trips it.
+        "anon": "120/min",
+        "user": "120/min",
+        # Stricter per-IP cap for the heavy search query (hits Postgres with
+        # arbitrary filters); applied on top of the anon ceiling.
+        "search": "30/min",
         "contact": "5/hour",
     },
+    # See NUM_PROXIES above - lets DRF read the real client IP from
+    # X-Forwarded-For so per-IP throttles bucket visitors individually.
+    "NUM_PROXIES": NUM_PROXIES,
 }
 
 # JWT lifetimes intentionally short for access, long for refresh, with rotation
