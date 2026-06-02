@@ -196,7 +196,12 @@ class StreamerSearch:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @classmethod
-    def _run_query(cls, filters: dict) -> list[dict]:
+    def _aggregate_queryset(cls, filters: dict):
+        """Build the per-streamer aggregate queryset (unevaluated).
+
+        Split out from _run_query so diagnostics (e.g. the explain_search
+        command) can run EXPLAIN on the exact query the search executes.
+        """
         window_start = timezone.now() - timedelta(days=filters["window"])
 
         stream_qs = Stream.objects.filter(
@@ -230,7 +235,7 @@ class StreamerSearch:
         # One row per streamer, aggregating only the streams that matched the
         # filters above. Sort key mirrors the displayed metrics: peak viewers,
         # then average viewers, then total watch time.
-        top_streamer_aggregates = list(
+        return (
             stream_qs
             .annotate(
                 host_login=F("streamer_profile__host_login"),
@@ -253,6 +258,10 @@ class StreamerSearch:
             )
             .order_by("-peak_viewers", "-avg_viewers", "-total_duration_seconds")[:MAX_RESULTS]
         )
+
+    @classmethod
+    def _run_query(cls, filters: dict) -> list[dict]:
+        top_streamer_aggregates = list(cls._aggregate_queryset(filters))
 
         # Resolve every referenced game name in a single round-trip.
         all_game_ids = {
