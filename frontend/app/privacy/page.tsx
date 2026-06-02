@@ -6,11 +6,21 @@ import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
 import { PageHeader, PageFooter, PageFooterContent } from "../_components";
 
+const description = "How IndieGameBridge collects, uses, and protects your data.";
+
 export const metadata: Metadata = {
     title: "Privacy Policy — IndieGameBridge",
+    description,
     // A privacy policy is a public legal page, so unlike the other secondary
     // pages it's left indexable/followable.
     robots: { index: true, follow: true },
+    alternates: { canonical: "/privacy" },
+    openGraph: {
+        title: "Privacy Policy — IndieGameBridge",
+        description,
+        url: "/privacy",
+        type: "article",
+    },
 };
 
 export type PrivacyPolicyPageContent = {

@@ -53,6 +53,16 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
         title: content.title,
         description: content.description,
+        alternates: { canonical: "/" },
+        openGraph: {
+            title: content.title,
+            description: content.description,
+            url: "/",
+        },
+        twitter: {
+            title: content.title,
+            description: content.description,
+        },
     };
 }
 
@@ -62,8 +72,21 @@ export default async function Home() {
         getCurrentUser(),
     ]);
 
+    const siteUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "IndieGameBridge",
+        url: siteUrl,
+        description: content.description,
+    };
+
     return (
         <Fragment>
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
             <PageHeader
                 user={user}
                 title={content.title}

@@ -15,8 +15,20 @@ class BaseCachedPageBuilder(ABC):
         ...
 
     def run(self) -> None:
-        CachedPage.objects.update_or_create(
-            key=self.key,
-            defaults={"content": self.build_content()},
-        )
-        logger.info("%s cache updated.", self.log_label or self.key)
+        # Only write (and so bump updated_at) when the payload actually changed.
+        # The command rebuilds every page each run, but most pages are static;
+        # bumping updated_at unconditionally would give them a misleading
+        # "freshness" that consumers like the sitemap's <lastmod> rely on.
+        content = self.build_content()
+        label = self.log_label or self.key
+
+        page = CachedPage.objects.filter(key=self.key).first()
+        if page is None:
+            CachedPage.objects.create(key=self.key, content=content)
+            logger.info("%s cache created.", label)
+        elif page.content != content:
+            page.content = content
+            page.save(update_fields=["content", "updated_at"])
+            logger.info("%s cache updated.", label)
+        else:
+            logger.info("%s cache unchanged.", label)

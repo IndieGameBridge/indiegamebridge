@@ -8,6 +8,7 @@ import { ContactForm } from "./_components/ContactForm";
 
 export const metadata: Metadata = {
     title: "Contact — IndieGameBridge",
+    robots: { index: false, follow: false },
 };
 
 export type ContactFormCopy = {
