@@ -108,6 +108,16 @@ class Stream(models.Model):
             ),
             models.Index(fields=["duration"], name="stream_duration_idx"),
             models.Index(fields=["avg_viewers"], name="stream_avg_viewers_idx"),
+            # Targets the predicate every search shares: status=APPROVED plus a
+            # language equality and a finished_at window. Partial on APPROVED so
+            # the index stays small, with language first (equality) then
+            # finished_at (range) so the planner can range-scan one language's
+            # window instead of seq-scanning the whole (ever-growing) table.
+            models.Index(
+                fields=["language", "finished_at"],
+                name="stream_approved_search_idx",
+                condition=models.Q(status="approved"),
+            ),
         ]
 
     def __str__(self):

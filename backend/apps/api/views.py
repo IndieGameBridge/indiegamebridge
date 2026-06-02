@@ -42,6 +42,10 @@ class CachedPageContentView(APIView):
         page.content["header_content"] = header.content if header else None
         page.content["footer_content"] = footer.content if footer else None
 
+        # Real cache-refresh time (bumped on every rebuild), so callers like the
+        # sitemap can report an accurate <lastmod> instead of a build timestamp.
+        page.content["updated_at"] = page.updated_at.isoformat()
+
         return Response(page.content)
 
 

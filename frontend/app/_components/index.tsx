@@ -4,6 +4,7 @@ export * from "./SearchStreamerResultsList";
 export * from "./StreamersDistribution";
 export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";
+export * from "./IndieGameBridgeMark";
 export * from "./PageHeader";
 export * from "./PageFooter";
 export * from "./TwitchLoginButton";

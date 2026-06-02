@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CurrentUser } from "../_lib/auth";
 import { AuthStatus } from "./AuthStatus";
+import { IndieGameBridgeMark } from "./IndieGameBridgeMark";
 
 export function NavLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
     const pathname = usePathname();
@@ -29,7 +30,10 @@ export function PageHeader(
                 <div className="max-w-[1000] mx-auto">
                     <div className="flex flex-col gap-y-4 md:flex-row lg:flex-row justify-end pb-2 pt-6">
                         <div className="flex flex-col items-center w-full justify-center gap-y-4 gap-x-8 md:mr-auto md:flex-row md:justify-start lg:mr-auto lg:flex-row lg:justify-start">
-                            <NavLink href="/">Home</NavLink>
+                            <div className="flex items-center gap-x-2">
+                                <IndieGameBridgeMark className="w-7.5 h-7.5 text-white relative -top-0.75" />
+                                <NavLink href="/">Home</NavLink>
+                            </div>
                             <NavLink href="/streamers">Streamers</NavLink>
                         </div>
                         <AuthStatus user={user} />

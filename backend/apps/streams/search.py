@@ -5,6 +5,7 @@ from datetime import timedelta
 from functools import cache
 
 from django.contrib.postgres.aggregates import JSONBAgg
+from django.db import connection, transaction
 from django.db.models import Avg, Count, F, Max, Sum
 from django.db.models.functions import ExtractIsoWeekDay
 from django.utils import timezone
@@ -49,34 +50,77 @@ class StreamerSearch:
         if self._full_results is not None:
             return self._full_results
 
-        now = timezone.now()
-        cached = SearchCache.objects.filter(key_hash=self.key_hash).first()
-
-        if cached and (now - cached.refreshed_at) < SEARCH_CACHE_TTL:
-            # Hit: touch last_hit_at (used by future eviction) and return as-is.
-            SearchCache.objects.filter(pk=cached.pk).update(last_hit_at=now)
+        # Fast path: a fresh entry is served without taking any lock.
+        fresh = self._read_fresh()
+        if fresh is not None:
             logger.debug("Search cache hit: %s", self.key_hash[:12])
-            self._full_results = cached.results
+            self._full_results = fresh
             return self._full_results
 
-        # Miss or stale: recompute and upsert. update_or_create resolves the
-        # race between two concurrent first-misses into a single row.
-        logger.debug(
-            "Search cache %s: %s",
-            "stale" if cached else "miss",
-            self.key_hash[:12],
-        )
+        # Miss or stale: serialize the recompute so concurrent identical
+        # searches don't each run the (up to ~minute-long) aggregation.
+        self._full_results = self._compute_single_flight()
+        return self._full_results
+
+    def _read_fresh(self) -> list[dict] | None:
+        """Return cached results if a within-TTL entry exists, else None.
+
+        Touches last_hit_at (used by future eviction) on a hit.
+        """
+        now = timezone.now()
+        cached = SearchCache.objects.filter(key_hash=self.key_hash).first()
+        if cached and (now - cached.refreshed_at) < SEARCH_CACHE_TTL:
+            SearchCache.objects.filter(pk=cached.pk).update(last_hit_at=now)
+            return cached.results
+        return None
+
+    def _compute_single_flight(self) -> list[dict]:
+        """Recompute under a per-key Postgres advisory lock.
+
+        Only one request per key runs the query at a time; others block on the
+        lock and, once it releases, find the entry the holder just wrote. The
+        lock is transaction-scoped, so it's released automatically on commit or
+        rollback - a crashing worker can't leave it stuck.
+        """
+        if connection.vendor != "postgresql":
+            # Advisory locks are Postgres-only; elsewhere (e.g. sqlite) fall back
+            # to the unguarded recompute rather than failing.
+            return self._recompute()
+
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_xact_lock(%s)", [self._lock_key()])
+
+            # Double-check: a request we queued behind may have filled the cache
+            # while we waited for the lock.
+            fresh = self._read_fresh()
+            if fresh is not None:
+                logger.debug("Search cache filled while waiting: %s", self.key_hash[:12])
+                return fresh
+
+            return self._recompute()
+
+    def _recompute(self) -> list[dict]:
+        # update_or_create resolves the row write into a single row even if two
+        # recomputes ever race (e.g. on a non-Postgres backend without the lock).
+        logger.debug("Search cache recompute: %s", self.key_hash[:12])
         fresh = self._run_query(self.filters)
         SearchCache.objects.update_or_create(
             key_hash=self.key_hash,
             defaults={
                 "filters": self.filters,
                 "results": fresh,
-                "last_hit_at": now,
+                "last_hit_at": timezone.now(),
             },
         )
-        self._full_results = fresh
-        return self._full_results
+        return fresh
+
+    def _lock_key(self) -> int:
+        # pg_advisory_xact_lock takes a signed 64-bit int; fold the hex digest
+        # into that range. Collisions only cause two unrelated searches to
+        # occasionally serialize - harmless, and astronomically rare at 64 bits.
+        value = int(self.key_hash[:16], 16)
+        return value - 2**64 if value >= 2**63 else value
 
     @classmethod
     def _normalize_query_params(cls, raw: dict) -> dict:
