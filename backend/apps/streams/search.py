@@ -10,7 +10,7 @@ from django.db.models import Avg, Count, F, Max, Sum
 from django.db.models.functions import ExtractIsoWeekDay
 from django.utils import timezone
 
-from apps.streams.models import Game, SearchCache, Stream, GameGenre
+from apps.streams.models import Game, SearchCache, Stream, StreamerProfile, GameGenre
 
 logger = logging.getLogger(__name__)
 
@@ -233,19 +233,15 @@ class StreamerSearch:
             stream_qs = stream_qs.filter(finished_dow__in=filters["wdays"])
 
         # One row per streamer, aggregating only the streams that matched the
-        # filters above. Sort key mirrors the displayed metrics: peak viewers,
-        # then average viewers, then total watch time.
+        # filters above. Group by the integer FK only: pulling host_login /
+        # host_display_name here would force a join of streamer_profile across
+        # every matched stream (hundreds of thousands of rows) before the
+        # aggregate. Names are resolved for just the returned page in _run_query.
+        # Sort key mirrors the displayed metrics: peak viewers, then average
+        # viewers, then total watch time.
         return (
             stream_qs
-            .annotate(
-                host_login=F("streamer_profile__host_login"),
-                host_display_name=F("streamer_profile__host_display_name"),
-            )
-            .values(
-                login=F("host_login"),
-                display_name=F("host_display_name"),
-                profile_id=F("streamer_profile_id"),
-            )
+            .values("streamer_profile_id")
             .annotate(
                 streams_count=Count("id"),
                 peak_viewers=Max("max_viewers"),
@@ -263,6 +259,17 @@ class StreamerSearch:
     def _run_query(cls, filters: dict) -> list[dict]:
         top_streamer_aggregates = list(cls._aggregate_queryset(filters))
 
+        # Resolve display names for just the returned streamers (one round-trip),
+        # instead of joining them across every matched stream in the aggregate.
+        profile_names = {
+            profile_id: (login, display_name)
+            for profile_id, login, display_name in (
+                StreamerProfile.objects
+                .filter(id__in=[row["streamer_profile_id"] for row in top_streamer_aggregates])
+                .values_list("id", "host_login", "host_display_name")
+            )
+        }
+
         # Resolve every referenced game name in a single round-trip.
         all_game_ids = {
             one_game_id
@@ -276,6 +283,12 @@ class StreamerSearch:
         )
 
         for one_streamer in top_streamer_aggregates:
+            profile_id = one_streamer.pop("streamer_profile_id")
+            login, display_name = profile_names.get(profile_id, (None, None))
+            one_streamer["profile_id"] = profile_id
+            one_streamer["login"] = login
+            one_streamer["display_name"] = display_name
+
             distinct_game_ids = {
                 one_game_id
                 for one_list in (one_streamer.pop("game_id_lists", None) or [])
