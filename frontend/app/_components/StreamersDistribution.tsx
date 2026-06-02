@@ -73,7 +73,7 @@ function DistributionChart({ title, buckets }: ChartProps) {
     const chartWidth = width - paddingLeft - paddingRight;
     const chartHeight = height - paddingTop - paddingBottom;
 
-    const barGap = 2;
+    const barGap = 5;
     const barWidth = (chartWidth - barGap * (buckets.length - 1)) / buckets.length;
 
     return (
