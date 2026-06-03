@@ -36,7 +36,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "btn_text": "Apply Filters",
                 "demo_title": f"Note:",
                 "search_notes": [
-                    "Times are in UTC. Days of week and the time window are both based on when each stream went offline. A UTC day can straddle two local days in non-UTC zones."
+                    "Peak/average viewers, hours, and genres are based on each streamer's streams from the last 4 weeks."
                 ],
                 "demo_note": f"The search form is a demo of the real search form, which is available for logged in users."
                     f" The results below are real, matching the search parameters prefilled in the form and updating hourly.",

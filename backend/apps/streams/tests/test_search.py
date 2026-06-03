@@ -1,22 +1,28 @@
-"""Tests for StreamerSearch._run_query filtering, ordering, and aggregates.
+"""Tests for the precomputed search read-model.
 
-Each result row is one streamer aggregating only the streams that matched the
-filters: streams_count, total_duration, peak_viewers, avg_viewers, and the
-de-duped list of game names played. Calls _run_query directly with an
-already-normalized filter dict to bypass the SearchCache and query-param
-normalization.
+Two layers:
+  - rebuild_search_stats turns approved streams into one StreamerSearchStats row
+    per (streamer, language) for the last 4 weeks.
+  - StreamerSearch filters/sorts that table and shapes the result rows.
 """
 
 from datetime import datetime, timedelta, timezone as dt_timezone
 
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.streams.models import Game, Stream, StreamerProfile
+from apps.streams.models import GameGenre, Stream, StreamerProfile, StreamerSearchStats
 from apps.streams.search import StreamerSearch
 
 
-class RunQueryTests(TestCase):
+class RebuildAndSearchTests(TestCase):
+    def setUp(self):
+        # Both are process-cached; clear so each test builds them from its own
+        # GameGenre rows rather than a prior test's empty snapshot.
+        StreamerSearch.get_filters_config.cache_clear()
+        StreamerSearch._genre_name_map.cache_clear()
+
     def _make_streamer(self, host_user_id, login):
         return StreamerProfile.objects.create(
             host=StreamerProfile.Host.TWITCH,
@@ -25,114 +31,144 @@ class RunQueryTests(TestCase):
             host_display_name=login.title(),
         )
 
-    def _make_stream(self, profile, host_stream_id, max_viewers, avg_viewers, duration, host_game_ids=None):
+    def _make_stream(self, profile, host_stream_id, max_viewers, avg_viewers,
+                     duration, language="en", genre_ids=None, days_ago=1):
         return Stream.objects.create(
             streamer_profile=profile,
             host_stream_id=host_stream_id,
             status=Stream.Status.APPROVED,
-            language="en",
+            language=language,
             started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
-            finished_at=timezone.now() - timedelta(days=1),
+            finished_at=timezone.now() - timedelta(days=days_ago),
             snapshots=[],
             max_viewers=max_viewers,
             avg_viewers=avg_viewers,
             duration=duration,
-            host_game_ids=host_game_ids or [],
+            genre_ids=genre_ids or [],
         )
 
-    @staticmethod
-    def _base_filters(**overrides):
-        # Minimal normalized filter dict _run_query needs; overrides add filters.
-        return {"window": 7, "lang": "en", **overrides}
+    def _rebuild(self):
+        # reset so each call processes the whole set regardless of where the
+        # rolling cursor left off (keeps tests independent of chunk cadence).
+        call_command("rebuild_search_stats", reset=True)
 
     def _logins(self, results):
         return [row["login"] for row in results]
 
-    def test_avgmin_excludes_streams_below_threshold(self):
+    def test_aggregates_per_streamer(self):
+        streamer = self._make_streamer(1, "solo")
+        self._make_stream(streamer, 1, max_viewers=100, avg_viewers=40, duration=3600, genre_ids=[10, 20])
+        self._make_stream(streamer, 2, max_viewers=150, avg_viewers=80, duration=7200, genre_ids=[20, 30])
+
+        self._rebuild()
+
+        stats = StreamerSearchStats.objects.get(streamer_profile=streamer, language="en")
+        self.assertEqual(stats.peak_viewers, 150)
+        self.assertEqual(stats.avg_viewers, 60)  # mean of 40 and 80
+        self.assertEqual(stats.total_duration_seconds, 10800)
+        self.assertEqual(stats.streams_count, 2)
+        self.assertEqual(stats.genre_ids, [10, 20, 30])  # union, de-duped, sorted
+
+    def test_separate_rows_per_language(self):
+        bob = self._make_streamer(1, "bob")
+        self._make_stream(bob, 1, max_viewers=10, avg_viewers=5, duration=3600, language="en")
+        self._make_stream(bob, 2, max_viewers=20, avg_viewers=15, duration=3600, language="fr")
+
+        self._rebuild()
+
+        en = StreamerSearchStats.objects.get(streamer_profile=bob, language="en")
+        fr = StreamerSearchStats.objects.get(streamer_profile=bob, language="fr")
+        self.assertEqual((en.peak_viewers, en.avg_viewers), (10, 5))
+        self.assertEqual((fr.peak_viewers, fr.avg_viewers), (20, 15))
+
+    def test_streams_outside_window_are_excluded(self):
+        active = self._make_streamer(1, "active")
+        dormant = self._make_streamer(2, "dormant")
+        self._make_stream(active, 1, max_viewers=50, avg_viewers=20, duration=3600, days_ago=1)
+        self._make_stream(dormant, 2, max_viewers=50, avg_viewers=20, duration=3600, days_ago=40)
+
+        self._rebuild()
+
+        self.assertTrue(StreamerSearchStats.objects.filter(streamer_profile=active).exists())
+        self.assertFalse(StreamerSearchStats.objects.filter(streamer_profile=dormant).exists())
+
+    def test_rebuild_prunes_now_dormant_rows(self):
+        streamer = self._make_streamer(1, "solo")
+        recent = self._make_stream(streamer, 1, max_viewers=50, avg_viewers=20, duration=3600, days_ago=1)
+        self._rebuild()
+        self.assertTrue(StreamerSearchStats.objects.filter(streamer_profile=streamer).exists())
+
+        # Stream ages out of the window; a re-run should drop the stale row.
+        recent.finished_at = timezone.now() - timedelta(days=40)
+        recent.save(update_fields=["finished_at"])
+        self._rebuild()
+
+        self.assertFalse(StreamerSearchStats.objects.filter(streamer_profile=streamer).exists())
+
+    def test_search_peak_filter(self):
         low = self._make_streamer(1, "low")
         high = self._make_streamer(2, "high")
-        self._make_stream(low, 1, max_viewers=100, avg_viewers=3, duration=600)
-        self._make_stream(high, 2, max_viewers=100, avg_viewers=50, duration=600)
+        self._make_stream(low, 1, max_viewers=10, avg_viewers=5, duration=3600)
+        self._make_stream(high, 2, max_viewers=150, avg_viewers=5, duration=3600)
+        self._rebuild()
 
-        results = StreamerSearch._run_query(self._base_filters(avgmin=5))
+        results = StreamerSearch({"peakmin": "100"}).results()
 
         self.assertEqual(self._logins(results), ["high"])
 
-    def test_avgmax_excludes_streams_above_threshold(self):
-        low = self._make_streamer(1, "low")
-        high = self._make_streamer(2, "high")
-        self._make_stream(low, 1, max_viewers=100, avg_viewers=20, duration=600)
-        self._make_stream(high, 2, max_viewers=100, avg_viewers=500, duration=600)
-
-        results = StreamerSearch._run_query(self._base_filters(avgmax=100))
-
-        self.assertEqual(self._logins(results), ["low"])
-
-    def test_sort_peak_then_avg_then_duration(self):
-        """Order is: peak viewers desc, then avg viewers desc, then total duration desc."""
+    def test_search_sort_peak_then_avg_then_duration(self):
         top_peak = self._make_streamer(1, "toppeak")
         avg_hi = self._make_streamer(2, "avghi")
         avg_lo = self._make_streamer(3, "avglo")
         dur_hi = self._make_streamer(4, "durhi")
-
-        # Highest peak wins outright regardless of avg/duration.
-        self._make_stream(top_peak, 1, max_viewers=200, avg_viewers=1, duration=1)
-        # Same peak as avg_lo and dur_hi; higher avg ranks above both.
+        self._make_stream(top_peak, 1, max_viewers=200, avg_viewers=5, duration=1)
         self._make_stream(avg_hi, 2, max_viewers=100, avg_viewers=90, duration=10)
-        # Same peak + same avg as dur_hi; shorter total duration ranks below it.
         self._make_stream(avg_lo, 3, max_viewers=100, avg_viewers=50, duration=9000)
         self._make_stream(dur_hi, 4, max_viewers=100, avg_viewers=90, duration=8000)
+        self._rebuild()
 
-        results = StreamerSearch._run_query(self._base_filters())
+        results = StreamerSearch().results()
 
-        self.assertEqual(
-            self._logins(results),
-            ["toppeak", "durhi", "avghi", "avglo"],
-        )
+        self.assertEqual(self._logins(results), ["toppeak", "durhi", "avghi", "avglo"])
 
-    def test_streamer_row_aggregates_matching_streams(self):
-        """One row per streamer: stream count, summed duration, peak, mean avg,
-        and the de-duped list of game names across the matched streams."""
-        Game.objects.create(host_game_id=10, host_name="Alpha")
-        Game.objects.create(host_game_id=20, host_name="Beta")
-        Game.objects.create(host_game_id=30, host_name="Gamma")
+    def test_search_genre_overlap(self):
+        GameGenre.objects.create(host_genre_id=10, host_name="Action", host_url="", slug="action")
+        GameGenre.objects.create(host_genre_id=20, host_name="Puzzle", host_url="", slug="puzzle")
+        action = self._make_streamer(1, "action")
+        puzzle = self._make_streamer(2, "puzzle")
+        self._make_stream(action, 1, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[10])
+        self._make_stream(puzzle, 2, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[20])
+        self._rebuild()
 
+        results = StreamerSearch({"genres": "10"}).results()
+
+        self.assertEqual(self._logins(results), ["action"])
+        self.assertEqual(results[0]["genres"], ["Action"])
+
+    def test_search_language_isolation(self):
+        bob = self._make_streamer(1, "bob")
+        self._make_stream(bob, 1, max_viewers=10, avg_viewers=5, duration=3600, language="en")
+        self._make_stream(bob, 2, max_viewers=20, avg_viewers=15, duration=3600, language="fr")
+        self._rebuild()
+
+        en_results = StreamerSearch({"lang": "en"}).results()
+        fr_results = StreamerSearch({"lang": "fr"}).results()
+
+        self.assertEqual(en_results[0]["peak_viewers"], 10)
+        self.assertEqual(fr_results[0]["peak_viewers"], 20)
+
+    def test_result_row_shape(self):
         streamer = self._make_streamer(1, "solo")
-        self._make_stream(streamer, 1, max_viewers=100, avg_viewers=40, duration=3600, host_game_ids=[10, 20])
-        self._make_stream(streamer, 2, max_viewers=150, avg_viewers=80, duration=7200, host_game_ids=[20, 30])
+        self._make_stream(streamer, 1, max_viewers=100, avg_viewers=40, duration=7200)
+        self._rebuild()
 
-        (row,) = StreamerSearch._run_query(self._base_filters())
+        (row,) = StreamerSearch().results()
 
-        self.assertEqual(row["streams_count"], 2)
-        self.assertEqual(row["peak_viewers"], 150)
-        # mean of per-stream avgs: (40 + 80) / 2 = 60
-        self.assertEqual(row["avg_viewers"], 60)
-        # 3600 + 7200 = 10800s
-        self.assertEqual(row["total_duration"], "3 h 0 min")
-        # Game 20 appears in both streams but is listed once; sorted by name.
-        self.assertEqual(row["games"], ["Alpha", "Beta", "Gamma"])
-        # The per-stream list is gone from the payload.
-        self.assertNotIn("streams", row)
-
-    def test_unknown_game_id_falls_back_to_na(self):
-        streamer = self._make_streamer(1, "solo")
-        self._make_stream(streamer, 1, max_viewers=100, avg_viewers=40, duration=600, host_game_ids=[999])
-
-        (row,) = StreamerSearch._run_query(self._base_filters())
-
-        self.assertEqual(row["games"], ["N/A"])
-
-    def test_only_filtered_streams_contribute_to_aggregates(self):
-        """A stream excluded by a filter must not inflate the streamer's
-        count/duration/peak."""
-        streamer = self._make_streamer(1, "solo")
-        # Kept: avg 50 >= avgmin 5.
-        self._make_stream(streamer, 1, max_viewers=80, avg_viewers=50, duration=600)
-        # Dropped: avg 2 < avgmin 5.
-        self._make_stream(streamer, 2, max_viewers=500, avg_viewers=2, duration=9999)
-
-        (row,) = StreamerSearch._run_query(self._base_filters(avgmin=5))
-
+        self.assertEqual(row["login"], "solo")
+        self.assertEqual(row["display_name"], "Solo")
+        self.assertEqual(row["profile_id"], streamer.id)
+        self.assertEqual(row["peak_viewers"], 100)
+        self.assertEqual(row["avg_viewers"], 40)
+        self.assertEqual(row["hours_streamed"], 2)  # 7200s -> 2h
         self.assertEqual(row["streams_count"], 1)
-        self.assertEqual(row["peak_viewers"], 80)
-        self.assertEqual(row["total_duration"], "0 h 10 min")
+        self.assertNotIn("total_duration_seconds", row)
