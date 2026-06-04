@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Hard cap on how many results a search pages through; the API slices this into
 # pages of PAGE_SIZE.
-MAX_RESULTS = 1000
+MAX_RESULTS = 5000
 PAGE_SIZE = 50
 
 

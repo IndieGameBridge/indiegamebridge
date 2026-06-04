@@ -97,7 +97,14 @@ class StreamerSearchView(APIView):
 
 
 class StreamersDistributionView(APIView):
-    """Public read-only endpoint returning the cached global peak-viewer distribution."""
+    """Public read-only endpoint returning the cached global peak-viewer distribution.
+
+    The cache is built by the refresh_distribution command; until it has run there's
+    nothing to serve, so we 404 (the frontend widget then simply doesn't render).
+    """
 
     def get(self, request):
-        return Response(StreamersDistribution().results())
+        payload = StreamersDistribution().results()
+        if payload is None:
+            raise Http404
+        return Response(payload)

@@ -1,17 +1,11 @@
 import logging
-from datetime import timedelta
 
-from django.db.models import Max
-from django.utils import timezone
-
-from apps.streams.models import JsonCache, Stream
+from apps.streams.models import JsonCache, StreamerSearchStats
 
 logger = logging.getLogger(__name__)
 
 
 DISTRIBUTION_CACHE_KEY = "streamers_distribution"
-DISTRIBUTION_CACHE_TTL = timedelta(hours=24)
-DISTRIBUTION_WINDOW_DAYS = 28
 
 # Mirrors StreamerSearch._get_viewers_filter_values() so each bar maps 1:1 to a
 # selectable "max viewers" value in the search form. Each threshold is an inclusive
@@ -32,24 +26,19 @@ MIN_PEAK = 3
 
 
 class StreamersDistribution:
-    """Global per-streamer peak-viewer distribution over the last DISTRIBUTION_WINDOW_DAYS.
+    """Global per-streamer peak-viewer distribution over the last 4 weeks.
 
     Takes no input parameters: produces a single payload meant as a hint about where
     streamers cluster on the viewer-count axis. Cached in the generic streams.JsonCache
-    table under DISTRIBUTION_CACHE_KEY with a 24h TTL-on-read; results() self-heals on
-    miss/stale so the endpoint stays useful without a separate pre-warm job.
+    table under DISTRIBUTION_CACHE_KEY. The cache is refreshed only by the
+    refresh_distribution management command (cron) - never lazily on read - so a page
+    request never triggers the recompute. results() just returns the cached payload
+    (or None until the command has built it).
     """
 
-    def results(self) -> dict:
-        now = timezone.now()
+    def results(self) -> dict | None:
         cached = JsonCache.objects.filter(key=DISTRIBUTION_CACHE_KEY).first()
-
-        if cached and (now - cached.updated_at) < DISTRIBUTION_CACHE_TTL:
-            logger.debug("Distribution cache hit")
-            return cached.content
-
-        logger.debug("Distribution cache %s", "stale" if cached else "miss")
-        return self.refresh()
+        return cached.content if cached else None
 
     @classmethod
     def refresh(cls) -> dict:
@@ -62,21 +51,15 @@ class StreamersDistribution:
 
     @classmethod
     def compute_payload(cls) -> dict:
-        window_start = timezone.now() - timedelta(days=DISTRIBUTION_WINDOW_DAYS)
-
-        # Per-(streamer, language) peak. A streamer who streams in multiple languages
-        # contributes one row per language, matching how the search would surface them
-        # under each lang filter.
+        # Read straight from the precomputed search stats: each row is already a
+        # (streamer, language) peak over the last 4 weeks, so the distribution
+        # matches search exactly and avoids re-aggregating the wide streams table.
+        # A multi-language streamer has one row per language, as search surfaces them.
         peaks_per_language = (
-            Stream.objects
-            .filter(
-                status=Stream.Status.APPROVED,
-                finished_at__gte=window_start,
-                language__in=LANGUAGES,
-            )
-            .values("streamer_profile_id", "language")
-            .annotate(peak=Max("max_viewers"))
-            .values_list("language", "peak")
+            StreamerSearchStats.objects
+            .filter(language__in=LANGUAGES)
+            .values_list("language", "peak_viewers")
+            .iterator(chunk_size=10000)
         )
 
         counts_by_language = {lang: [0] * (len(PEAK_BUCKET_THRESHOLDS) + 1) for lang in LANGUAGES}
