@@ -32,7 +32,7 @@ export function AuthStatus({ user }: AuthStatusProps) {
     }
 
     return (
-        <div className="flex gap-x-8 gap-y-4 flex-col justify-center items-center md:flex-row md:items-end lg:flex-row lg:items-end">
+        <div className="flex gap-x-8 gap-y-4 flex-col justify-center items-start md:flex-row md:items-end lg:flex-row lg:items-end">
             {!user
                 ? (pathname === "/login"
                     ? <span className="text-white underline underline-offset-3 text-nowrap">Log in</span>
