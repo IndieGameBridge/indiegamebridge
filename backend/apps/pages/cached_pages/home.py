@@ -1,5 +1,8 @@
+from django.db import connection
+from django.db.models import Max
+
 from .base import BaseCachedPageBuilder
-from apps.streams.models import Stream, StreamerProfile
+from apps.streams.models import Stream, StreamerProfile, StreamerSearchStats
 from apps.streams.search import StreamerSearch
 
 
@@ -8,14 +11,24 @@ class HomePageBuilder(BaseCachedPageBuilder):
     log_label = "Home page"
 
     def build_content(self) -> dict:
-        total_streamers = StreamerProfile.objects.filter(streams__status=Stream.Status.APPROVED).distinct().count()
-        total_streams = Stream.objects.filter(status=Stream.Status.APPROVED).count()
+        # Approximate, O(1) headline counts: MAX(id) for streamers (profiles are
+        # only removed on opt-out, so it tracks the total seen) and the planner's
+        # row estimate for streams. Avoids COUNT scans over the streams table that
+        # grow with the data.
+        total_streamers = StreamerProfile.objects.aggregate(max_id=Max("id"))["max_id"] or 0
+        total_streams = self._estimated_stream_count()
+        # Searchable streamers = rows in the precomputed search table (active in the
+        # last 4 weeks). Slightly over the distinct count since a multi-language
+        # streamer has one row per language, but that's a tiny fraction - and the
+        # figure is presented as approximate anyway. Cheap COUNT on a ~1M narrow table.
+        searchable_streamers = StreamerSearchStats.objects.count()
         filters_config, _ = StreamerSearch.get_filters_config()
 
         return {
             "title": f"IndieGameBridge",
             "description": f"Find Twitch streamers worth pitching your indie game to",
-            "info": f"Currently tracking {total_streamers:,} streamers across {total_streams:,} observed streams",
+            "info": f"Tracking {self._approx(total_streamers)} streamers across {self._approx(total_streams)} observed streams,"
+                f" with {self._approx(searchable_streamers)} active and searchable in the last 4 weeks",
             "project_goal": {
                 "title": f"What this project is for",
                 "description": f"The project aims to help indie developers find and collaborate with streamers who regularly broadcast specific game genres to a relevant audience."
@@ -39,7 +52,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     "Peak/average viewers, hours, and genres are based on each streamer's streams from the last 4 weeks."
                 ],
                 "demo_note": f"The search form is a demo of the real search form, which is available for logged in users."
-                    f" The results below are real, matching the search parameters prefilled in the form and updating hourly.",
+                    f" The results below are real, matching the search parameters prefilled in the form and updated daily.",
                 "cta_link_text": f"Log in to use the search"
             },
             "search_results": StreamerSearch().results(limit=50),
@@ -49,3 +62,29 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "loading": f"Loading...",
             },
         }
+
+    @staticmethod
+    def _estimated_stream_count() -> int:
+        # Planner row estimate (instant) instead of an exact COUNT that scans the
+        # whole streams table. Non-approved streams are a small transient slice,
+        # so the whole-table estimate closely tracks the approved count.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT reltuples::bigint FROM pg_class WHERE relname = %s",
+                [Stream._meta.db_table],
+            )
+            row = cursor.fetchone()
+        estimate = int(row[0]) if row and row[0] else 0
+        if estimate > 0:
+            return estimate
+        # Fallback if the table was never ANALYZEd (reltuples = -1): exact count.
+        return Stream.objects.filter(status=Stream.Status.APPROVED).count()
+
+    @staticmethod
+    def _approx(value: int) -> str:
+        # Deliberately approximate display, e.g. 2,538,318 -> "2.5M".
+        if value >= 1_000_000:
+            return f"{value / 1_000_000:.1f}M"
+        if value >= 1_000:
+            return f"{value / 1_000:.0f}K"
+        return str(value)
