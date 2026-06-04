@@ -263,7 +263,7 @@ export function SearchStreamerForm({
                     </fieldset>
                 </div>
                 {!user
-                    ? <div className="col-span-1 lg:col-span-3 md:col-span-2 text-orange-600 mt-4 border-t border-orange-500 pt-4">
+                    ? <div className="col-span-1 lg:col-span-4 md:col-span-2 text-orange-600 mt-4 border-t border-orange-500 pt-4">
                         <div>
                             <span className="font-bold uppercase">{search_form.demo_title}</span>
                             <span> {search_form.demo_note}</span>
