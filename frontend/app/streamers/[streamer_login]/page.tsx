@@ -131,7 +131,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                     </div>
                     <div className="max-w-[1000] mx-auto pb-24 italic">{content.notes.map((one_note, index) => (
                         <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4"
-                            style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
+                            style={{ "--note-marker": `"${"*".repeat(index + 1)}"` } as React.CSSProperties}
                         >{one_note}</div>
                     ))}</div>
                 </section>

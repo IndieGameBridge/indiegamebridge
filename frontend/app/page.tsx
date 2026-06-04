@@ -19,12 +19,6 @@ type Section = {
     description: string;
 };
 
-type FeaturedSection = {
-    title: string;
-    description: string;
-    features: string[];
-};
-
 type HomePageContent = {
     title: string;
     description: string;
