@@ -379,5 +379,13 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        # Surface unhandled 500s on the console (-> gunicorn -> journald). Django's
+        # default routes request errors only to mail_admins, which isn't
+        # configured here, so without this the tracebacks vanish silently.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
     },
 }
