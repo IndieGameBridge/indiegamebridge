@@ -9,6 +9,10 @@ import { TrackingToggle } from "./_components/TrackingToggle";
 import { ExclusionToggle } from "./_components/ExclusionToggle";
 import { DeleteAccountButton } from "./_components/DeleteAccountButton";
 
+// Reads auth cookies + live backend data per request, so never prerender at
+// build time (the backend isn't reachable then). Render on demand on the Worker.
+export const dynamic = "force-dynamic";
+
 type AccountPageContent = {
     title: string;
     tracking_label: string;

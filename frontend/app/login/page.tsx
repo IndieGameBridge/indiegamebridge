@@ -5,6 +5,10 @@ import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
 import { PageHeader, PageFooter, PageFooterContent, TwitchLoginButton } from "../_components";
 
+// Reads auth cookies + live backend data per request, so never prerender at
+// build time (the backend isn't reachable then). Render on demand on the Worker.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
     title: "Log in — IndieGameBridge",
     robots: { index: false, follow: false },

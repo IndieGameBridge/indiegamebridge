@@ -13,6 +13,10 @@ import {
     TwitchStream,
 } from "../../_components";
 
+// Reads auth cookies + live backend data per request, so never prerender at
+// build time (the backend isn't reachable then). Render on demand on the Worker.
+export const dynamic = "force-dynamic";
+
 type StreamerProfilePageContent = {
     title: string;
     stats_title: string;

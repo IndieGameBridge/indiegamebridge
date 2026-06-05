@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// NOTE: This is the `middleware` convention, not Next 16's `proxy`. Next 16's
+// proxy.ts runs on the Node.js runtime (and can't be configured to edge), but
+// the OpenNext Cloudflare adapter only supports *edge* middleware. The
+// middleware convention still gives us the edge runtime, so we keep it here.
+
 const ACCESS_COOKIE = "ig_access";
 const REFRESH_COOKIE = "ig_refresh";
 const CSRF_COOKIE = "csrftoken";
@@ -36,7 +41,7 @@ function rebuildCookieHeader(original: string, overrides: Map<string, string>): 
     return merged.join("; ");
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
     // Skip our own auth endpoints to avoid recursion: refreshing on a refresh
     // request would consume the rotated token twice, and finalize-login is the
     // view that issues fresh cookies in the first place. Also skip allauth's
