@@ -13,6 +13,10 @@ import {
     TwitchStream,
 } from "../../_components";
 
+// Reads auth cookies + live backend data per request, so never prerender at
+// build time (the backend isn't reachable then). Render on demand on the Worker.
+export const dynamic = "force-dynamic";
+
 type StreamerProfilePageContent = {
     title: string;
     stats_title: string;
@@ -131,7 +135,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                     </div>
                     <div className="max-w-[1000] mx-auto pb-24 italic">{content.notes.map((one_note, index) => (
                         <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4"
-                            style={{ ["--note-marker" as any]: `"${"*".repeat(index + 1)}"` }}
+                            style={{ "--note-marker": `"${"*".repeat(index + 1)}"` } as React.CSSProperties}
                         >{one_note}</div>
                     ))}</div>
                 </section>

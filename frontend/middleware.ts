@@ -1,12 +1,91 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// NOTE: This is the `middleware` convention, not Next 16's `proxy`. Next 16's
+// proxy.ts runs on the Node.js runtime (and can't be configured to edge), but
+// the OpenNext Cloudflare adapter only supports *edge* middleware. The
+// middleware convention still gives us the edge runtime, so we keep it here.
+
 const ACCESS_COOKIE = "ig_access";
 const REFRESH_COOKIE = "ig_refresh";
 const CSRF_COOKIE = "csrftoken";
 
 const API_BASE = process.env.API_BASE_URL ?? "http://localhost:8000";
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+const FRONTEND_HOST = new URL(FRONTEND_URL).host;
+const FRONTEND_PROTO = new URL(FRONTEND_URL).protocol.replace(":", "");
+
+// Django URL prefixes the browser must reach directly. We proxy them here
+// instead of via next.config rewrites because the OAuth dance needs a TRANSPARENT
+// reverse proxy: forward X-Forwarded-Host so allauth builds redirect_uri against
+// the frontend origin, and pass 3xx redirects + Set-Cookie straight through to
+// the browser. Next/OpenNext rewrites follow redirects server-side and don't
+// forward the host, which breaks the Twitch login flow.
+const PROXY_PREFIXES = ["/accounts/", "/auth/", "/api/"];
+
+// Hop-by-hop / framing headers the runtime must recompute. Forwarding stale
+// values from the upstream corrupts the response body.
+const STRIP_RESPONSE_HEADERS = new Set([
+    "content-encoding",
+    "content-length",
+    "transfer-encoding",
+    "connection",
+]);
+
+async function proxyToBackend(request: NextRequest): Promise<Response> {
+    const url = request.nextUrl;
+    // Django uses APPEND_SLASH, so ensure exactly one trailing slash on the path
+    // (the query string is preserved separately).
+    const path = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+    const target = `${API_BASE}${path}${url.search}`;
+
+    const headers = new Headers(request.headers);
+    headers.delete("host"); // let fetch set Host to the backend origin
+    headers.set("x-forwarded-host", FRONTEND_HOST);
+    headers.set("x-forwarded-proto", FRONTEND_PROTO);
+
+    const hasBody = request.method !== "GET" && request.method !== "HEAD";
+    let upstream: Response;
+    try {
+        upstream = await fetch(target, {
+            method: request.method,
+            headers,
+            body: hasBody ? request.body : undefined,
+            redirect: "manual", // pass the backend's 3xx through to the browser
+            // Required when streaming a request body on the edge runtime.
+            ...(hasBody ? { duplex: "half" } : {}),
+        } as RequestInit);
+    } catch {
+        return new Response("Bad Gateway", { status: 502 });
+    }
+
+    // Rebuild headers: drop framing headers, and re-append each Set-Cookie
+    // individually (a plain copy folds multiple Set-Cookie into one).
+    const outHeaders = new Headers();
+    upstream.headers.forEach((value, key) => {
+        const lower = key.toLowerCase();
+        if (lower === "set-cookie" || STRIP_RESPONSE_HEADERS.has(lower)) return;
+        outHeaders.set(key, value);
+    });
+    for (const cookie of upstream.headers.getSetCookie()) {
+        outHeaders.append("set-cookie", cookie);
+    }
+
+    // Django emits relative redirect targets (e.g. "/auth/finalize-login/..").
+    // Absolutize them against the request origin: OpenNext's routing layer runs
+    // `new URL(location)` on the response and throws "Invalid URL string" on a
+    // bare path. (Absolute upstream Locations pass through unchanged.)
+    const location = outHeaders.get("location");
+    if (location) {
+        outHeaders.set("location", new URL(location, request.url).toString());
+    }
+
+    return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: outHeaders,
+    });
+}
 
 function extractCookieNameValue(setCookie: string): { name: string; value: string } | null {
     const firstSegment = setCookie.split(";")[0];
@@ -36,15 +115,15 @@ function rebuildCookieHeader(original: string, overrides: Map<string, string>): 
     return merged.join("; ");
 }
 
-export async function proxy(request: NextRequest) {
-    // Skip our own auth endpoints to avoid recursion: refreshing on a refresh
-    // request would consume the rotated token twice, and finalize-login is the
-    // view that issues fresh cookies in the first place. Also skip allauth's
-    // OAuth dance for the same reason.
-    if (request.nextUrl.pathname.startsWith("/auth/") || request.nextUrl.pathname.startsWith("/accounts/")) {
-        return NextResponse.next();
+export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    // Transparent reverse proxy to Django for the browser-facing prefixes.
+    if (PROXY_PREFIXES.some((p) => pathname.startsWith(p))) {
+        return proxyToBackend(request);
     }
 
+    // --- Proactive access-token refresh for page (document) requests ---
     // Access token still present (or user has neither) - nothing to do.
     if (request.cookies.has(ACCESS_COOKIE)) {
         return NextResponse.next();

@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "indiegamebridge-frontend",
+  "account_id": "72b56cc9c17d35c1a6c256971683a1b2",
+  "main": ".open-next/worker.js",
+  // nodejs_compat is required by the OpenNext adapter so the Next.js server can
+  // use Node built-ins on Workers. Keep compatibility_date recent.
+  "compatibility_date": "2025-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  // Serve the Worker on the apex domain. Cloudflare creates the proxied DNS
+  // record + TLS cert automatically (the zone is in this same account). The
+  // *.workers.dev URL keeps working as a secondary address.
+  "routes": [
+    { "pattern": "indiegamebridge.com", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Runtime environment variables (non-secret). Server components read these via
+  // process.env. API_BASE_URL/FRONTEND_URL replace the localhost dev fallbacks.
+  "vars": {
+    "API_BASE_URL": "https://api.indiegamebridge.com",
+    "FRONTEND_URL": "https://indiegamebridge.com",
+    // Cloudflare Turnstile public site key for the contact form. Fill in the
+    // real key from the Turnstile dashboard before relying on the contact page;
+    // an empty key makes contact-form submissions fail against the live backend.
+    "TURNSTILE_SITE_KEY": ""
+  },
+  "observability": {
+    "enabled": true
+  }
+}

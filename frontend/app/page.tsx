@@ -14,15 +14,13 @@ import {
 import { getCurrentUser } from "./_lib/auth";
 import { serverFetch } from "./_lib/server-fetch";
 
+// Reads auth cookies + live backend data per request, so never prerender at
+// build time (the backend isn't reachable then). Render on demand on the Worker.
+export const dynamic = "force-dynamic";
+
 type Section = {
     title: string;
     description: string;
-};
-
-type FeaturedSection = {
-    title: string;
-    description: string;
-    features: string[];
 };
 
 type HomePageContent = {

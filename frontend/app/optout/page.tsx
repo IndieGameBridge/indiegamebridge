@@ -7,6 +7,10 @@ import { PageHeader, PageFooter, PageFooterContent, TwitchLoginButton } from "..
 import { OptOutButton } from "./_components/OptOutButton";
 import { OptOutSuccess } from "./_components/OptOutSuccess";
 
+// Reads auth cookies + live backend data per request, so never prerender at
+// build time (the backend isn't reachable then). Render on demand on the Worker.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
     title: "Opt out — IndieGameBridge",
     robots: { index: false, follow: false },
