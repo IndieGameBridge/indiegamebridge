@@ -1,6 +1,7 @@
 import logging
 
 from django.core.management.base import BaseCommand
+from django.db import connection
 from django.db.models import BigIntegerField, Exists, Lookup, OuterRef
 
 from apps.streams.models import Game, Stream
@@ -88,9 +89,46 @@ class Command(BaseCommand):
             ))
             return
 
-        approved_count = to_approve.update(status=Stream.Status.APPROVED)
+        # Capture ids before the status flip so we can compute genre_ids for
+        # exactly this batch. Approval is the one moment guaranteed to come after
+        # both the stream's finalization and its games' genre enrichment, so it's
+        # where the denormalized Stream.genre_ids must be (re)computed - the
+        # enrich-time refresh only covers streams already approved at that point.
+        approve_ids = list(to_approve.values_list("id", flat=True))
+        approved_count = (
+            Stream.objects.filter(id__in=approve_ids).update(status=Stream.Status.APPROVED)
+            if approve_ids else 0
+        )
+        self._fill_genre_ids(approve_ids)
         deleted_count, _ = to_delete.delete()
 
         self.stdout.write(self.style.SUCCESS(
             f"Approved {approved_count} streams, deleted {deleted_count} streams."
         ))
+
+    @staticmethod
+    def _fill_genre_ids(stream_ids):
+        """Computes Stream.genre_ids for the just-approved streams from the current
+        Game.genres M2M state. Mirrors backfill_stream_genre_ids, scoped by id."""
+        if not stream_ids:
+            return
+        with connection.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE streams_stream s
+                SET genre_ids = sub.ids
+                FROM (
+                    SELECT s2.id AS stream_id,
+                           array_agg(DISTINCT gg.host_genre_id ORDER BY gg.host_genre_id) AS ids
+                    FROM streams_stream s2
+                    JOIN streams_game g ON g.host_game_id = ANY(s2.host_game_ids)
+                    JOIN streams_game_genres link ON link.game_id = g.id
+                    JOIN streams_gamegenre gg ON gg.id = link.gamegenre_id
+                    WHERE s2.id = ANY(%s)
+                    GROUP BY s2.id
+                ) sub
+                WHERE s.id = sub.stream_id
+                  AND s.genre_ids IS DISTINCT FROM sub.ids;
+                """,
+                [list(stream_ids)],
+            )

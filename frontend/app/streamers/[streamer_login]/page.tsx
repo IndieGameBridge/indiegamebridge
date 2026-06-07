@@ -35,7 +35,7 @@ type StreamerProfilePageContent = {
                 val: number;
                 at: string;
                 game: string;
-            };
+            } | null;
         };
         per_game: {
             name: string;
@@ -88,12 +88,16 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                         <div>
                             <div className="mb-2"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
                             <div className="mb-2"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
-                            <div className="text-brand-blue mb-2">Peak: </div>
-                            <div className="ml-4">
-                                <div className="mb-2">{content.stats.recent.maxv.val} viewers</div>
-                                <div className="mb-2">{content.stats.recent.maxv.game}</div>
-                                <div>{formatStreamTime(content.stats.recent.maxv.at)} UTC</div>
-                            </div>
+                            {content.stats.recent.maxv && (
+                                <Fragment>
+                                    <div className="text-brand-blue mb-2">Peak: </div>
+                                    <div className="ml-4">
+                                        <div className="mb-2">{content.stats.recent.maxv.val} viewers</div>
+                                        <div className="mb-2">{content.stats.recent.maxv.game}</div>
+                                        <div>{formatStreamTime(content.stats.recent.maxv.at)} UTC</div>
+                                    </div>
+                                </Fragment>
+                            )}
                         </div>
                     </div>
                 </section>
