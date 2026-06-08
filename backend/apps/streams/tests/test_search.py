@@ -116,6 +116,30 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertEqual(self._logins(results), ["high"])
 
+    def test_search_streams_count_filter(self):
+        rare = self._make_streamer(1, "rare")
+        frequent = self._make_streamer(2, "frequent")
+        self._make_stream(rare, 1, max_viewers=50, avg_viewers=20, duration=3600)
+        for i in range(5):
+            self._make_stream(frequent, 10 + i, max_viewers=50, avg_viewers=20, duration=3600)
+        self._rebuild()
+
+        results = StreamerSearch({"streamsmin": "3"}).results()
+
+        self.assertEqual(self._logins(results), ["frequent"])
+
+    def test_search_hours_filter(self):
+        short = self._make_streamer(1, "short")
+        long = self._make_streamer(2, "long")
+        self._make_stream(short, 1, max_viewers=50, avg_viewers=20, duration=3600)  # 1h
+        self._make_stream(long, 2, max_viewers=50, avg_viewers=20, duration=36000)  # 10h
+        self._rebuild()
+
+        # hoursmin is entered in hours; rows below 5h total are filtered out.
+        results = StreamerSearch({"hoursmin": "5"}).results()
+
+        self.assertEqual(self._logins(results), ["long"])
+
     def test_search_sort_peak_then_avg_then_duration(self):
         top_peak = self._make_streamer(1, "toppeak")
         avg_hi = self._make_streamer(2, "avghi")

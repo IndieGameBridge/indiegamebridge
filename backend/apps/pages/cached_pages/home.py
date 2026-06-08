@@ -49,7 +49,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "btn_text": "Apply Filters",
                 "demo_title": f"Note:",
                 "search_notes": [
-                    "Peak/average viewers, hours, and genres are based on each streamer's streams from the last 4 weeks."
+                    "Results are based on each streamer's streams from the last 4 weeks."
                 ],
                 "demo_note": f"The search form is a demo of the real search form, which is available for logged in users."
                     f" The results below are real, matching the search parameters prefilled in the form and updated daily.",
