@@ -24,6 +24,8 @@ class HomePageBuilder(BaseCachedPageBuilder):
         searchable_streamers = StreamerSearchStats.objects.count()
         filters_config, _ = StreamerSearch.get_filters_config()
 
+        demo_search = StreamerSearch()
+
         return {
             "title": f"IndieGameBridge",
             "description": f"Find Twitch streamers worth pitching your indie game to",
@@ -55,8 +57,10 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     f" The results below are real, matching the search parameters prefilled in the form and updated daily.",
                 "cta_link_text": f"Log in to use the search"
             },
-            "search_results": StreamerSearch().results(limit=50),
+            "search_results": demo_search.results(limit=50),
+            "search_total": demo_search.total(),
             "results_labels": {
+                "found_count": "Found {count} streamers",
                 "view_profile": f"View Profile",
                 "show_more": f"Show More",
                 "loading": f"Loading...",

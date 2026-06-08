@@ -30,6 +30,7 @@ type HomePageContent = {
     project_goal: Section;
     search_form: SearchFormData;
     search_results: StreamerData[];
+    search_total: number;
     methodology: Section;
     results_labels: ResultsListLabels;
     footer_content: PageFooterContent;
@@ -114,6 +115,7 @@ export default async function Home() {
                         <SearchStreamerResultsList
                             search_results={content.search_results}
                             labels={content.results_labels}
+                            total={content.search_total}
                             more_href={user ? "/streamers" : `/login?next=${encodeURIComponent("/streamers")}`}
                         ></SearchStreamerResultsList>
                     </div>
