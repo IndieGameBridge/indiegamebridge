@@ -69,6 +69,15 @@ class StreamerSearch:
             qs = qs.filter(avg_viewers__gte=self.filters["avgmin"])
         if self.filters.get("avgmax") is not None:
             qs = qs.filter(avg_viewers__lte=self.filters["avgmax"])
+        if self.filters.get("streamsmin") is not None:
+            qs = qs.filter(streams_count__gte=self.filters["streamsmin"])
+        if self.filters.get("streamsmax") is not None:
+            qs = qs.filter(streams_count__lte=self.filters["streamsmax"])
+        # Hours filters are entered in whole hours but stored as seconds.
+        if self.filters.get("hoursmin") is not None:
+            qs = qs.filter(total_duration_seconds__gte=self.filters["hoursmin"] * 3600)
+        if self.filters.get("hoursmax") is not None:
+            qs = qs.filter(total_duration_seconds__lte=self.filters["hoursmax"] * 3600)
         if self.filters.get("genres"):
             genres = self.filters["genres"]
             qs = qs.filter(genre_ids__overlap=genres if isinstance(genres, list) else [genres])
@@ -172,6 +181,24 @@ class StreamerSearch:
                 max_default=200,
             ),
             __class__._filter_defaults(
+                ui_control="range",
+                name="streams",
+                label="Streams",
+                min_values=__class__._get_streams_filter_values(),
+                min_default="3",
+                max_values=__class__._get_streams_filter_values() + [{"v": "any", "l": "Max"}],
+                max_default="any",
+            ),
+            __class__._filter_defaults(
+                ui_control="range",
+                name="hours",
+                label="Hours",
+                min_values=[{"v": "any", "l": "Min"}] + __class__._get_hours_filter_values(),
+                min_default="2",
+                max_values=__class__._get_hours_filter_values() + [{"v": "any", "l": "Max"}],
+                max_default="any",
+            ),
+            __class__._filter_defaults(
                 ui_control="dropdown",
                 name="genres",
                 label="Game Genre",
@@ -190,7 +217,14 @@ class StreamerSearch:
                 ],
                 default="en",
             ),
-        ], ["lang", "peakmin", "peakmax", "avgmin", "avgmax", "genres"]
+        ], [
+            "lang",
+            "peakmin", "peakmax",
+            "avgmin", "avgmax",
+            "streamsmin", "streamsmax",
+            "hoursmin", "hoursmax",
+            "genres",
+        ]
 
     @staticmethod
     def _get_viewers_filter_values():
@@ -217,6 +251,16 @@ class StreamerSearch:
             {"v": 4000, "l": "4000"},
             {"v": 5000, "l": "5000"},
         ]
+
+    @staticmethod
+    def _get_streams_filter_values():
+        # Number of streams over the 4-week window (e.g. ~4 = weekly, ~28 = daily).
+        return [{"v": n, "l": str(n)} for n in (1, 2, 3, 4, 8, 12, 16, 20, 24, 28)]
+
+    @staticmethod
+    def _get_hours_filter_values():
+        # Total streamed hours over the 4-week window.
+        return [{"v": n, "l": str(n)} for n in (1, 2, 3, 4, 8, 12, 16, 20, 30, 40, 50, 75, 100, 150, 200)]
 
     @staticmethod
     def _filter_defaults(**kwargs) -> dict:

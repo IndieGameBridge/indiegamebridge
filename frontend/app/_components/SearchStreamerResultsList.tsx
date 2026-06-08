@@ -16,6 +16,7 @@ export type StreamerData = {
 };
 
 export type ResultsListLabels = {
+    found_count?: string;
     view_profile: string;
     show_more: string;
     loading: string;
@@ -58,6 +59,14 @@ export function SearchStreamerResultsList({
 
     return (
         <div>
+            {/* Result count, between the form and the listing; tracks Show More.
+                Only shown when a real total is supplied (the home demo passes none). */}
+            {total !== undefined && labels.found_count && (
+                <div className="mb-8 text-lg text-brand-blue">
+                    {labels.found_count.replace("{count}", knownTotal.toLocaleString())}
+                </div>
+            )}
+
             {loadedResults.map((one_result, index) => (
                 <div key={`search-result-${index}`} className="border-t border-t-gray-400 pt-4 mb-24 bg-white">
 
