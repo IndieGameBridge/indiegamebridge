@@ -28,9 +28,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
 
         return {
             "title": "Genre Trends",
-            "description": "How Twitch game genres compare by real streaming activity over the last 4 weeks."
-                " Based on publicly available Twitch data; updated regularly. A handy reference for indie"
-                " developers gauging which genres draw streamers and watch-time - and which never really did.",
+            "description": "How Twitch game genres compare by real streaming activity over the last 4 weeks.",
             "diagrams": [
                 {
                     "title": "Streams per genre",

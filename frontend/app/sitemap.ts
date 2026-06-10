@@ -28,8 +28,9 @@ async function pageLastModified(key: string): Promise<Date | undefined> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Only the indexable public routes. Login, opt-out, and contact are marked
     // noindex (see each page's robots metadata), so they're left out.
-    const [homeModified, privacyModified] = await Promise.all([
+    const [homeModified, genreTrendsModified, privacyModified] = await Promise.all([
         pageLastModified("home"),
+        pageLastModified("genre_trends"),
         pageLastModified("privacy"),
     ]);
 
@@ -39,6 +40,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             lastModified: homeModified,
             changeFrequency: "hourly",
             priority: 1,
+        },
+        {
+            url: `${baseUrl}/genre-trends`,
+            lastModified: genreTrendsModified,
+            changeFrequency: "weekly",
+            priority: 0.8,
         },
         {
             url: `${baseUrl}/privacy`,

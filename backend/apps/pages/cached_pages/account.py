@@ -8,6 +8,7 @@ class AccountPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "title": f"Account Settings",
+            "description": f"Manage your tracking preferences and account.",
             "tracking_label": f"Allow feature-usage tracking for service improvement",
             "exclusion_label": f"Allow streams tracking for my Twitch ID",
             "exclusion_warning": f"Turning this off removes all data tied to your Twitch ID and excludes it from future collection."

@@ -35,6 +35,7 @@ export function PageHeader(
                                 <NavLink href="/">Home</NavLink>
                             </div>
                             <NavLink href="/streamers">Streamers</NavLink>
+                            <NavLink href="/genre-trends">Genre Trends</NavLink>
                         </div>
                         <AuthStatus user={user} />
                     </div>

@@ -8,6 +8,7 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "title": f"Privacy Policy",
+            "description": f"How IndieGameBridge collects, uses, and protects your data.",
             "return_home": f"Return to Home Page",
             "contact_link_text": f"Contact page",
             "last_updated": f"Last updated: May 31, 2026",

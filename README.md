@@ -6,7 +6,7 @@ Indie devs struggle to find the right small streamers to pitch their games to, a
 
 ## Status
 
-Backend and data pipeline are running in production on a single VPS, continuously polling Twitch and building the searchable dataset (millions of streamers tracked). The public web frontend and search are built and in final preparation for public release.
+Live in production. The backend and data pipeline run on a single VPS, continuously polling Twitch and building the searchable dataset (millions of streamers tracked); the public web frontend is deployed on Cloudflare Workers and serving the home page, Genre Trends, and authenticated streamer search.
 
 ## How it works
 
@@ -36,6 +36,10 @@ Search never scans the (large, ever-growing) streams table. Instead, a precomput
 - **`rebuild_search_stats`** recomputes the table in rolling chunks behind a saved cursor, so a scheduled cron covers the whole streamer set roughly daily without spiking the VPS. Stats are intentionally ~a day stale; the live polling cadence is unaffected.
 - Dormant streamers (no approved streams in the window) and stale language rows are pruned automatically as their chunk is reprocessed.
 
+### Genre Trends read-model
+
+The public **Genre Trends** page compares Twitch's game genres by real activity over the **last 4 weeks** — streams, distinct streamers, and hours streamed per genre — as a market-shift reference for developers. These are precomputed into a small per-genre **`GenreStats`** table by **`rebuild_genre_stats`**, which walks streamers in rolling chunks behind a cursor (like the search stats), accumulating each chunk into draft counters and publishing them atomically once a full pass completes. Hours are attributed per genre by splitting each stream's duration across the genres it actually played (by snapshot share), so non-game time like Just Chatting is excluded.
+
 ### Cached pages and widgets
 
 - Public page payloads are pre-rendered into a **`CachedPage`** table by **`update_cached_pages`** and served as-is. The home page (rebuilt daily) embeds a live demo search and headline counts (using O(1) approximations rather than full-table counts).
@@ -43,7 +47,7 @@ Search never scans the (large, ever-growing) streams table. Instead, a precomput
 
 ### Frontend
 
-Next.js (App Router) with server-side rendering and Tailwind CSS. Public pages — home, privacy policy, contact (Cloudflare Turnstile protected), opt-out, login — plus auth-gated streamer search (`/streamers`) and streamer profiles. Includes SEO essentials (metadata/Open Graph, `robots`, `sitemap`).
+Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Public pages — home, Genre Trends, privacy policy, contact (Cloudflare Turnstile protected), opt-out, login — plus auth-gated streamer search (`/streamers`) and streamer profiles. Includes SEO essentials (metadata/Open Graph, `robots`, `sitemap`).
 
 ### Auth
 
@@ -58,7 +62,7 @@ Twitch OAuth via django-allauth, with JWT sessions (SimpleJWT). The home page is
 
 ## Operations
 
-Runs on a single DigitalOcean droplet. All ingestion and cache-rebuild steps are cron-driven management commands, staggered across the hour and monitored via Healthchecks.io pings. The serving layer is Gunicorn (Django API) plus the Next.js app.
+The backend runs on a single DigitalOcean droplet: the Django API is served by Gunicorn, and all ingestion and cache-rebuild steps are cron-driven management commands, staggered across the hour and monitored via Healthchecks.io pings. The Next.js frontend is deployed separately on Cloudflare Workers (OpenNext) and calls the API over its own subdomain.
 
 ## License
 

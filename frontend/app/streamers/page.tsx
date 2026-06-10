@@ -21,6 +21,7 @@ export const dynamic = "force-dynamic";
 
 type StreamersPageContent = {
     title: string;
+    description: string;
     search_form: SearchFormData;
     results_labels: ResultsListLabels;
     footer_content: PageFooterContent;
@@ -91,7 +92,7 @@ export default async function StreamersPage({
 
     return (
         <Fragment>
-            <PageHeader user={user} title={content.title} />
+            <PageHeader user={user} title={content.title} description={content.description} />
 
             <main className="w-full">
                 <section className="px-6">

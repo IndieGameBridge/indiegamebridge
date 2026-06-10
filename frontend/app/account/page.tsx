@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 type AccountPageContent = {
     title: string;
+    description: string;
     tracking_label: string;
     exclusion_label: string;
     exclusion_warning: string;
@@ -51,7 +52,7 @@ export default async function AccountPage() {
 
     return (
         <Fragment>
-            <PageHeader user={user} title={content.title} />
+            <PageHeader user={user} title={content.title} description={content.description} />
 
             <main className="flex-1">
                 <section className="px-6">
