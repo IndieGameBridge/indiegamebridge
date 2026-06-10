@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.pages.cached_pages import (
     AccountPageBuilder,
     ContactPageBuilder,
+    GenreTrendsPageBuilder,
     HomePageBuilder,
     LoginPageBuilder,
     OptOutPageBuilder,
@@ -23,6 +24,7 @@ class Command(BaseCommand):
     builders = [
         PageFooterBuilder,
         HomePageBuilder,
+        GenreTrendsPageBuilder,
         StreamersPageBuilder,
         StreamerProfilePageBuilder,
         AccountPageBuilder,
