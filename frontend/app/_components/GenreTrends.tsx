@@ -97,7 +97,7 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
             </svg>
             </div>
 
-            <p className="mt-4 text-sm opacity-80">{description}</p>
+            <p className="mt-4 text-sm">{description}</p>
         </div>
     );
 }
