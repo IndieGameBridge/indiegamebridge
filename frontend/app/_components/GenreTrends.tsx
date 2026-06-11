@@ -41,13 +41,16 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
         <div className="col-span-1">
             <h3 className="text-lg font-semibold mb-4">{title}</h3>
 
+            {/* Fixed pixel width inside a scroll container: the chart keeps its
+                readable size and scrolls horizontally on screens narrower than it,
+                rather than shrinking the bars and labels. */}
+            <div className="overflow-x-auto">
             <svg
                 width={width}
                 height={height}
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
                 aria-label={title}
-                className="w-full h-auto"
             >
                 <title>{title}</title>
                 <desc>{`Horizontal bar chart of ${y_label.toLowerCase()} per genre over the last 4 weeks.`}</desc>
@@ -92,6 +95,7 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                     );
                 })}
             </svg>
+            </div>
 
             <p className="mt-4 text-sm opacity-80">{description}</p>
         </div>
