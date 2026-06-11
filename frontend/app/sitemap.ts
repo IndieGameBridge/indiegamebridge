@@ -38,13 +38,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         {
             url: baseUrl,
             lastModified: homeModified,
-            changeFrequency: "hourly",
+            changeFrequency: "daily",
             priority: 1,
         },
         {
             url: `${baseUrl}/genre-trends`,
             lastModified: genreTrendsModified,
-            changeFrequency: "weekly",
+            changeFrequency: "daily",
             priority: 0.8,
         },
         {
