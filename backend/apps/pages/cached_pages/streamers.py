@@ -10,6 +10,7 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
         filters_config, _ = StreamerSearch.get_filters_config()
         return {
             "title": "Search Streamers",
+            "description": "Filter Twitch streamers by genre, language, and audience size.",
             "search_form": {
                 "title": "Search Streamers",
                 "aria_label": "Search streamers form",

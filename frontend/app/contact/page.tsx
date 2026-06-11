@@ -34,6 +34,7 @@ export type ContactFormCopy = {
 
 export type ContactPageContent = {
     title: string;
+    description: string;
     intro_title: string;
     intro_content: string;
     form: ContactFormCopy;
@@ -58,7 +59,7 @@ export default async function ContactPage() {
 
     return (
         <Fragment>
-            <PageHeader user={user} title={content.title} />
+            <PageHeader user={user} title={content.title} description={content.description} />
 
             <main className="flex-1">
                 <section className="px-6">

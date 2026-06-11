@@ -2,6 +2,7 @@ export * from "./AuthStatus";
 export * from "./SearchStreamerForm";
 export * from "./SearchStreamerResultsList";
 export * from "./StreamersDistribution";
+export * from "./GenreTrends";
 export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";
 export * from "./IndieGameBridgeMark";

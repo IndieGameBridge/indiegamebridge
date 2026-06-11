@@ -262,7 +262,7 @@ export function SearchStreamerForm({
                 <div className="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
                     <div className="col-span-1 md:col-span-1 lg:col-span-3 text-sm italic">
                         {search_form.search_notes.map((one_note, index) => (
-                            <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative"
+                            <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4 pt-2"
                                 style={{ "--note-marker": `"${"*".repeat(index + 1)}"` } as React.CSSProperties}
                             >{one_note}</div>
                         ))}

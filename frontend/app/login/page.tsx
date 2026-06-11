@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 
 export type LoginPageContent = {
     title: string;
+    description: string;
     prompt: string;
     twitch_login_btn: string;
     signing_in: string;
@@ -48,7 +49,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
     return (
         <Fragment>
-            <PageHeader user={user} title={content.title} />
+            <PageHeader user={user} title={content.title} description={content.description} />
 
             <main className="flex-1 px-6">
                 <div className="max-w-md mx-auto py-24">

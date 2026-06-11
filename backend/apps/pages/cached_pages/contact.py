@@ -8,6 +8,7 @@ class ContactPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "title": f"Contact",
+            "description": f"Questions or feedback? We'd love to hear from you.",
             "return_home": f"Return to Home Page",
             "intro_title": f"Have a question or feedback?",
             "intro_content": f" Send us a message and we'll get back to you. You can also reach us"

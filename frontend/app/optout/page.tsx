@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 
 export type OptOutPageContent = {
     title: string;
+    description: string;
     prompt_title: string;
     not_logged_in: { prompt_content: string; login_btn: string; verifying: string };
     logged_in: { prompt_content: string; optout_btn: string; optout_btn_pending: string };
@@ -51,7 +52,7 @@ export default async function OptOutPage({ searchParams }: { searchParams: Promi
 
     return (
         <Fragment>
-            <PageHeader user={user} title={content.title} />
+            <PageHeader user={user} title={content.title} description={content.description} />
 
             <main className="flex-1">
                 <section className="px-6">

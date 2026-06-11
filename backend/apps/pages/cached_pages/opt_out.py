@@ -8,6 +8,7 @@ class OptOutPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "title": f"Opt Out",
+            "description": f"Remove your Twitch ID from data collection at any time.",
             "return_home": f"Return to Home Page",
             "prompt_title": f"Want to opt out?",
             "not_logged_in": {
