@@ -26,6 +26,8 @@ type Section = {
 type HomePageContent = {
     title: string;
     description: string;
+    seo_title?: string;
+    seo_description?: string;
     info: string;
     project_goal: Section;
     search_form: SearchFormData;
@@ -49,18 +51,21 @@ async function fetchHomeContent(): Promise<HomePageContent> {
 
 export async function generateMetadata(): Promise<Metadata> {
     const content = await fetchHomeContent();
+    // Prefer the keyword-led SEO copy; fall back to the visible header text.
+    const seoTitle = content.seo_title ?? content.title;
+    const seoDescription = content.seo_description ?? content.description;
     return {
-        title: content.title,
-        description: content.description,
+        title: seoTitle,
+        description: seoDescription,
         alternates: { canonical: "/" },
         openGraph: {
-            title: content.title,
-            description: content.description,
+            title: seoTitle,
+            description: seoDescription,
             url: "/",
         },
         twitter: {
-            title: content.title,
-            description: content.description,
+            title: seoTitle,
+            description: seoDescription,
         },
     };
 }
@@ -72,12 +77,36 @@ export default async function Home() {
     ]);
 
     const siteUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+    // No SearchAction: the only searchable content is the streamer pages, which
+    // sit behind an OAuth gate and are deliberately kept out of the index.
     const jsonLd = {
         "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: "IndieGameBridge",
-        url: siteUrl,
-        description: content.description,
+        "@graph": [
+            {
+                "@type": "Organization",
+                "@id": `${siteUrl}/#organization`,
+                name: "IndieGameBridge",
+                url: siteUrl,
+            },
+            {
+                "@type": "WebSite",
+                "@id": `${siteUrl}/#website`,
+                name: "IndieGameBridge",
+                url: siteUrl,
+                description: content.description,
+                publisher: { "@id": `${siteUrl}/#organization` },
+            },
+            {
+                "@type": "WebApplication",
+                "@id": `${siteUrl}/#app`,
+                name: "IndieGameBridge",
+                url: siteUrl,
+                applicationCategory: "BusinessApplication",
+                operatingSystem: "Web",
+                description: content.description,
+                publisher: { "@id": `${siteUrl}/#organization` },
+            },
+        ],
     };
 
     return (

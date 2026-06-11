@@ -29,16 +29,24 @@ class HomePageBuilder(BaseCachedPageBuilder):
         return {
             "title": f"IndieGameBridge",
             "description": f"Find Twitch streamers worth pitching your indie game to",
+            # SEO <title> / meta description, kept separate from the visible
+            # header above. The header doubles as the page's h1/intro, so it
+            # stays brand-led, while these are keyword-led for search results.
+            "seo_title": "Find Twitch Streamers for Your Indie Game | IndieGameBridge",
+            "seo_description": "Find Twitch streamers who actively play your game's genre, "
+                "ranked by real viewership from the last 4 weeks. IndieGameBridge helps indie "
+                "developers reach the right streamers to pitch and grow their audience.",
             "info": f"Tracking {self._approx(total_streamers)} streamers across {self._approx(total_streams)} observed streams,"
                 f" with {self._approx(searchable_streamers)} active and searchable in the last 4 weeks",
             "project_goal": {
-                "title": f"What this project is for",
-                "description": f"The project aims to help indie developers find and collaborate with streamers who regularly broadcast specific game genres to a relevant audience."
+                "title": f"How indie developers find the right Twitch streamers",
+                "description": f"IndieGameBridge helps indie game developers find and collaborate with Twitch streamers who regularly broadcast specific game genres to a relevant audience."
+                    f" Instead of guessing who to pitch, you can search streamers by the genres they actually play and by their recent viewership, so your outreach reaches creators whose audience already enjoys games like yours."
                     f" The platform only aggregates statistics from publicly available information provided by Twitch via the Helix API."
                     f" We do not collect or share any private information.",
             },
             "methodology": {
-                "title": f"Methodology",
+                "title": f"How we measure Twitch streaming activity",
                 "description": f"We poll live Twitch streams every 20 minutes via the Helix API."
                     f" Each snapshot records the game, viewer count, date, and time."
                     f" Once a stream ends, we compute its peak viewer count from the snapshots collected while it was live,"
