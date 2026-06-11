@@ -105,13 +105,13 @@ export default async function GenreTrendsPage() {
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto pt-24 pb-24">
                         {content.intro && (
-                            <p className="mb-16 max-w-3xl text-lg opacity-80">{content.intro}</p>
+                            <p className="mb-16 text-lg opacity-80">{content.intro}</p>
                         )}
                         <GenreTrends diagrams={content.diagrams} />
                         {content.faq && content.faq.items.length > 0 && (
                             <section className="mt-24">
                                 <h2 className="text-2xl font-bold mb-8">{content.faq.title}</h2>
-                                <dl className="grid grid-cols-1 gap-8 max-w-3xl">
+                                <dl className="grid grid-cols-1 gap-8">
                                     {content.faq.items.map((item) => (
                                         <div key={item.question}>
                                             <dt className="font-semibold mb-2">{item.question}</dt>
