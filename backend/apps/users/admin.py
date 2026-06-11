@@ -4,7 +4,9 @@ from django.contrib.auth.admin import UserAdmin
 from apps.users.models import User, TwitchExclusion, AccountSettings
 
 
-admin.site.register(User, UserAdmin)
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display = UserAdmin.list_display + ("date_joined",)
 
 
 @admin.register(TwitchExclusion)
