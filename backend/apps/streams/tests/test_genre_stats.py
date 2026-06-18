@@ -51,12 +51,12 @@ class RebuildGenreStatsTests(TestCase):
         )
 
     def _make_stream(self, profile, host_stream_id, duration, genre_ids,
-                     snapshots=None, days_ago=1):
+                     snapshots=None, days_ago=1, language="en"):
         return Stream.objects.create(
             streamer_profile=profile,
             host_stream_id=host_stream_id,
             status=Stream.Status.APPROVED,
-            language="en",
+            language=language,
             started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
             finished_at=timezone.now() - timedelta(days=days_ago),
             snapshots=snapshots or [],
@@ -86,8 +86,10 @@ class RebuildGenreStatsTests(TestCase):
         return state.last_profile_id if state else 0
 
     @staticmethod
-    def _stats(host_genre_id):
-        return GenreStats.objects.get(genre__host_genre_id=host_genre_id)
+    def _stats(host_genre_id, language="en"):
+        return GenreStats.objects.get(
+            genre__host_genre_id=host_genre_id, language=language
+        )
 
     def test_streams_and_streamers_count_per_genre(self):
         self._make_genre(10, "Action")
@@ -143,6 +145,36 @@ class RebuildGenreStatsTests(TestCase):
 
         action = self._stats(10)
         self.assertEqual((action.streams_count, action.streamers_count), (2, 2))
+
+    def test_counts_split_by_language(self):
+        self._make_genre(10, "Action")
+        en = self._make_streamer(1, "en_streamer")
+        fr = self._make_streamer(2, "fr_streamer")
+        # Two English streams + one French stream on the same genre.
+        self._make_stream(en, 1, duration=3600, genre_ids=[10], language="en")
+        self._make_stream(en, 2, duration=3600, genre_ids=[10], language="en")
+        self._make_stream(fr, 3, duration=3600, genre_ids=[10], language="fr")
+
+        self._run_full_cycle()
+
+        self.assertEqual(self._stats(10, "en").streams_count, 2)
+        self.assertEqual(self._stats(10, "en").streamers_count, 1)
+        self.assertEqual(self._stats(10, "fr").streams_count, 1)
+        self.assertEqual(self._stats(10, "fr").streamers_count, 1)
+
+    def test_unlisted_language_is_ignored(self):
+        self._make_genre(10, "Action")
+        streamer = self._make_streamer(1, "ru_streamer")
+        # Russian isn't in the surfaced language set, so it contributes no rows.
+        self._make_stream(streamer, 1, duration=3600, genre_ids=[10], language="ru")
+
+        self._run_full_cycle()
+
+        self.assertFalse(
+            GenreStats.objects.filter(genre__host_genre_id=10)
+            .exclude(streams_count=0)
+            .exists()
+        )
 
     def test_published_only_after_cycle_completes(self):
         self._make_genre(10, "Action")
