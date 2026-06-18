@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
+from apps.streams.distribution import LANGUAGES
 from apps.streams.models import (
     Game,
     GameGenre,
@@ -97,9 +98,12 @@ class Command(BaseCommand):
         window_start = timezone.now() - timedelta(days=WINDOW_DAYS)
         game_genres = self._game_genre_map()
 
-        streams_per_genre: dict[int, int] = defaultdict(int)
-        streamers_per_genre: dict[int, set[int]] = defaultdict(set)
-        seconds_per_genre: dict[int, float] = defaultdict(float)
+        # Counters are keyed by (genre host id, language) so each genre's activity is
+        # tracked per broadcast language. Only the languages the page surfaces are
+        # accumulated; streams in other languages are skipped (mirrors search/distribution).
+        streams_per_key: dict[tuple[int, str], int] = defaultdict(int)
+        streamers_per_key: dict[tuple[int, str], set[int]] = defaultdict(set)
+        seconds_per_key: dict[tuple[int, str], float] = defaultdict(float)
 
         streams = (
             Stream.objects
@@ -107,16 +111,17 @@ class Command(BaseCommand):
                 streamer_profile_id__in=profile_ids,
                 status=Stream.Status.APPROVED,
                 finished_at__gte=window_start,
+                language__in=LANGUAGES,
             )
-            .values_list("streamer_profile_id", "genre_ids", "duration", "snapshots")
+            .values_list("streamer_profile_id", "language", "genre_ids", "duration", "snapshots")
             .iterator(chunk_size=2000)
         )
 
-        for profile_id, genre_ids, duration, snapshots in streams:
+        for profile_id, language, genre_ids, duration, snapshots in streams:
             # #1 streams and #2 streamers: use the stream's distinct genre list.
             for genre_id in genre_ids or ():
-                streams_per_genre[genre_id] += 1
-                streamers_per_genre[genre_id].add(profile_id)
+                streams_per_key[(genre_id, language)] += 1
+                streamers_per_key[(genre_id, language)].add(profile_id)
 
             # #3 duration: split the real duration across snapshots, attributing each
             # snapshot's slice to every genre of the game it observed. Snapshots on
@@ -128,31 +133,36 @@ class Command(BaseCommand):
             per_snapshot = duration / total_snapshots
             for snapshot in snapshots:
                 for genre_id in game_genres.get(snapshot.get("g"), ()):  # () when ungenred
-                    seconds_per_genre[genre_id] += per_snapshot
+                    seconds_per_key[(genre_id, language)] += per_snapshot
 
-        self._add_to_draft(streams_per_genre, streamers_per_genre, seconds_per_genre)
+        self._add_to_draft(streams_per_key, streamers_per_key, seconds_per_key)
 
     @staticmethod
-    def _add_to_draft(streams_per_genre, streamers_per_genre, seconds_per_genre) -> None:
-        touched_ids = set(streams_per_genre) | set(seconds_per_genre)
-        if not touched_ids:
+    def _add_to_draft(streams_per_key, streamers_per_key, seconds_per_key) -> None:
+        touched_keys = set(streams_per_key) | set(seconds_per_key)
+        if not touched_keys:
             return
 
         # Map genre host ids -> GameGenre pks (only those defined as genres).
+        host_ids = {host_id for host_id, _language in touched_keys}
         genre_pk_by_host = dict(
             GameGenre.objects
-            .filter(host_genre_id__in=touched_ids)
+            .filter(host_genre_id__in=host_ids)
             .values_list("host_genre_id", "id")
         )
 
         with transaction.atomic():
-            for host_id, genre_pk in genre_pk_by_host.items():
-                stats, _ = GenreStats.objects.get_or_create(genre_id=genre_pk)
+            for host_id, language in touched_keys:
+                genre_pk = genre_pk_by_host.get(host_id)
+                if genre_pk is None:  # snapshot game tagged with a non-genre host id
+                    continue
+                key = (host_id, language)
+                stats, _ = GenreStats.objects.get_or_create(genre_id=genre_pk, language=language)
                 GenreStats.objects.filter(pk=stats.pk).update(
-                    draft_streams_count=F("draft_streams_count") + streams_per_genre.get(host_id, 0),
-                    draft_streamers_count=F("draft_streamers_count") + len(streamers_per_genre.get(host_id, ())),
+                    draft_streams_count=F("draft_streams_count") + streams_per_key.get(key, 0),
+                    draft_streamers_count=F("draft_streamers_count") + len(streamers_per_key.get(key, ())),
                     draft_total_duration_seconds=(
-                        F("draft_total_duration_seconds") + round(seconds_per_genre.get(host_id, 0.0))
+                        F("draft_total_duration_seconds") + round(seconds_per_key.get(key, 0.0))
                     ),
                 )
 

@@ -4,9 +4,11 @@ from apps.streams.models.game_genre import GameGenre
 
 
 class GenreStats(models.Model):
-    """Per-genre aggregate over the last 4 weeks, for the public Genre Trends page.
+    """Per-(genre, language) aggregate over the last 4 weeks, for the Genre Trends page.
 
-    One row per GameGenre. Each row carries two sets of counters:
+    One row per (GameGenre, language). The language axis lets the page break each
+    genre's activity down by broadcast language (English / French / German) instead of
+    lumping every language into a single bar. Each row carries two sets of counters:
 
     - The ``*`` (published) fields are the last fully completed cycle's values and
       are what the page reads. They only change when a build cycle finishes.
@@ -16,14 +18,18 @@ class GenreStats(models.Model):
       pass over all streamers = one cycle).
 
     Because the rebuild partitions streamers into disjoint chunks, a streamer (and so
-    its distinct-streamer contribution to a genre) is counted in exactly one chunk, so
-    chunk contributions can simply be summed without cross-chunk de-duplication.
+    its distinct-streamer contribution to a genre/language) is counted in exactly one
+    chunk, so chunk contributions can simply be summed without cross-chunk de-duplication.
     """
 
-    genre = models.OneToOneField(
+    genre = models.ForeignKey(
         GameGenre,
         on_delete=models.CASCADE,
         related_name="stats",
+    )
+    language = models.CharField(
+        max_length=2,
+        help_text="ISO 639-1 two-letter language code these counters are scoped to.",
     )
 
     # Published counters - read by the page; swapped in only at end of a cycle.
@@ -52,8 +58,14 @@ class GenreStats(models.Model):
     draft_streamers_count = models.PositiveBigIntegerField(default=0)
     draft_total_duration_seconds = models.PositiveBigIntegerField(default=0)
 
+    class Meta:
+        unique_together = ("genre", "language")
+
     def __str__(self):
-        return f"GenreStats(genre_id={self.genre_id}, streams={self.streams_count})"
+        return (
+            f"GenreStats(genre_id={self.genre_id}, language={self.language!r},"
+            f" streams={self.streams_count})"
+        )
 
 
 class GenreStatsBuildState(models.Model):
