@@ -92,7 +92,7 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                                 textAnchor="end"
                                 dominantBaseline="central"
                                 fontSize="13"
-                                className="fill-current"
+                                className="fill-current selection:fill-white"
                             >
                                 {bar.x}
                             </text>
@@ -121,7 +121,7 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                                             textAnchor="start"
                                             dominantBaseline="central"
                                             fontSize="11"
-                                            className="fill-current"
+                                            className="fill-current selection:fill-white"
                                         >
                                             {value.toLocaleString()}
                                         </text>
@@ -153,7 +153,7 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                                 textAnchor="start"
                                 dominantBaseline="central"
                                 fontSize="13"
-                                className="fill-current"
+                                className="fill-current selection:fill-white"
                             >
                                 {lang.label}
                             </text>
