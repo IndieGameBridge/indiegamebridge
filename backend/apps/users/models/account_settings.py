@@ -12,6 +12,9 @@ class AccountSettings(models.Model):
     Note: the Twitch streams opt-out is intentionally NOT stored here - it
     lives in TwitchExclusion, keyed by Twitch ID and queried by the streams
     poll independently of the user record.
+
+    allow_tracking also gates login bookkeeping (LoginSnapshot rows and the
+    last_login timestamp) - see apps.users.signals.
     """
 
     user = models.OneToOneField(
