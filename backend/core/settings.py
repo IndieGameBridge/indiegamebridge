@@ -56,6 +56,11 @@ NUM_PROXIES = env.int("NUM_PROXIES", default=1)
 # unset (local dev), the backend skips verification so the form still works.
 TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
 
+# ipinfo.io token for resolving login IPs to a coarse location (country code /
+# region / city) on LoginSnapshot rows. Leave blank to skip the lookup -
+# snapshots then record only user, time and IP.
+IPINFO_API_TOKEN = env("IPINFO_API_TOKEN", default="")
+
 # Next.js sits in front of Django and forwards X-Forwarded-Host with the
 # browser's original host (localhost:3000). Trust it so allauth's redirect_uri
 # is built against the frontend origin - otherwise Twitch sends the user back
