@@ -150,10 +150,12 @@ class RebuildGenreStatsTests(TestCase):
         self._make_genre(10, "Action")
         en = self._make_streamer(1, "en_streamer")
         fr = self._make_streamer(2, "fr_streamer")
-        # Two English streams + one French stream on the same genre.
+        es = self._make_streamer(3, "es_streamer")
+        # Two English streams + one French + one Spanish stream on the same genre.
         self._make_stream(en, 1, duration=3600, genre_ids=[10], language="en")
         self._make_stream(en, 2, duration=3600, genre_ids=[10], language="en")
         self._make_stream(fr, 3, duration=3600, genre_ids=[10], language="fr")
+        self._make_stream(es, 4, duration=3600, genre_ids=[10], language="es")
 
         self._run_full_cycle()
 
@@ -161,11 +163,13 @@ class RebuildGenreStatsTests(TestCase):
         self.assertEqual(self._stats(10, "en").streamers_count, 1)
         self.assertEqual(self._stats(10, "fr").streams_count, 1)
         self.assertEqual(self._stats(10, "fr").streamers_count, 1)
+        self.assertEqual(self._stats(10, "es").streams_count, 1)
+        self.assertEqual(self._stats(10, "es").streamers_count, 1)
 
     def test_unlisted_language_is_ignored(self):
         self._make_genre(10, "Action")
         streamer = self._make_streamer(1, "ru_streamer")
-        # Russian isn't in the surfaced language set, so it contributes no rows.
+        # en/fr/de/es are the surfaced set; Russian isn't, so it contributes no rows.
         self._make_stream(streamer, 1, duration=3600, genre_ids=[10], language="ru")
 
         self._run_full_cycle()

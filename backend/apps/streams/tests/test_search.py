@@ -12,8 +12,22 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.streams.distribution import LANGUAGES
 from apps.streams.models import GameGenre, Stream, StreamerProfile, StreamerSearchStats
 from apps.streams.search import StreamerSearch
+
+# StreamerSearch applies the search form's defaults to every call (peak/avg 5-200,
+# >= 4 streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
+# not "no filters". The tests below probe one filter at a time against deliberately
+# tiny fixtures, so they neutralise the rest explicitly: "any" is the config's
+# no-filter sentinel, and streamsmin has no "any" option so it takes its lowest
+# value instead. test_default_filters_apply covers the defaults themselves.
+NO_FILTERS = {
+    "peakmin": "any", "peakmax": "any",
+    "avgmin": "any", "avgmax": "any",
+    "streamsmin": 1, "streamsmax": "any",
+    "hoursmin": "any", "hoursmax": "any",
+}
 
 
 class RebuildAndSearchTests(TestCase):
@@ -52,6 +66,10 @@ class RebuildAndSearchTests(TestCase):
         # rolling cursor left off (keeps tests independent of chunk cadence).
         call_command("rebuild_search_stats", reset=True)
 
+    def _search(self, **overrides):
+        """A search with only the filters under test applied (see NO_FILTERS)."""
+        return StreamerSearch({**NO_FILTERS, **overrides})
+
     def _logins(self, results):
         return [row["login"] for row in results]
 
@@ -73,13 +91,16 @@ class RebuildAndSearchTests(TestCase):
         bob = self._make_streamer(1, "bob")
         self._make_stream(bob, 1, max_viewers=10, avg_viewers=5, duration=3600, language="en")
         self._make_stream(bob, 2, max_viewers=20, avg_viewers=15, duration=3600, language="fr")
+        self._make_stream(bob, 3, max_viewers=30, avg_viewers=25, duration=3600, language="es")
 
         self._rebuild()
 
         en = StreamerSearchStats.objects.get(streamer_profile=bob, language="en")
         fr = StreamerSearchStats.objects.get(streamer_profile=bob, language="fr")
+        es = StreamerSearchStats.objects.get(streamer_profile=bob, language="es")
         self.assertEqual((en.peak_viewers, en.avg_viewers), (10, 5))
         self.assertEqual((fr.peak_viewers, fr.avg_viewers), (20, 15))
+        self.assertEqual((es.peak_viewers, es.avg_viewers), (30, 25))
 
     def test_streams_outside_window_are_excluded(self):
         active = self._make_streamer(1, "active")
@@ -112,7 +133,7 @@ class RebuildAndSearchTests(TestCase):
         self._make_stream(high, 2, max_viewers=150, avg_viewers=5, duration=3600)
         self._rebuild()
 
-        results = StreamerSearch({"peakmin": "100"}).results()
+        results = self._search(peakmin="100").results()
 
         self.assertEqual(self._logins(results), ["high"])
 
@@ -124,7 +145,7 @@ class RebuildAndSearchTests(TestCase):
             self._make_stream(frequent, 10 + i, max_viewers=50, avg_viewers=20, duration=3600)
         self._rebuild()
 
-        results = StreamerSearch({"streamsmin": "3"}).results()
+        results = self._search(streamsmin="3").results()
 
         self.assertEqual(self._logins(results), ["frequent"])
 
@@ -136,7 +157,7 @@ class RebuildAndSearchTests(TestCase):
         self._rebuild()
 
         # hoursmin is entered in hours; rows below 5h total are filtered out.
-        results = StreamerSearch({"hoursmin": "5"}).results()
+        results = self._search(hoursmin="5").results()
 
         self.assertEqual(self._logins(results), ["long"])
 
@@ -151,7 +172,7 @@ class RebuildAndSearchTests(TestCase):
         self._make_stream(dur_hi, 4, max_viewers=100, avg_viewers=90, duration=8000)
         self._rebuild()
 
-        results = StreamerSearch().results()
+        results = self._search().results()
 
         self.assertEqual(self._logins(results), ["toppeak", "durhi", "avghi", "avglo"])
 
@@ -164,7 +185,7 @@ class RebuildAndSearchTests(TestCase):
         self._make_stream(puzzle, 2, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[20])
         self._rebuild()
 
-        results = StreamerSearch({"genres": "10"}).results()
+        results = self._search(genres="10").results()
 
         self.assertEqual(self._logins(results), ["action"])
         self.assertEqual(results[0]["genres"], ["Action"])
@@ -173,20 +194,23 @@ class RebuildAndSearchTests(TestCase):
         bob = self._make_streamer(1, "bob")
         self._make_stream(bob, 1, max_viewers=10, avg_viewers=5, duration=3600, language="en")
         self._make_stream(bob, 2, max_viewers=20, avg_viewers=15, duration=3600, language="fr")
+        self._make_stream(bob, 3, max_viewers=30, avg_viewers=25, duration=3600, language="es")
         self._rebuild()
 
-        en_results = StreamerSearch({"lang": "en"}).results()
-        fr_results = StreamerSearch({"lang": "fr"}).results()
+        en_results = self._search(lang="en").results()
+        fr_results = self._search(lang="fr").results()
+        es_results = self._search(lang="es").results()
 
         self.assertEqual(en_results[0]["peak_viewers"], 10)
         self.assertEqual(fr_results[0]["peak_viewers"], 20)
+        self.assertEqual(es_results[0]["peak_viewers"], 30)
 
     def test_result_row_shape(self):
         streamer = self._make_streamer(1, "solo")
         self._make_stream(streamer, 1, max_viewers=100, avg_viewers=40, duration=7200)
         self._rebuild()
 
-        (row,) = StreamerSearch().results()
+        (row,) = self._search().results()
 
         self.assertEqual(row["login"], "solo")
         self.assertEqual(row["display_name"], "Solo")
@@ -196,3 +220,25 @@ class RebuildAndSearchTests(TestCase):
         self.assertEqual(row["hours_streamed"], 2)  # 7200s -> 2h
         self.assertEqual(row["streams_count"], 1)
         self.assertNotIn("total_duration_seconds", row)
+
+    def test_default_filters_apply_when_none_are_given(self):
+        # A bare search is the form's default search, not an unfiltered one. Locks
+        # the defaults (>= 4 streams, >= 8 hours) that moved once already and left
+        # every other search test here asserting an empty result set.
+        casual = self._make_streamer(1, "casual")
+        regular = self._make_streamer(2, "regular")
+        self._make_stream(casual, 1, max_viewers=50, avg_viewers=20, duration=3600)
+        for i in range(4):
+            self._make_stream(regular, 10 + i, max_viewers=50, avg_viewers=20, duration=3 * 3600)
+        self._rebuild()
+
+        self.assertEqual(self._logins(StreamerSearch().results()), ["regular"])
+
+    def test_language_filter_offers_every_tracked_language(self):
+        # This dropdown is the only whitelist ?lang= is validated against, so a
+        # language surfaced elsewhere but missing here silently falls back to the
+        # default one instead of erroring.
+        filters_config, _ = StreamerSearch.get_filters_config()
+        lang_filter = next(one for one in filters_config if one["name"] == "lang")
+
+        self.assertEqual([one["v"] for one in lang_filter["values"]], LANGUAGES)
