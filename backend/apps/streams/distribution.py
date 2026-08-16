@@ -17,7 +17,7 @@ PEAK_BUCKET_THRESHOLDS = [5, 10, 15, 20, 30, 40, 50, 75, 100, 200]
 # Mirrors the language filter in StreamerSearch. Hardcoded in both places for now;
 # expected to move to admin-managed settings once the polling language list becomes
 # configurable.
-LANGUAGES = ["en", "fr", "de"]
+LANGUAGES = ["en", "fr", "de", "es"]
 
 # Effective floor for a stream's peak max_viewers: per HomePageBuilder's
 # methodology text, streams below this many viewers don't get approved.

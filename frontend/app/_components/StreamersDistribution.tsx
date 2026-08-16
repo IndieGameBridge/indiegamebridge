@@ -10,11 +10,12 @@ type DistributionData = {
 
 // Display order for the charts. Defined here (not driven by the API response)
 // because JSONB storage doesn't preserve key insertion order, so iterating
-// data.buckets directly would render alphabetically (de, en, fr).
+// data.buckets directly would render alphabetically (de, en, es, fr).
 const LANGUAGES: { code: string; label: string }[] = [
     { code: "en", label: "English" },
     { code: "fr", label: "French" },
     { code: "de", label: "German" },
+    { code: "es", label: "Spanish" },
 ];
 
 export async function StreamersDistribution() {

@@ -10,13 +10,16 @@ export type GenreDiagram = {
 };
 
 // Per-language bar colours. These are from the Okabe-Ito colour-blind-safe palette:
-// blue, bluish-green and amber. Amber replaces a pure yellow because yellow has poor
-// contrast on a white background; the three stay distinguishable for the common forms
-// of colour blindness. Keyed by ISO 639-1 code (matches the backend legend codes).
+// blue, bluish-green, amber and reddish-purple. Amber replaces a pure yellow because
+// yellow has poor contrast on a white background, and reddish-purple is preferred over
+// the palette's vermillion because vermillion sits too close to amber; the four stay
+// distinguishable for the common forms of colour blindness. Keyed by ISO 639-1 code
+// (matches the backend legend codes).
 const LANGUAGE_COLORS: Record<string, string> = {
     en: "#0072B2", // blue
     fr: "#009E73", // bluish green
     de: "#E69F00", // amber
+    es: "#CC79A7", // reddish purple
 };
 const FALLBACK_COLOR = "#6b7280";
 

@@ -17,6 +17,7 @@ LANGUAGE_NAMES = {
     "en": "English",
     "fr": "French",
     "de": "German",
+    "es": "Spanish",
 }
 
 

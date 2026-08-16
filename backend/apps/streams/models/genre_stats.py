@@ -7,7 +7,7 @@ class GenreStats(models.Model):
     """Per-(genre, language) aggregate over the last 4 weeks, for the Genre Trends page.
 
     One row per (GameGenre, language). The language axis lets the page break each
-    genre's activity down by broadcast language (English / French / German) instead of
+    genre's activity down by broadcast language (English / French / German / Spanish) instead of
     lumping every language into a single bar. Each row carries two sets of counters:
 
     - The ``*`` (published) fields are the last fully completed cycle's values and
