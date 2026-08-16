@@ -213,7 +213,8 @@ class StreamerSearch:
                 values=[
                     {"v": "en", "l": "English"},
                     {"v": "fr", "l": "French"},
-                    {"v": "de", "l": "German"}
+                    {"v": "de", "l": "German"},
+                    {"v": "es", "l": "Spanish"}
                 ],
                 default="en",
             ),

@@ -4,7 +4,7 @@ from apps.streams.models import GameGenre, GenreStats
 
 # Human-readable labels for the languages the page breaks each genre down by. Keyed by
 # the same ISO 639-1 codes as distribution.LANGUAGES; drives the chart legend.
-LANGUAGE_LABELS = {"en": "English", "fr": "French", "de": "German"}
+LANGUAGE_LABELS = {"en": "English", "fr": "French", "de": "German", "es": "Spanish"}
 
 
 class GenreTrendsPageBuilder(BaseCachedPageBuilder):
@@ -12,7 +12,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
 
     Reads the precomputed GenreStats rows (built by rebuild_genre_stats) and shapes
     them into chart-ready payloads. Each genre's activity is broken down by broadcast
-    language (English / French / German) so a diagram shows one coloured bar per language
+    language (English / French / German / Spanish) so a diagram shows one coloured bar per language
     instead of a single combined bar. Every defined genre is shown, including zero-value
     ones, so the page also tells the 'this genre was never popular' story. Each diagram
     is sorted high-to-low (by the genre's total across languages) so the most-streamed
@@ -47,11 +47,11 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
             # header above (which doubles as the page's h1/intro).
             "seo_title": "Twitch Game Genre Trends & Streaming Stats | IndieGameBridge",
             "seo_description": "Compare Twitch game genres by real streaming activity - streams, streamers, and "
-                "hours per genre over the last 4 weeks, by language (English, French, German).",
+                "hours per genre over the last 4 weeks, by language (English, French, German, Spanish).",
             "intro": "Wondering which game genres are most popular on Twitch right now? The charts below rank every"
                 " genre we track by real streaming activity over the last 4 weeks - not just viewer counts, but how many"
                 " streams happened, how many distinct streamers took part, and how many hours they broadcast. Each genre"
-                " is broken down by broadcast language - English, French and German - so you can see where its audience"
+                " is broken down by broadcast language - English, French, German and Spanish - so you can see where its audience"
                 " actually is. For indie game developers, that shows where an engaged streamer audience already exists for"
                 " games like yours, and which genres are worth focusing your outreach on. The data is rebuilt daily from"
                 " live Twitch streams.",
@@ -77,9 +77,9 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
                     },
                     {
                         "question": "Which languages are included in the genre trends?",
-                        "answer": "Each chart splits a genre's activity across the three broadcast languages we currently"
-                            " track - English, French and German. Streams in other languages aren't counted, so the totals"
-                            " reflect those three audiences.",
+                        "answer": "Each chart splits a genre's activity across the four broadcast languages we currently"
+                            " track - English, French, German and Spanish. Streams in other languages aren't counted, so"
+                            " the totals reflect those four audiences.",
                     },
                     {
                         "question": "How can indie developers use genre trends?",

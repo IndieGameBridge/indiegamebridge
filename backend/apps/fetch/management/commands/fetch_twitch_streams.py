@@ -31,7 +31,7 @@ class Command(BaseCommand):
         logger.info("Starting to fetch streams...")
 
         # TODO LATER: use values from admin settings
-        languages = ["en", "de", "fr"]
+        languages = ["en", "de", "fr", "es"]
 
         # Used to calculate limit of allowed requests per language
         # Initially all the languages are in the queue
