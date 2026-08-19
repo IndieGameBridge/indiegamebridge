@@ -13,7 +13,13 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.streams.distribution import LANGUAGES
-from apps.streams.models import GameGenre, Stream, StreamerProfile, StreamerSearchStats
+from apps.streams.models import (
+    GameGenre,
+    SearchStatsRebuildState,
+    Stream,
+    StreamerProfile,
+    StreamerSearchStats,
+)
 from apps.streams.search import StreamerSearch
 
 # StreamerSearch applies the search form's defaults to every call (peak/avg 5-200,
@@ -242,3 +248,28 @@ class RebuildAndSearchTests(TestCase):
         lang_filter = next(one for one in filters_config if one["name"] == "lang")
 
         self.assertEqual([one["v"] for one in lang_filter["values"]], LANGUAGES)
+
+    def test_pass_completes_while_new_profiles_keep_arriving(self):
+        # Regression: the cursor used to wrap only on a run that found *nothing* past
+        # it. fetch_twitch_streams inserts profiles continuously, so that run never
+        # came - the cursor pinned itself to the top of the id range and every row
+        # below it was never recomputed again (leaving the read-model months stale).
+        for host_id in (1, 2):
+            streamer = self._make_streamer(host_id, f"s{host_id}")
+            self._make_stream(streamer, host_id, max_viewers=50, avg_viewers=20, duration=3600)
+
+        call_command("rebuild_search_stats", reset=True, chunk=2)
+        self.assertNotEqual(self._cursor(), 0)  # full chunk -> pass still open
+
+        # A new streamer lands above the cursor, as the fetch cron would create it.
+        newcomer = self._make_streamer(3, "s3")
+        self._make_stream(newcomer, 3, max_viewers=50, avg_viewers=20, duration=3600)
+
+        call_command("rebuild_search_stats", chunk=2)
+        self.assertEqual(self._cursor(), 0)
+        self.assertEqual(StreamerSearchStats.objects.count(), 3)
+
+    @staticmethod
+    def _cursor():
+        state = SearchStatsRebuildState.objects.filter(pk=1).first()
+        return state.last_profile_id if state else 0

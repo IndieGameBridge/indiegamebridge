@@ -55,19 +55,27 @@ class Command(BaseCommand):
         )
 
         if not profile_ids:
-            # Ran past the end of the set: wrap so the next run starts over.
+            # Nothing above the cursor at all (empty table, or a reset that raced the
+            # fetch cron). Wrap so the next run starts a fresh pass.
             state.last_profile_id = 0
             state.save(update_fields=["last_profile_id", "updated_at"])
-            logger.info("rebuild_search_stats: end of set reached, cursor wrapped to 0.")
+            logger.info("rebuild_search_stats: nothing to process, cursor wrapped to 0.")
             return
 
         created = self._rebuild_chunk(profile_ids)
 
-        state.last_profile_id = profile_ids[-1]
+        # A short chunk means this run reached the tail of the id range, so the pass is
+        # done: wrap now instead of waiting for a run that comes back empty. That empty
+        # run never happens in practice - fetch_twitch_streams inserts new profiles every
+        # poll, so there are essentially always ids above the cursor - which used to pin
+        # the cursor to the top of the range and freeze the whole read-model.
+        end_of_set = len(profile_ids) < chunk
+        state.last_profile_id = 0 if end_of_set else profile_ids[-1]
         state.save(update_fields=["last_profile_id", "updated_at"])
         logger.info(
-            "rebuild_search_stats: processed %s profiles (ids %s..%s), wrote %s stat rows.",
+            "rebuild_search_stats: processed %s profiles (ids %s..%s), wrote %s stat rows.%s",
             len(profile_ids), profile_ids[0], profile_ids[-1], created,
+            " End of set reached, cursor wrapped to 0." if end_of_set else "",
         )
 
     @staticmethod

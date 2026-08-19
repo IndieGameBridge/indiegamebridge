@@ -65,20 +65,30 @@ class Command(BaseCommand):
         )
 
         if not profile_ids:
-            # Ran past the end of the set: publish the completed cycle and wrap.
+            # Nothing above the cursor at all (empty table, or a reset that raced the
+            # fetch cron). Publish whatever the cycle accumulated and wrap.
             self._publish_draft()
             state.last_profile_id = 0
             state.save(update_fields=["last_profile_id", "updated_at"])
-            logger.info("rebuild_genre_stats: end of set reached, draft published, cursor wrapped to 0.")
+            logger.info("rebuild_genre_stats: nothing to process, draft published, cursor wrapped to 0.")
             return
 
         self._accumulate_chunk(profile_ids)
 
-        state.last_profile_id = profile_ids[-1]
+        # A short chunk means this run reached the tail of the id range, so the cycle is
+        # done: publish and wrap now instead of waiting for a run that comes back empty.
+        # That empty run never happens in practice - fetch_twitch_streams inserts new
+        # profiles every poll, so there are essentially always ids above the cursor -
+        # which used to mean the draft was never published at all.
+        end_of_set = len(profile_ids) < chunk
+        if end_of_set:
+            self._publish_draft()
+        state.last_profile_id = 0 if end_of_set else profile_ids[-1]
         state.save(update_fields=["last_profile_id", "updated_at"])
         logger.info(
-            "rebuild_genre_stats: processed %s profiles (ids %s..%s).",
+            "rebuild_genre_stats: processed %s profiles (ids %s..%s).%s",
             len(profile_ids), profile_ids[0], profile_ids[-1],
+            " End of set reached, draft published, cursor wrapped to 0." if end_of_set else "",
         )
 
     @staticmethod
