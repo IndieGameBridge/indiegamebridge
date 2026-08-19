@@ -67,17 +67,14 @@ class RebuildGenreStatsTests(TestCase):
         )
 
     def _run_full_cycle(self, chunk=20000):
-        # reset zeroes the draft + cursor and processes the first chunk; repeated
-        # runs cover the rest; the run that finds nothing past the cursor publishes
-        # the draft and wraps. A final empty run guarantees we land on that publish.
+        # reset zeroes the draft + cursor and processes the first chunk; repeated runs
+        # cover the rest. The run whose chunk reaches the tail of the id range completes
+        # the cycle: it publishes draft -> published and wraps the cursor back to 0.
         call_command("rebuild_genre_stats", reset=True, chunk=chunk)
         for _ in range(50):
-            if not StreamerProfile.objects.filter(
-                id__gt=self._cursor()
-            ).exists():
+            if self._cursor() == 0:  # wrapped -> cycle complete, draft published
                 break
             call_command("rebuild_genre_stats", chunk=chunk)
-        call_command("rebuild_genre_stats", chunk=chunk)  # publish + wrap
 
     @staticmethod
     def _cursor():
@@ -182,17 +179,45 @@ class RebuildGenreStatsTests(TestCase):
 
     def test_published_only_after_cycle_completes(self):
         self._make_genre(10, "Action")
-        self._make_stream(self._make_streamer(1, "solo"), 1, duration=3600, genre_ids=[10])
+        for host_id in (1, 2, 3):
+            self._make_stream(
+                self._make_streamer(host_id, f"s{host_id}"),
+                host_id, duration=3600, genre_ids=[10],
+            )
 
-        # First chunk accumulates into the draft but must not touch published values.
-        call_command("rebuild_genre_stats", reset=True)
+        # A full chunk means more profiles may follow, so this run accumulates into
+        # the draft but must not touch published values.
+        call_command("rebuild_genre_stats", reset=True, chunk=2)
         mid = self._stats(10)
         self.assertEqual(mid.streams_count, 0)
-        self.assertEqual(mid.draft_streams_count, 1)
+        self.assertEqual(mid.draft_streams_count, 2)
 
-        # The wrapping run publishes and zeroes the draft.
-        call_command("rebuild_genre_stats")
+        # The short chunk reaches the tail, so this run publishes and zeroes the draft.
+        call_command("rebuild_genre_stats", chunk=2)
         done = self._stats(10)
-        self.assertEqual(done.streams_count, 1)
+        self.assertEqual(done.streams_count, 3)
         self.assertEqual(done.draft_streams_count, 0)
+        self.assertEqual(self._cursor(), 0)
         self.assertIsNotNone(done.computed_at)
+
+    def test_cycle_completes_while_new_profiles_keep_arriving(self):
+        # Regression: the wrap used to require a run that found *nothing* past the
+        # cursor. fetch_twitch_streams inserts profiles continuously, so that run never
+        # came - the cursor pinned itself to the top of the id range and the draft was
+        # never published. Reaching the tail must end the cycle even when the set grew.
+        self._make_genre(10, "Action")
+        for host_id in (1, 2):
+            self._make_stream(
+                self._make_streamer(host_id, f"s{host_id}"),
+                host_id, duration=3600, genre_ids=[10],
+            )
+
+        call_command("rebuild_genre_stats", reset=True, chunk=2)
+        self.assertNotEqual(self._cursor(), 0)  # full chunk -> cycle still open
+
+        # A new streamer lands above the cursor, as the fetch cron would create it.
+        self._make_stream(self._make_streamer(3, "s3"), 3, duration=3600, genre_ids=[10])
+
+        call_command("rebuild_genre_stats", chunk=2)
+        self.assertEqual(self._cursor(), 0)
+        self.assertEqual(self._stats(10).streams_count, 3)
