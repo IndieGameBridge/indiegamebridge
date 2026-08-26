@@ -86,15 +86,15 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
                         <div className="text-2xl font-bold mb-8">{content.stats_title}</div>
                         <div>
-                            <div className="mb-2"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
-                            <div className="mb-2"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
+                            <div className="mb-1"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
+                            <div className="mb-1"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
                             {content.stats.recent.maxv && (
                                 <Fragment>
                                     <div className="text-brand-blue mb-2">Peak: </div>
                                     <div className="ml-4">
-                                        <div className="mb-2">{content.stats.recent.maxv.val} viewers</div>
-                                        <div className="mb-2">{content.stats.recent.maxv.game}</div>
-                                        <div>{formatStreamTime(content.stats.recent.maxv.at)} UTC</div>
+                                        <div className="mb-1">• {content.stats.recent.maxv.val} viewers</div>
+                                        <div className="mb-1">• {content.stats.recent.maxv.game}</div>
+                                        <div>• {formatStreamTime(content.stats.recent.maxv.at)} UTC</div>
                                     </div>
                                 </Fragment>
                             )}

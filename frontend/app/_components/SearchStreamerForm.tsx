@@ -270,8 +270,8 @@ export function SearchStreamerForm({
                     <fieldset className="flex justify-center col-span-1 items-start">
                         <button type="submit" disabled={!user || isPending}
                             className={!user || isPending
-                                ? "text-sm align-baseline bg-gray-300 p-2 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed min-w-36"
-                                : "text-sm align-baseline bg-blue-600 p-2 rounded-sm text-white hover:bg-blue-700 cursor-pointer min-w-36"
+                                ? "text-sm align-baseline bg-gray-300 p-1 rounded-sm text-white hover:bg-gray-300 cursor-not-allowed min-w-36"
+                                : "text-sm align-baseline bg-blue-600 p-1 rounded-sm text-white hover:bg-blue-700 cursor-pointer min-w-36"
                             }
                         >{search_form.btn_text}</button>
                     </fieldset>
