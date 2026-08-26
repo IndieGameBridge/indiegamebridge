@@ -68,13 +68,13 @@ export function SearchStreamerResultsList({
             )}
 
             {loadedResults.map((one_result, index) => (
-                <div key={`search-result-${index}`} className="border-t border-t-gray-400 pt-4 mb-24 bg-white">
+                <div key={`search-result-${index}`} className="border-t border-t-gray-400 pt-2 mb-16 bg-white">
 
                     {/* Listing header */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-2 gap-6">
                         <div className="font-bold text-lg"><span className="text-gray-500 font-normal mr-1">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
-                            <Link className="text-sm align-baseline inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
+                            <Link className="text-sm align-baseline inline-block p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">{labels.view_profile}</Link>
                         </div>
                     </div>
@@ -82,7 +82,7 @@ export function SearchStreamerResultsList({
                     {/* Listing body */}
                     <div className="border-gray-300 border-t text-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
                         <div className="mb-4 pt-4">
-                            <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-1">
                                 <div className="text-nowrap py-1">
                                     <span className="text-brand-blue uppercase">Peak: </span>
                                     <span>{one_result.peak_viewers.toLocaleString()} viewers</span>
@@ -97,7 +97,7 @@ export function SearchStreamerResultsList({
                                 </div>
                             </div>
                         </div>
-                        <div className="flex flex-row flex-wrap content-start col-span-1 gap-4 md:col-span-1 lg:col-span-1 md:p-4 md:border-l md:border-l-gray-300 lg:p-4 lg:border-l lg:border-l-gray-300">{
+                        <div className="flex flex-row flex-wrap content-start col-span-1 gap-1 md:col-span-1 lg:col-span-1 md:p-4 md:border-l md:border-l-gray-300 lg:p-4 lg:border-l lg:border-l-gray-300">{
                             one_result.genres.map((genre_name, genre_index) => (
                                 <div key={`streamer-genre-${genre_index}`} className="self-start py-1 px-2 rounded-sm bg-gray-200">{genre_name}</div>
                             ))

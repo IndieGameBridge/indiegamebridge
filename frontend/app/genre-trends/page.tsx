@@ -105,7 +105,7 @@ export default async function GenreTrendsPage() {
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto pt-24 pb-24">
                         {content.intro && (
-                            <p className="mb-16 text-lg">{content.intro}</p>
+                            <p className="mb-16">{content.intro}</p>
                         )}
                         <GenreTrends diagrams={content.diagrams} />
                         {content.faq && content.faq.items.length > 0 && (
