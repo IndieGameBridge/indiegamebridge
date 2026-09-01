@@ -1,5 +1,5 @@
 import { PROFILE_SERIES } from "./StreamerActivityChart";
-import { ProfileBarChart } from "./ProfileBarChart";
+import { GroupedBarChart } from "./GroupedBarChart";
 
 export type StreamerGenreActivity = {
     x: string;
@@ -10,7 +10,7 @@ export type StreamerGenreActivity = {
 
 export function StreamerGenreChart({ genres }: { genres: StreamerGenreActivity[] }) {
     return (
-        <ProfileBarChart
+        <GroupedBarChart
             title="Hours and viewers per genre"
             caption="Hours streamed and viewers per genre over the last 4 weeks"
             description={

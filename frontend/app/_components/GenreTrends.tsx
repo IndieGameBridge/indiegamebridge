@@ -15,13 +15,13 @@ export type GenreDiagram = {
 // the palette's vermillion because vermillion sits too close to amber; the four stay
 // distinguishable for the common forms of colour blindness. Keyed by ISO 639-1 code
 // (matches the backend legend codes).
-const LANGUAGE_COLORS: Record<string, string> = {
+export const LANGUAGE_COLORS: Record<string, string> = {
     en: "#0072B2", // blue
-    fr: "#009E73", // bluish green
-    de: "#E69F00", // amber
-    es: "#CC79A7", // reddish purple
+    fr: "#00cb29", // bluish green
+    de: "#00dbe6", // amber
+    es: "#ce0c78", // reddish purple
 };
-const FALLBACK_COLOR = "#6b7280";
+export const FALLBACK_COLOR = "#6b7280";
 
 export function GenreTrends({ diagrams }: { diagrams: GenreDiagram[] }) {
     return (

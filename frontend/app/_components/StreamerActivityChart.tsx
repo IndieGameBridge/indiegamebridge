@@ -29,13 +29,13 @@ export const PROFILE_SERIES: ProfileSeries[] = [
     {
         key: "peak",
         label: "Peak viewers",
-        color: "#E69F00", // amber
+        color: "#00dbe6", // amber
         format: (v) => v.toLocaleString(),
     },
     {
         key: "avg",
         label: "Avg viewers",
-        color: "#009E73", // bluish green
+        color: "#00cb29", // bluish green
         format: (v) => v.toLocaleString(),
     },
 ];

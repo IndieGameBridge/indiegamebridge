@@ -76,7 +76,9 @@ class StreamersDistribution:
             "title": "Streamer Peak-Viewer Distribution",
             "description": f"Streamers grouped by their peak viewer count over the last 4 weeks."
                 f" Use it as a hint when choosing the 'Max Viewers' range in the search form."
-                f" Horizontal axis shows range of peak viewers. Each column represents number of streamers in the group.",
+                f" Horizontal axis shows range of peak viewers. Each column represents the share of that"
+                f" language's streamers falling in the group, so the languages stay comparable despite very"
+                f" different totals - the totals themselves are listed with the colours below the chart.",
             "buckets": {
                 language: cls._build_buckets(counts_by_language[language])
                 for language in LANGUAGES
