@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from django.db.models import Count, Sum
 from django.utils import timezone
@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 STREAMER_PROFILE_CACHE_TTL = timedelta(hours=1)
 STREAMER_PROFILE_STREAMS_LIMIT = 200
 STREAMER_PROFILE_RECENT_WINDOW = timedelta(weeks=4)
+# Number of calendar-day columns in the profile activity chart. Kept equal to the
+# recent window so the chart covers exactly the same 4 weeks as the stats above it.
+STREAMER_PROFILE_DAILY_DAYS = STREAMER_PROFILE_RECENT_WINDOW.days
 
 LANGUAGE_NAMES = {
     "en": "English",
@@ -93,6 +96,12 @@ class StreamerProfileStreams:
 
         top_recent = recent.order_by("-max_viewers").only("snapshots").first()
 
+        # Per-calendar-day activity over the recent window (drives the profile activity chart).
+        daily = self._build_daily(
+            recent.values("started_at", "duration", "max_viewers", "avg_viewers"),
+            now,
+        )
+
         # Per-game breakdown over the recent window, folded from snapshots (one stream can span games).
         per_game_acc = self._accumulate_per_game(recent.values("duration", "snapshots"))
 
@@ -126,6 +135,7 @@ class StreamerProfileStreams:
                     "maxv": self._max_viewers_snapshot(top_recent, games_index),
                 },
                 "per_game": self._build_per_game(per_game_acc, games_index),
+                "daily": daily,
             },
         }
 
@@ -195,6 +205,53 @@ class StreamerProfileStreams:
                 "avgv": round(game["sum_v"] / snaps) if snaps else 0,
             })
         return per_game
+
+    @staticmethod
+    def _build_daily(rows, now) -> list[dict]:
+        """Per-calendar-day activity over the recent window, newest day first.
+
+        One entry per UTC day, including days with no streams, so the chart's gaps
+        show how regularly the streamer goes live. Newest first because the recent
+        days are the ones worth reading, and they should land at the start of the
+        chart rather than off the end of its horizontal scroll. A stream is attributed
+        whole to the day it started on rather than split across midnight - the chart
+        answers "did they stream that day", so the start day is the meaningful bucket.
+        """
+        today = now.astimezone(dt_timezone.utc).date()
+        first_day = today - timedelta(days=STREAMER_PROFILE_DAILY_DAYS - 1)
+
+        buckets: dict[date, dict] = {}
+        for row in rows:
+            day = row["started_at"].astimezone(dt_timezone.utc).date()
+            # Streams that started before the window but finished inside it fall
+            # outside the labelled days and are dropped.
+            if not (first_day <= day <= today):
+                continue
+            bucket = buckets.setdefault(day, {"seconds": 0, "peak": 0, "sum_avg": 0, "streams": 0})
+            bucket["seconds"] += row["duration"] or 0
+            bucket["peak"] = max(bucket["peak"], row["max_viewers"] or 0)
+            bucket["sum_avg"] += row["avg_viewers"] or 0
+            bucket["streams"] += 1
+
+        daily = []
+        for offset in range(STREAMER_PROFILE_DAILY_DAYS):
+            day = today - timedelta(days=offset)
+            bucket = buckets.get(day)
+            daily.append({
+                "x": f"{day:%a} {day.day}",
+                # Flagged here rather than parsed back out of the label, which is
+                # locale-formatted and only meant for display.
+                "weekend": day.weekday() >= 5,
+                # Month band under the day labels; the window spans at most two.
+                "month": f"{day:%B}",
+                "hours": round(bucket["seconds"] / 3600, 1) if bucket else 0,
+                "peak": bucket["peak"] if bucket else 0,
+                # Mean of the day's per-stream avg viewers, matching how avg is
+                # aggregated elsewhere (StreamerSearchStats.avg_viewers).
+                "avg": round(bucket["sum_avg"] / bucket["streams"]) if bucket else 0,
+                "streams": bucket["streams"] if bucket else 0,
+            })
+        return daily
 
     @staticmethod
     def _max_viewers_snapshot(stream, games_index) -> dict | None:

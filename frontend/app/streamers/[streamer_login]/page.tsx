@@ -9,6 +9,8 @@ import {
     PageHeader,
     PageFooter,
     PageFooterContent,
+    StreamerActivityChart,
+    StreamerDailyActivity,
     StreamerProfileStreamsList,
     TwitchStream,
 } from "../../_components";
@@ -45,6 +47,9 @@ type StreamerProfilePageContent = {
             maxv: number;
             avgv: number;
         }[];
+        // Absent from profile-cache entries written before the chart was added;
+        // those entries drop out on their own within the cache TTL.
+        daily?: StreamerDailyActivity[];
     };
 };
 
@@ -85,6 +90,9 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
                         <div className="text-2xl font-bold mb-8">{content.stats_title}</div>
+                        <div className="mb-12">
+                            <StreamerActivityChart daily={content.stats.daily ?? []} />
+                        </div>
                         <div>
                             <div className="mb-1"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
                             <div className="mb-1"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
@@ -119,7 +127,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                                         <div className="text-nowrap">{game.streams} streams • {game.duration}</div>
                                     </div>
                                     <div className="mb-4 flex flex-row items-center text-sm">
-                                        <div className="flex flex-row flex-wrap gap-2">
+                                        <div className="flex flex-row flex-wrap gap-1">
                                             {game.genres.map((genre, index) => (
                                                 <div key={`genre-${index}`} className="py-1 px-2 bg-gray-200 rounded-sm">{genre}</div>
                                             ))}
