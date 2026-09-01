@@ -11,6 +11,8 @@ import {
     PageFooterContent,
     StreamerActivityChart,
     StreamerDailyActivity,
+    StreamerGenreChart,
+    StreamerGenreActivity,
     StreamerProfileStreamsList,
     TwitchStream,
 } from "../../_components";
@@ -47,9 +49,10 @@ type StreamerProfilePageContent = {
             maxv: number;
             avgv: number;
         }[];
-        // Absent from profile-cache entries written before the chart was added;
+        // Absent from profile-cache entries written before the charts were added;
         // those entries drop out on their own within the cache TTL.
         daily?: StreamerDailyActivity[];
+        per_genre?: StreamerGenreActivity[];
     };
 };
 
@@ -92,6 +95,9 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                         <div className="text-2xl font-bold mb-8">{content.stats_title}</div>
                         <div className="mb-12">
                             <StreamerActivityChart daily={content.stats.daily ?? []} />
+                        </div>
+                        <div className="mb-12">
+                            <StreamerGenreChart genres={content.stats.per_genre ?? []} />
                         </div>
                         <div>
                             <div className="mb-1"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>

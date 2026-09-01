@@ -135,6 +135,7 @@ class StreamerProfileStreams:
                     "maxv": self._max_viewers_snapshot(top_recent, games_index),
                 },
                 "per_game": self._build_per_game(per_game_acc, games_index),
+                "per_genre": self._build_per_genre(per_game_acc, games_index),
                 "daily": daily,
             },
         }
@@ -205,6 +206,39 @@ class StreamerProfileStreams:
                 "avgv": round(game["sum_v"] / snaps) if snaps else 0,
             })
         return per_game
+
+    @staticmethod
+    def _build_per_genre(acc, games_index) -> list[dict]:
+        """Hours and viewers per genre over the recent window, most-streamed genre first.
+
+        Folded from the same per-game accumulator as the games list, attributing a game's
+        activity in full to every genre it carries - the way rebuild_genre_stats attributes
+        duration - so the bars answer "how much of this genre" and hours deliberately do
+        not sum to the streamer's total. Games with no genres (Just Chatting and the other
+        non-game categories) drop out.
+        """
+        by_genre: dict[str, dict] = {}
+        for gid, game in acc.items():
+            for genre in (games_index.get(gid) or {}).get("genres") or ():
+                bucket = by_genre.setdefault(
+                    genre, {"seconds": 0.0, "max_v": 0, "sum_v": 0, "snapshots": 0}
+                )
+                bucket["seconds"] += game["seconds"]
+                bucket["max_v"] = max(bucket["max_v"], game["max_v"])
+                bucket["sum_v"] += game["sum_v"]
+                bucket["snapshots"] += game["snapshots"]
+
+        ordered = sorted(by_genre.items(), key=lambda kv: kv[1]["seconds"], reverse=True)
+        return [
+            {
+                "x": genre,
+                "hours": round(bucket["seconds"] / 3600, 1),
+                "peak": bucket["max_v"],
+                # Snapshot-weighted, matching how per_game avgv is computed.
+                "avg": round(bucket["sum_v"] / bucket["snapshots"]) if bucket["snapshots"] else 0,
+            }
+            for genre, bucket in ordered
+        ]
 
     @staticmethod
     def _build_daily(rows, now) -> list[dict]:

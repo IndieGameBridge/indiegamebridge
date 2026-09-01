@@ -8,7 +8,7 @@ export type StreamerDailyActivity = {
     month: string;
 };
 
-type Series = {
+export type ProfileSeries = {
     key: "hours" | "peak" | "avg";
     label: string;
     color: string;
@@ -17,8 +17,9 @@ type Series = {
 
 // Okabe-Ito colour-blind-safe palette, same source as the genre-trends chart:
 // blue, amber and bluish-green stay distinguishable for the common forms of
-// colour blindness and hold contrast on a white background.
-const SERIES: Series[] = [
+// colour blindness and hold contrast on a white background. Shared with the
+// per-genre chart so a colour means the same thing in both profile charts.
+export const PROFILE_SERIES: ProfileSeries[] = [
     {
         key: "hours",
         label: "Hours streamed",
@@ -54,7 +55,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
     // (potentially thousands) share no usable axis, and the chart is read for
     // shape - how regular the schedule is, how steady the audience is - rather
     // than for absolute values, which the legend and tooltips carry instead.
-    const maxima = SERIES.map((series) =>
+    const maxima = PROFILE_SERIES.map((series) =>
         Math.max(...daily.map((day) => day[series.key]), 0),
     );
 
@@ -66,7 +67,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
     // Gap between days, comfortably wider than the gap inside a day so each day's
     // three bars read as one group.
     const groupGap = 18;
-    const barsWidth = SERIES.length * barWidth + (SERIES.length - 1) * barGap;
+    const barsWidth = PROFILE_SERIES.length * barWidth + (PROFILE_SERIES.length - 1) * barGap;
     const groupWidth = barsWidth + groupGap;
     // Each day's baseline tick overhangs its bars by a couple of pixels on each side.
     const tickOverhang = 3;
@@ -103,6 +104,8 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
 
     return (
         <div>
+            <h3 className="text-lg font-semibold mb-4">Hours and viewers per day</h3>
+
             <div className="overflow-x-auto">
         <svg
             width={width}
@@ -141,7 +144,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
                             y2={baselineY}
                             stroke="#9ca3af"
                         />
-                        {SERIES.map((series, j) => {
+                        {PROFILE_SERIES.map((series, j) => {
                             const value = day[series.key];
                             const max = maxima[j];
                             // Give any non-zero value at least a 1px sliver so a short
@@ -222,7 +225,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
                 scaled against, since the three series don't share an axis. Kept in
                 HTML outside the scroller so it stays put while the chart scrolls. */}
             <div className="flex flex-row flex-wrap gap-x-8 gap-y-2 mt-3 text-sm">
-                {SERIES.map((series, j) => (
+                {PROFILE_SERIES.map((series, j) => (
                     <div key={`legend-${series.key}`} className="flex flex-row items-center gap-2">
                         <span
                             className="inline-block w-[13] h-[13] shrink-0"
@@ -239,7 +242,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
                 <thead>
                     <tr>
                         <th>Day</th>
-                        {SERIES.map((series) => (
+                        {PROFILE_SERIES.map((series) => (
                             <th key={series.key}>{series.label}</th>
                         ))}
                     </tr>
@@ -248,7 +251,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
                     {daily.map((day) => (
                         <tr key={day.x}>
                             <td>{`${day.x} ${day.month}`}</td>
-                            {SERIES.map((series) => (
+                            {PROFILE_SERIES.map((series) => (
                                 <td key={series.key}>{series.format(day[series.key])}</td>
                             ))}
                         </tr>
