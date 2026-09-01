@@ -5,6 +5,7 @@ export * from "./StreamersDistribution";
 export * from "./GenreTrends";
 export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";
+export * from "./StreamerActivityChart";
 export * from "./IndieGameBridgeMark";
 export * from "./PageHeader";
 export * from "./PageFooter";
