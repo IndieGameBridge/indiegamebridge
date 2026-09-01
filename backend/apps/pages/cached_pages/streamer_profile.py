@@ -9,8 +9,6 @@ class StreamerProfilePageBuilder(BaseCachedPageBuilder):
         return {
             "title": f"Streamer: %streamer_display_name%",
             "stats_title": f"Last 4-Week Stats",
-            "games_title": f"Last 4-Week Games",
-            "no_games": f"No games in the last 4 weeks.",
             "streams_title": f"All Streams",
             "show_more": f"Show More",
             "notes": [

@@ -237,7 +237,11 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
             </div>
 
             {/* Screen-reader + SEO-friendly table mirroring the chart. */}
-            <table className="sr-only">
+            {/* sr-only sits on a wrapper, not on the table: a table box can't shrink
+                below its min-content width, so sr-only's width:1px is ignored there and
+                the hidden table still widens the page. */}
+            <div className="sr-only">
+            <table>
                 <caption>Daily streaming activity over the last 4 weeks</caption>
                 <thead>
                     <tr>
@@ -258,6 +262,7 @@ export function StreamerActivityChart({ daily }: { daily: StreamerDailyActivity[
                     ))}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 }

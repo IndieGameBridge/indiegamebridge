@@ -11,6 +11,8 @@ import {
     PageFooterContent,
     StreamerActivityChart,
     StreamerDailyActivity,
+    StreamerGameChart,
+    StreamerGameActivity,
     StreamerGenreChart,
     StreamerGenreActivity,
     StreamerProfileStreamsList,
@@ -24,8 +26,6 @@ export const dynamic = "force-dynamic";
 type StreamerProfilePageContent = {
     title: string;
     stats_title: string;
-    games_title: string;
-    no_games: string;
     streams_title: string;
     show_more: string;
     notes: string[];
@@ -41,14 +41,7 @@ type StreamerProfilePageContent = {
                 game: string;
             } | null;
         };
-        per_game: {
-            name: string;
-            genres: string[];
-            duration: string;
-            streams: number;
-            maxv: number;
-            avgv: number;
-        }[];
+        per_game: StreamerGameActivity[];
         // Absent from profile-cache entries written before the charts were added;
         // those entries drop out on their own within the cache TTL.
         daily?: StreamerDailyActivity[];
@@ -99,6 +92,9 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                         <div className="mb-12">
                             <StreamerGenreChart genres={content.stats.per_genre ?? []} />
                         </div>
+                        <div className="mb-12">
+                            <StreamerGameChart games={content.stats.per_game} />
+                        </div>
                         <div>
                             <div className="mb-1"><span className="text-brand-blue">Number of streams: </span><span>{content.stats.recent.streams}</span></div>
                             <div className="mb-1"><span className="text-brand-blue">Total time: </span><span>{content.stats.recent.duration}</span></div>
@@ -113,35 +109,6 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                                 </Fragment>
                             )}
                         </div>
-                    </div>
-                </section>
-
-                {/* Last 4-Week Games */}
-                <section className="px-6 border-t border-t-gray-400">
-                    <div className="max-w-[1000] mx-auto mb-24 pt-24">
-                        <div className="text-2xl font-bold mb-8">{content.games_title}</div>
-                        {content.stats.per_game.length === 0 ? (
-                            <div className="italic">{content.no_games}</div>
-                        ) : (content.stats.per_game.map((game, index) => (
-                                <div key={`game-${index}`} className="mb-24">
-                                    <div className="font-bold mb-2">{game.name}</div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-4 border-t border-t-gray-400 pt-4 text-sm gap-4">
-                                        <div className="col-span-1 md:col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-4">
-                                            <div className="text-nowrap">Peak {game.maxv}</div>
-                                            <div className="text-nowrap">Avg {game.avgv}</div>
-                                        </div>
-                                        <div className="text-nowrap">{game.streams} streams • {game.duration}</div>
-                                    </div>
-                                    <div className="mb-4 flex flex-row items-center text-sm">
-                                        <div className="flex flex-row flex-wrap gap-1">
-                                            {game.genres.map((genre, index) => (
-                                                <div key={`genre-${index}`} className="py-1 px-2 bg-gray-200 rounded-sm">{genre}</div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        )}
                     </div>
                 </section>
 

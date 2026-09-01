@@ -160,7 +160,11 @@ function DistributionChart({ title, buckets }: ChartProps) {
             </div>
 
             {/* Screen-reader + SEO-friendly data table mirroring the chart. */}
-            <table className="sr-only">
+            {/* sr-only sits on a wrapper, not on the table: a table box can't shrink
+                below its min-content width, so sr-only's width:1px is ignored there and
+                the hidden table still widens the page. */}
+            <div className="sr-only">
+            <table>
                 <caption>{`${title} streamer peak-viewer distribution`}</caption>
                 <thead>
                     <tr>
@@ -177,6 +181,7 @@ function DistributionChart({ title, buckets }: ChartProps) {
                     ))}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 }
