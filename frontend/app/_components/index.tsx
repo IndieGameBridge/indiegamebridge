@@ -6,7 +6,7 @@ export * from "./GenreTrends";
 export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";
 export * from "./StreamerActivityChart";
-export * from "./ProfileBarChart";
+export * from "./GroupedBarChart";
 export * from "./StreamerGenreChart";
 export * from "./StreamerGameChart";
 export * from "./IndieGameBridgeMark";

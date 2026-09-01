@@ -1,5 +1,5 @@
 import { PROFILE_SERIES } from "./StreamerActivityChart";
-import { ProfileBarChart, ProfileBarSeries } from "./ProfileBarChart";
+import { GroupedBarChart, GroupedBarSeries } from "./GroupedBarChart";
 
 export type StreamerGameActivity = {
     name: string;
@@ -12,18 +12,18 @@ export type StreamerGameActivity = {
 
 // Reddish purple, from the same Okabe-Ito palette as the three shared series and
 // distinct from all of them. Only this chart counts streams, so it isn't shared.
-const STREAMS_SERIES: ProfileBarSeries = {
+const STREAMS_SERIES: GroupedBarSeries = {
     key: "streams",
     label: "Streams",
-    color: "#CC79A7",
+    color: "#ce0c78",
     format: (v) => v.toLocaleString(),
 };
 
-const GAME_SERIES: ProfileBarSeries[] = [...PROFILE_SERIES, STREAMS_SERIES];
+const GAME_SERIES: GroupedBarSeries[] = [...PROFILE_SERIES, STREAMS_SERIES];
 
 export function StreamerGameChart({ games }: { games: StreamerGameActivity[] }) {
     return (
-        <ProfileBarChart
+        <GroupedBarChart
             title="Hours, viewers and streams per game"
             caption="Hours streamed, viewers and streams per game over the last 4 weeks"
             description={

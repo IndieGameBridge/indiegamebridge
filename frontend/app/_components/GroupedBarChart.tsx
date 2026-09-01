@@ -1,58 +1,83 @@
-export type ProfileBarSeries = {
+export type GroupedBarSeries = {
     key: string;
     label: string;
     color: string;
     format: (value: number) => string;
+    // Replaces the legend's default "(max ...)" suffix, for charts where the maximum
+    // isn't the useful thing to say about a series.
+    legendSuffix?: string;
 };
 
-export type ProfileBarRow = {
+export type GroupedBarRow = {
     label: string;
     values: Record<string, number>;
+    // Text shown past the bar and in its tooltip, for when the plotted number isn't the
+    // whole story - a share that also wants to name the count behind it, say.
+    valueLabels?: Record<string, string>;
     // Optional small print under the row's bars, e.g. a game's genres.
     subLabel?: string;
 };
 
-type ProfileBarChartProps = {
-    title: string;
+type GroupedBarChartProps = {
+    // Omit where the surrounding section already names the chart.
+    title?: string;
     // Accessible name for the SVG and caption for the mirroring table.
     caption: string;
     description: string;
     // Header for the table's first column, e.g. "Genre" or "Game".
     rowHeader: string;
-    series: ProfileBarSeries[];
-    rows: ProfileBarRow[];
+    series: GroupedBarSeries[];
+    rows: GroupedBarRow[];
+    // "series" (the default) scales every series against its own maximum, for series
+    // that share no usable axis. "shared" puts them all on one axis, for series in the
+    // same unit, where the point is comparing them against each other.
+    scale?: "series" | "shared";
     note?: string;
 };
 
 /**
- * Grouped horizontal bar chart shared by the profile's per-genre and per-game charts.
+ * Grouped horizontal bar chart, shared by the per-genre, per-game and peak-viewer
+ * distribution charts.
  *
  * Row label in a left gutter, one thin bar per series with its value past the bar's
- * end, and a legend below. Each series is scaled against its own maximum, since hours,
- * viewer counts and stream counts share no usable axis; bars therefore compare across
- * rows within a series, not between series, and the legend carries each maximum.
+ * end, and a legend below.
  */
-export function ProfileBarChart({
+export function GroupedBarChart({
     title,
     caption,
     description,
     rowHeader,
     series,
     rows,
+    scale = "series",
     note,
-}: ProfileBarChartProps) {
+}: GroupedBarChartProps) {
     if (rows.length === 0) return null;
 
     const maxima = series.map((one_series) =>
         Math.max(...rows.map((row) => row.values[one_series.key] ?? 0), 0),
     );
+    const sharedMax = Math.max(...maxima, 0);
+    const scaleOf = (j: number) => (scale === "shared" ? sharedMax : maxima[j]);
+
+    const valueLabel = (row: GroupedBarRow, one_series: GroupedBarSeries) =>
+        row.valueLabels?.[one_series.key]
+        ?? one_series.format(row.values[one_series.key] ?? 0);
 
     // Fixed coordinate system, matching the genre-trends chart: the SVG keeps a
     // readable pixel size and scrolls horizontally on narrow screens rather than
     // shrinking the labels.
     const width = 1000;
-    const labelWidth = 180;
-    const valueWidth = 90;
+    // Left gutter sized to the longest row label, capped at the width the long genre
+    // and game names need, so short labels ("3-5", "201+") don't leave a white band.
+    const longestLabel = Math.max(...rows.map((row) => row.label.length));
+    const labelWidth = Math.min(180, Math.max(60, longestLabel * 7 + 12));
+    // Right gutter sized to the longest value label, so a long one ("61.3% (597,599)")
+    // isn't clipped and a chart of short ones doesn't waste the space.
+    const longestValue = Math.max(
+        ...rows.flatMap((row) => series.map((one_series) => valueLabel(row, one_series).length)),
+    );
+    const valueWidth = Math.max(90, longestValue * 6 + 12);
     const chartLeft = labelWidth;
     const chartWidth = width - labelWidth - valueWidth;
 
@@ -72,7 +97,7 @@ export function ProfileBarChart({
 
     return (
         <div>
-            <h3 className="text-lg font-semibold mb-4">{title}</h3>
+            {title && <h3 className="text-lg font-semibold mb-4">{title}</h3>}
 
             <div className="overflow-x-auto">
             <svg
@@ -106,7 +131,7 @@ export function ProfileBarChart({
 
                             {series.map((one_series, j) => {
                                 const value = row.values[one_series.key] ?? 0;
-                                const max = maxima[j];
+                                const max = scaleOf(j);
                                 // Give any non-zero value at least a 1px sliver so a
                                 // small row still shows next to a dominant one.
                                 const barW = max > 0 && value > 0
@@ -114,6 +139,7 @@ export function ProfileBarChart({
                                     : 0;
                                 const barY = groupTop + j * (subBarHeight + subBarGap);
                                 const centerY = barY + subBarHeight / 2;
+                                const text = valueLabel(row, one_series);
                                 return (
                                     <g key={one_series.key}>
                                         <rect
@@ -123,7 +149,7 @@ export function ProfileBarChart({
                                             height={subBarHeight}
                                             fill={one_series.color}
                                         >
-                                            <title>{`${row.label} — ${one_series.label}: ${one_series.format(value)}`}</title>
+                                            <title>{`${row.label} — ${one_series.label}: ${text}`}</title>
                                         </rect>
                                         {/* Value, just past the bar's end. */}
                                         <text
@@ -134,7 +160,7 @@ export function ProfileBarChart({
                                             fontSize="11"
                                             className="fill-current selection:fill-white"
                                         >
-                                            {one_series.format(value)}
+                                            {text}
                                         </text>
                                     </g>
                                 );
@@ -158,8 +184,9 @@ export function ProfileBarChart({
             </svg>
             </div>
 
-            {/* Legend: colour swatch, series name and the value the series is scaled
-                against. Kept in HTML outside the scroller so it stays put. */}
+            {/* Legend: colour swatch, series name and either the value the series is
+                scaled against or its own suffix. Kept in HTML outside the scroller so it
+                stays put and folds onto more lines on narrow screens. */}
             <div className="flex flex-row flex-wrap gap-x-8 gap-y-2 mt-3 text-sm">
                 {series.map((one_series, j) => (
                     <div key={`legend-${one_series.key}`} className="flex flex-row items-center gap-2">
@@ -167,7 +194,9 @@ export function ProfileBarChart({
                             className="inline-block w-[13] h-[13] shrink-0"
                             style={{ backgroundColor: one_series.color }}
                         />
-                        <span>{`${one_series.label} (max ${one_series.format(maxima[j])})`}</span>
+                        <span>
+                            {`${one_series.label} ${one_series.legendSuffix ?? `(max ${one_series.format(maxima[j])})`}`}
+                        </span>
                     </div>
                 ))}
             </div>
@@ -192,9 +221,7 @@ export function ProfileBarChart({
                         <tr key={row.label}>
                             <td>{row.subLabel ? `${row.label} — ${row.subLabel}` : row.label}</td>
                             {series.map((one_series) => (
-                                <td key={one_series.key}>
-                                    {one_series.format(row.values[one_series.key] ?? 0)}
-                                </td>
+                                <td key={one_series.key}>{valueLabel(row, one_series)}</td>
                             ))}
                         </tr>
                     ))}
