@@ -61,11 +61,8 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
         languages.length * subBarHeight + Math.max(0, languages.length - 1) * subBarGap;
     const rowHeight = groupHeight + groupGap;
 
-    const chartBottom = paddingTop + bars.length * rowHeight;
-    // Room below the chart for the colour legend (one row of swatch + label per language).
-    const legendTop = chartBottom + 10;
-    const legendHeight = 30;
-    const height = legendTop + legendHeight;
+    // The trailing group gap doubles as the chart's bottom padding.
+    const height = paddingTop + bars.length * rowHeight;
 
     return (
         <div className="col-span-1">
@@ -134,40 +131,29 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                         </g>
                     );
                 })}
-
-                {/* Legend: a colour swatch + language name per series. */}
-                {languages.map((lang, j) => {
-                    const itemWidth = 150;
-                    const x = chartLeft + j * itemWidth;
-                    const swatch = 13;
-                    const color = LANGUAGE_COLORS[lang.code] ?? FALLBACK_COLOR;
-                    return (
-                        <g key={`legend-${lang.code}`}>
-                            <rect
-                                x={x}
-                                y={legendTop + (legendHeight - swatch) / 2}
-                                width={swatch}
-                                height={swatch}
-                                fill={color}
-                            />
-                            <text
-                                x={x + swatch + 8}
-                                y={legendTop + legendHeight / 2}
-                                textAnchor="start"
-                                dominantBaseline="central"
-                                fontSize="13"
-                                className="fill-current selection:fill-white"
-                            >
-                                {lang.label}
-                            </text>
-                        </g>
-                    );
-                })}
             </svg>
             </div>
 
+            {/* Legend: a colour swatch + language name per series. Kept in HTML outside
+                the scroller so it stays put and folds onto more lines on narrow screens. */}
+            <div className="flex flex-row flex-wrap gap-x-8 gap-y-2 mt-3 text-sm">
+                {languages.map((lang) => (
+                    <div key={`legend-${lang.code}`} className="flex flex-row items-center gap-2">
+                        <span
+                            className="inline-block w-[13] h-[13] shrink-0"
+                            style={{ backgroundColor: LANGUAGE_COLORS[lang.code] ?? FALLBACK_COLOR }}
+                        />
+                        <span>{lang.label}</span>
+                    </div>
+                ))}
+            </div>
+
             {/* Screen-reader + SEO-friendly table mirroring the chart. */}
-            <table className="sr-only">
+            {/* sr-only sits on a wrapper, not on the table: a table box can't shrink
+                below its min-content width, so sr-only's width:1px is ignored there and
+                the hidden table still widens the page. */}
+            <div className="sr-only">
+            <table>
                 <caption>{title}</caption>
                 <thead>
                     <tr>
@@ -190,6 +176,7 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                     ))}
                 </tbody>
             </table>
+            </div>
 
             <p className="mt-4 text-sm">{description}</p>
         </div>

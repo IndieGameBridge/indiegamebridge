@@ -190,7 +190,8 @@ class StreamerProfileStreams:
                     game["seconds"] += duration * seen["n"] / total_snaps
         return acc
 
-    def _build_per_game(self, acc, games_index) -> list[dict]:
+    @staticmethod
+    def _build_per_game(acc, games_index) -> list[dict]:
         # Most-played game first.
         ordered = sorted(acc.items(), key=lambda kv: kv[1]["seconds"], reverse=True)
         per_game = []
@@ -200,7 +201,9 @@ class StreamerProfileStreams:
             per_game.append({
                 "name": info.get("name") or "N/A",
                 "genres": info.get("genres") or [],
-                "duration": self._format_duration(round(game["seconds"])),
+                # Hours rather than a formatted string: this drives a bar length,
+                # and the chart formats it for display.
+                "hours": round(game["seconds"] / 3600, 1),
                 "streams": game["streams"],
                 "maxv": game["max_v"],
                 "avgv": round(game["sum_v"] / snaps) if snaps else 0,
