@@ -18,7 +18,9 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                 "btn_text": "Apply Filters",
                 "demo_title": "",
                 "search_notes": [
-                    "Results are based on each streamer's streams from the last 4 weeks."
+                    "Results are based on each streamer's streams from the last 4 weeks.",
+                    "Picking a second or third genre narrows the results: only streamers who"
+                        " played all of the chosen genres in that window are shown.",
                 ],
                 "demo_note": "",
                 "cta_link_text": "",
