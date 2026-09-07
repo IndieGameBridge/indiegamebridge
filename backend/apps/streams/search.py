@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 MAX_RESULTS = 5000
 PAGE_SIZE = 50
 
+# The genre dropdowns, in form order. These double as query-param names; the first
+# keeps the original "genres" so single-genre links made before the split still work.
+GENRE_FILTER_NAMES = ("genres", "genres2", "genres3")
+
 
 class StreamerSearch:
     """Single entry point for streamer search.
@@ -78,13 +82,36 @@ class StreamerSearch:
             qs = qs.filter(total_duration_seconds__gte=self.filters["hoursmin"] * 3600)
         if self.filters.get("hoursmax") is not None:
             qs = qs.filter(total_duration_seconds__lte=self.filters["hoursmax"] * 3600)
-        if self.filters.get("genres"):
-            genres = self.filters["genres"]
-            qs = qs.filter(genre_ids__overlap=genres if isinstance(genres, list) else [genres])
+        # The genre dropdowns are ANDed: a streamer qualifies only if the window
+        # covers every genre picked, so each added genre narrows the results. This
+        # is `contains` rather than the `overlap` a single dropdown used, but both
+        # ride the same GIN index and mean the same thing for one genre, so links
+        # made before the split still behave as they did.
+        genres = self._selected_genres()
+        if genres:
+            qs = qs.filter(genre_ids__contains=genres)
 
         # Matches the language-leading index, so this is an index-ordered scan.
         self._queryset = qs.order_by("-peak_viewers", "-avg_viewers", "-total_duration_seconds")
         return self._queryset
+
+    def _selected_genres(self) -> list:
+        """Genre ids picked across the dropdowns, de-duplicated, in form order.
+
+        A dropdown left at its "any"/"None" default is dropped during normalization,
+        so anything still present here is a real choice.
+        """
+        genres = []
+        for name in GENRE_FILTER_NAMES:
+            value = self.filters.get(name)
+            if value is None:
+                continue
+            # Normalization yields a scalar for a dropdown; tolerate a list in case
+            # one of these is ever switched to a multiselect.
+            for one_genre in (value if isinstance(value, list) else [value]):
+                if one_genre not in genres:
+                    genres.append(one_genre)
+        return genres
 
     @staticmethod
     @cache
@@ -160,7 +187,7 @@ class StreamerSearch:
     @staticmethod
     @cache
     def get_filters_config() -> tuple[list[dict], list]:
-        game_genres = [("any", "Any genre")] + list(GameGenre.objects.values_list("host_genre_id", "host_name"))
+        game_genres = list(GameGenre.objects.values_list("host_genre_id", "host_name"))
         return [
             __class__._filter_defaults(
                 ui_control="range",
@@ -198,14 +225,11 @@ class StreamerSearch:
                 max_values=__class__._get_hours_filter_values() + [{"v": "any", "l": "Max"}],
                 max_default="any",
             ),
-            __class__._filter_defaults(
-                ui_control="dropdown",
-                name="genres",
-                label="Game Genre",
-                # int genre ids (matching the stored genre_ids array); "any" drops the filter.
-                values=[{"v": one_value, "l": one_label} for one_value, one_label in game_genres],
-                default="any",
-            ),
+            # Three genre slots so a developer can describe a game that sits in more
+            # than one genre. They narrow rather than widen: see _selected_genres.
+            __class__._genre_filter(GENRE_FILTER_NAMES[0], "Game Genre #1", "Any genre", game_genres),
+            __class__._genre_filter(GENRE_FILTER_NAMES[1], "Game Genre #2", "None", game_genres),
+            __class__._genre_filter(GENRE_FILTER_NAMES[2], "Game Genre #3", "None", game_genres),
             __class__._filter_defaults(
                 ui_control="dropdown",
                 name="lang",
@@ -224,7 +248,7 @@ class StreamerSearch:
             "avgmin", "avgmax",
             "streamsmin", "streamsmax",
             "hoursmin", "hoursmax",
-            "genres",
+            *GENRE_FILTER_NAMES,
         ]
 
     @staticmethod
@@ -262,6 +286,21 @@ class StreamerSearch:
     def _get_hours_filter_values():
         # Total streamed hours over the 4-week window.
         return [{"v": n, "l": str(n)} for n in (1, 2, 3, 4, 8, 12, 16, 20, 30, 40, 50, 75, 100, 150, 200)]
+
+    @staticmethod
+    def _genre_filter(name: str, label: str, empty_label: str, game_genres: list) -> dict:
+        """One genre dropdown. `empty_label` names the no-filter option, which reads
+        as "Any genre" on the first slot and "None" on the optional ones - both are
+        the same "any" sentinel that normalization drops."""
+        return __class__._filter_defaults(
+            ui_control="dropdown",
+            name=name,
+            label=label,
+            # int genre ids (matching the stored genre_ids array); "any" drops the filter.
+            values=[{"v": "any", "l": empty_label}]
+                + [{"v": one_value, "l": one_label} for one_value, one_label in game_genres],
+            default="any",
+        )
 
     @staticmethod
     def _filter_defaults(**kwargs) -> dict:

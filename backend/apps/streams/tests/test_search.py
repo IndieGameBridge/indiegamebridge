@@ -43,6 +43,12 @@ class RebuildAndSearchTests(TestCase):
         StreamerSearch.get_filters_config.cache_clear()
         StreamerSearch._genre_name_map.cache_clear()
 
+    def _make_genres(self):
+        for genre_id, name in ((10, "Action"), (20, "Puzzle"), (30, "Racing")):
+            GameGenre.objects.create(
+                host_genre_id=genre_id, host_name=name, host_url="", slug=name.lower(),
+            )
+
     def _make_streamer(self, host_user_id, login):
         return StreamerProfile.objects.create(
             host=StreamerProfile.Host.TWITCH,
@@ -182,7 +188,7 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertEqual(self._logins(results), ["toppeak", "durhi", "avghi", "avglo"])
 
-    def test_search_genre_overlap(self):
+    def test_search_single_genre(self):
         GameGenre.objects.create(host_genre_id=10, host_name="Action", host_url="", slug="action")
         GameGenre.objects.create(host_genre_id=20, host_name="Puzzle", host_url="", slug="puzzle")
         action = self._make_streamer(1, "action")
@@ -195,6 +201,48 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertEqual(self._logins(results), ["action"])
         self.assertEqual(results[0]["genres"], ["Action"])
+
+    def test_search_multiple_genres_are_anded(self):
+        self._make_genres()
+        both = self._make_streamer(1, "both")
+        one_only = self._make_streamer(2, "onlyaction")
+        # Two streams, one genre each: the window's genre set is the union, so the
+        # streamer qualifies without ever having played a single action-puzzle game.
+        self._make_stream(both, 1, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[10])
+        self._make_stream(both, 2, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[20])
+        self._make_stream(one_only, 3, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[10])
+        self._rebuild()
+
+        results = self._search(genres="10", genres2="20").results()
+
+        self.assertEqual(self._logins(results), ["both"])
+
+    def test_search_third_genre_narrows_further(self):
+        self._make_genres()
+        two = self._make_streamer(1, "two")
+        three = self._make_streamer(2, "three")
+        self._make_stream(two, 1, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[10, 20])
+        self._make_stream(three, 2, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[10, 20, 30])
+        self._rebuild()
+
+        two_picked = self._search(genres="10", genres2="20").results()
+        three_picked = self._search(genres="10", genres2="20", genres3="30").results()
+
+        # Both qualify; they tie on every sort key, so order is not asserted.
+        self.assertCountEqual(self._logins(two_picked), ["two", "three"])
+        self.assertEqual(self._logins(three_picked), ["three"])
+
+    def test_search_genre_slots_left_empty_are_ignored(self):
+        self._make_genres()
+        action = self._make_streamer(1, "action")
+        self._make_stream(action, 1, max_viewers=50, avg_viewers=20, duration=3600, genre_ids=[10])
+        self._rebuild()
+
+        # "any" is the no-filter sentinel behind both "Any genre" and "None", and a
+        # genre repeated across slots must not turn into a stricter filter.
+        results = self._search(genres="10", genres2="any", genres3="10").results()
+
+        self.assertEqual(self._logins(results), ["action"])
 
     def test_search_language_isolation(self):
         bob = self._make_streamer(1, "bob")
