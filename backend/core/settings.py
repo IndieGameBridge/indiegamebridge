@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.twitch",
     "apps.users",
     "apps.streams",
+    "apps.userlists",
     "apps.api",
     "apps.fetch",
     "apps.pages",
