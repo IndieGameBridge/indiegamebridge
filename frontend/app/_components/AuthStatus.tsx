@@ -38,6 +38,7 @@ export function AuthStatus({ user }: AuthStatusProps) {
                     ? <span className="text-white underline underline-offset-3 text-nowrap">Log in</span>
                     : <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3 text-nowrap">Log in</a>)
                 : <Fragment>
+                        <NavLink href="/dashboard">Dashboard</NavLink>
                         <NavLink href="/account">Settings</NavLink>
                         <button type="button" onClick={handleLogout} className="text-white cursor-pointer hover:underline underline-offset-3 text-nowrap">Log out</button>
                     </Fragment>

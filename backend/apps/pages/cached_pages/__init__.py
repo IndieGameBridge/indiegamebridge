@@ -1,6 +1,7 @@
 from .account import AccountPageBuilder
 from .base import BaseCachedPageBuilder
 from .contact import ContactPageBuilder
+from .dashboard import DashboardPageBuilder
 from .genre_trends import GenreTrendsPageBuilder
 from .home import HomePageBuilder
 from .login import LoginPageBuilder
@@ -15,6 +16,7 @@ __all__ = [
     "AccountPageBuilder",
     "BaseCachedPageBuilder",
     "ContactPageBuilder",
+    "DashboardPageBuilder",
     "GenreTrendsPageBuilder",
     "HomePageBuilder",
     "LoginPageBuilder",
