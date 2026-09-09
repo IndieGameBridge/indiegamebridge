@@ -15,6 +15,14 @@ PAGE_SIZE = 50
 # keeps the original "genres" so single-genre links made before the split still work.
 GENRE_FILTER_NAMES = ("genres", "genres2", "genres3")
 
+# Query params that arrive repeated rather than once (?wdays=1&wdays=5). Names
+# must match the filter config in get_filters_config.
+LIST_PARAMS = ("wdays",)
+
+# Params that page the results rather than filter them, so they stay out of the
+# filter dict and two pages of one search normalize identically.
+PAGING_PARAMS = ("p",)
+
 
 class StreamerSearch:
     """Single entry point for streamer search.
@@ -29,6 +37,23 @@ class StreamerSearch:
         self.raw_filters = filters or {}
         self.filters = self._normalize_query_params(self.raw_filters)
         self._queryset = None
+
+    @classmethod
+    def from_query_params(cls, query_params) -> "StreamerSearch":
+        """Build a search from a QueryDict - request.GET, or a parsed query string.
+
+        Shared by the search endpoint and by list creation, so a list saved from a
+        result page is filtered exactly the way that page was.
+        """
+        raw_filters = {}
+        for key in query_params.keys():
+            if key in PAGING_PARAMS:
+                continue
+            if key in LIST_PARAMS:
+                raw_filters[key] = query_params.getlist(key)
+            else:
+                raw_filters[key] = query_params.get(key)
+        return cls(raw_filters)
 
     def results(self, offset: int = 0, limit: int = PAGE_SIZE) -> list[dict]:
         rows = list(
@@ -55,6 +80,16 @@ class StreamerSearch:
                 genre_names.get(genre_id, "N/A") for genre_id in (row.pop("genre_ids") or [])
             )
         return rows
+
+    def profile_ids(self, limit: int = MAX_RESULTS) -> list[int]:
+        """Every matching streamer id, in result order, capped like the paged results.
+
+        A search fixes one language and the stats table is unique per
+        (streamer, language), so these come back distinct without a DISTINCT.
+        """
+        return list(
+            self._stats_queryset().values_list("streamer_profile_id", flat=True)[:limit]
+        )
 
     def total(self) -> int:
         # Capped to MAX_RESULTS to match the pageable result set.
