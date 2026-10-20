@@ -14,6 +14,7 @@ import {
 } from "../_components";
 import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
+import { SaveSearchAsList, SaveListLabels } from "./_components/SaveSearchAsList";
 
 // Reads auth cookies + live backend data per request, so never prerender at
 // build time (the backend isn't reachable then). Render on demand on the Worker.
@@ -24,6 +25,7 @@ type StreamersPageContent = {
     description: string;
     search_form: SearchFormData;
     results_labels: ResultsListLabels;
+    save_list: SaveListLabels;
     footer_content: PageFooterContent;
 };
 
@@ -108,6 +110,9 @@ export default async function StreamersPage({
                             labels={content.results_labels}
                             total={search.total}
                             can_load_more
+                            count_actions={search.total > 0
+                                ? <SaveSearchAsList search_query={searchQuery} labels={content.save_list} />
+                                : undefined}
                         />
                     </div>
                 </section>

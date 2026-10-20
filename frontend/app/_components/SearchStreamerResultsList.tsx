@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 
 import { loadStreamersPage } from "../streamers/actions";
@@ -28,6 +28,8 @@ type Props = {
     total?: number;
     can_load_more?: boolean;
     more_href?: string;
+    // Shown beside the result count, e.g. the streamers page's "Save as list".
+    count_actions?: React.ReactNode;
 };
 
 export function SearchStreamerResultsList({
@@ -36,6 +38,7 @@ export function SearchStreamerResultsList({
     total,
     can_load_more = false,
     more_href,
+    count_actions,
 }: Props) {
     const [loadedResults, setLoadedResults] = useState<StreamerData[]>(search_results);
     const [knownTotal, setKnownTotal] = useState<number>(total ?? search_results.length);
@@ -62,8 +65,14 @@ export function SearchStreamerResultsList({
             {/* Result count, between the form and the listing; tracks Show More.
                 Only shown when a real total is supplied (the home demo passes none). */}
             {total !== undefined && labels.found_count && (
-                <div className="mb-8 text-lg text-brand-blue">
-                    {labels.found_count.replace("{count}", knownTotal.toLocaleString())}
+                <div className="mb-8 flex flex-row flex-wrap items-center justify-between gap-4">
+                    <div className="text-lg text-brand-blue">
+                        {labels.found_count.replace("{count}", knownTotal.toLocaleString())}
+                    </div>
+                    {/* A Fragment's only child rather than a sibling in this row: an
+                        element passed in from a server component can still be loading
+                        here, and React then reports it as an unkeyed list item. */}
+                    <Fragment>{count_actions}</Fragment>
                 </div>
             )}
 
