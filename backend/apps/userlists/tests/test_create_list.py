@@ -1,4 +1,4 @@
-"""Tests for the create-list endpoint.
+"""Tests for creating a list (POST /api/lists/).
 
 The endpoint takes a search's query string rather than its result ids, so these
 build StreamerSearchStats rows directly (the rebuild itself is covered in
@@ -20,12 +20,12 @@ from apps.userlists.models import (
     UserLabelForListOfStreamers,
     UserListOfStreamers,
 )
-from apps.userlists.views.create_list import MAX_LISTS_PER_USER, CreateListView
+from apps.userlists.views.lists import MAX_LISTS_PER_USER, ListsView
 
 User = get_user_model()
 
 
-class CreateListViewTests(TestCase):
+class CreateListTests(TestCase):
     def setUp(self):
         # Both are process-cached; clear so this class builds them from its own
         # rows rather than a prior test's snapshot.
@@ -68,7 +68,7 @@ class CreateListViewTests(TestCase):
         request = self.factory.post("/api/lists/", payload, format="json")
         if user is not False:
             force_authenticate(request, user=user or self.user)
-        return CreateListView.as_view()(request)
+        return ListsView.as_view()(request)
 
     def test_creates_a_list_from_the_search(self):
         self._make_streamer(1, "top", peak=150)
@@ -182,7 +182,7 @@ class CreateListViewTests(TestCase):
         self._make_streamer(1, "top")
 
         with mock.patch(
-            "apps.userlists.views.create_list.StreamerInList.objects.bulk_create",
+            "apps.userlists.views.lists.StreamerInList.objects.bulk_create",
             side_effect=DatabaseError("write failed"),
         ):
             with self.assertRaises(DatabaseError):

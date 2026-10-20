@@ -1,7 +1,8 @@
-"""Create a list of streamers out of a saved search."""
+"""The owner's lists of streamers: read them for the dashboard, or save a search as a new one."""
 
 from django.http import QueryDict
 from django.db import transaction
+from django.db.models import Count
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
@@ -37,21 +38,59 @@ def _clean(value) -> str:
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class CreateListView(APIView):
-    """Save the streamers matching a search as a new list.
+class ListsView(APIView):
+    """The signed-in user's lists of streamers.
 
-    The request carries the search's query string rather than thousands of ids:
-    the ids would not fit in a URL, and re-running the search server-side keeps
-    one definition of what the filters mean. The trade is that the stats table
+    GET returns all of them, newest first, for the dashboard's cards. POST saves
+    the streamers matching a search as a new list.
+
+    POST carries the search's query string rather than thousands of ids: the ids
+    would not fit in a URL, and re-running the search server-side keeps one
+    definition of what the filters mean. The trade is that the stats table
     rebuilds roughly daily, so a list saved long after the page was rendered can
     differ from it by a row or two.
     """
 
     permission_classes = [IsAuthenticated]
-    # Tighter than the global per-user ceiling: one call re-runs the search and
-    # writes up to MAX_RESULTS rows, making this the heaviest write in the app.
-    throttle_classes = [UserRateThrottle, ScopedRateThrottle]
+    # Tighter than the global per-user ceiling, and spent by POST only: one call
+    # re-runs the search and writes up to MAX_RESULTS rows, making it the
+    # heaviest write in the app.
     throttle_scope = "userlists_write"
+
+    def get_throttles(self):
+        # Reads stay on the global ceiling, so loading the dashboard never counts
+        # against saving a list.
+        if self.request.method == "POST":
+            return [UserRateThrottle(), ScopedRateThrottle()]
+        return [UserRateThrottle()]
+
+    def get(self, request):
+        lists_of_streamers = (
+            UserListOfStreamers.objects.filter(owner=request.user)
+            .annotate(streamers_count=Count("entries"))
+            .prefetch_related("labels")
+            # Django ignores Meta.ordering once annotate() adds a GROUP BY, so
+            # without this the cards would come back in no fixed order.
+            .order_by(*UserListOfStreamers._meta.ordering)
+        )
+        return Response({
+            "lists": [
+                {
+                    "id": one_list.id,
+                    "title": one_list.title,
+                    "description": one_list.description,
+                    "labels": [
+                        {"id": label.id, "title": label.title, "color": label.color}
+                        for label in one_list.labels.all()
+                    ],
+                    # Anonymized entries count too: the list still holds them,
+                    # notes and all.
+                    "streamers_count": one_list.streamers_count,
+                    "created_at": one_list.created_at.isoformat(),
+                }
+                for one_list in lists_of_streamers
+            ],
+        })
 
     def post(self, request):
         title = _clean(request.data.get("title"))

@@ -32,7 +32,6 @@ class Command(BaseCommand):
         DashboardPageBuilder,
         OptOutPageBuilder,
         ContactPageBuilder,
-    DashboardPageBuilder,
         LoginPageBuilder,
         PrivacyPolicyPageBuilder,
     ]

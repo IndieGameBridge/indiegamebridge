@@ -1,3 +1,3 @@
-from .create_list import CreateListView
+from .lists import ListsView
 
-__all__ = ["CreateListView"]
+__all__ = ["ListsView"]
