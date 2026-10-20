@@ -23,6 +23,10 @@ LIST_PARAMS = ("wdays",)
 # filter dict and two pages of one search normalize identically.
 PAGING_PARAMS = ("p",)
 
+# The stored stats behind a result row; _format_stats turns them into the values
+# the frontend shows.
+STATS_FIELDS = ("peak_viewers", "avg_viewers", "total_duration_seconds", "streams_count", "genre_ids")
+
 
 class StreamerSearch:
     """Single entry point for streamer search.
@@ -61,24 +65,15 @@ class StreamerSearch:
                 "streamer_profile_id",
                 "host_login",
                 "host_display_name",
-                "peak_viewers",
-                "avg_viewers",
-                "total_duration_seconds",
-                "streams_count",
-                "genre_ids",
+                *STATS_FIELDS,
             )[offset:offset + limit]
         )
 
-        genre_names = self._genre_name_map()
         for row in rows:
             row["profile_id"] = row.pop("streamer_profile_id")
             row["login"] = row.pop("host_login")
             row["display_name"] = row.pop("host_display_name")
-            # Display value: "X hours in last 4 weeks".
-            row["hours_streamed"] = (row.pop("total_duration_seconds") or 0) // 3600
-            row["genres"] = sorted(
-                genre_names.get(genre_id, "N/A") for genre_id in (row.pop("genre_ids") or [])
-            )
+            self._format_stats(row)
         return rows
 
     def profile_ids(self, limit: int = MAX_RESULTS) -> list[int]:
@@ -91,9 +86,60 @@ class StreamerSearch:
             self._stats_queryset().values_list("streamer_profile_id", flat=True)[:limit]
         )
 
+    @classmethod
+    def stats_for_profiles(cls, profile_ids, language: str) -> dict[int, dict]:
+        """Given streamers' stats in one language, keyed by profile id.
+
+        Shaped like the stats half of a results() row, so a saved list shows its
+        streamers the way the search did. A streamer with no recent streams in
+        that language has no stats row and is simply absent.
+        """
+        stats = {}
+        rows = StreamerSearchStats.objects.filter(
+            language=language, streamer_profile_id__in=profile_ids,
+        ).values("streamer_profile_id", *STATS_FIELDS)
+        for row in rows:
+            stats[row.pop("streamer_profile_id")] = cls._format_stats(row)
+        return stats
+
     def total(self) -> int:
         # Capped to MAX_RESULTS to match the pageable result set.
         return min(self._stats_queryset().count(), MAX_RESULTS)
+
+    def explicit_filters(self) -> dict:
+        """Every filter's effective value, "any" included: the form to store a search in.
+
+        `filters` leaves out whatever is set to "any", and normalizing that dict
+        again would fill the gaps from the form's defaults - a search with no max
+        would come back capped at the default one. Spelled out like this, a stored
+        search re-runs as the same search even after the defaults change.
+        """
+        _, allowed_names = self.get_filters_config()
+        return {name: self.filters.get(name, "any") for name in allowed_names}
+
+    def describe(self) -> list[dict]:
+        """The filters that narrow this search, as label/value pairs in form order."""
+        filters_config, _ = self.get_filters_config()
+        described = []
+        for one_config in filters_config:
+            name = one_config["name"]
+            if one_config["ui_control"] == "range":
+                low = self._option_label(one_config["min_values"], self.filters.get(name + "min"))
+                high = self._option_label(one_config["max_values"], self.filters.get(name + "max"))
+                if low and high:
+                    value = f"{low}–{high}"
+                elif low:
+                    value = f"{low}+"
+                elif high:
+                    value = f"up to {high}"
+                else:
+                    continue
+            else:
+                value = self._option_label(one_config["values"], self.filters.get(name))
+                if value is None:
+                    continue
+            described.append({"label": one_config["label"], "value": value})
+        return described
 
     def _stats_queryset(self):
         if self._queryset is not None:
@@ -152,6 +198,27 @@ class StreamerSearch:
     @cache
     def _genre_name_map() -> dict:
         return dict(GameGenre.objects.values_list("host_genre_id", "host_name"))
+
+    @classmethod
+    def _format_stats(cls, row: dict) -> dict:
+        """Swap a row's stored stats for their display values, in place."""
+        # Display value: "X hours in last 4 weeks".
+        row["hours_streamed"] = (row.pop("total_duration_seconds") or 0) // 3600
+        genre_names = cls._genre_name_map()
+        row["genres"] = sorted(
+            genre_names.get(genre_id, "N/A") for genre_id in (row.pop("genre_ids") or [])
+        )
+        return row
+
+    @staticmethod
+    def _option_label(options: list[dict], value) -> str | None:
+        """The form's label for a normalized value; None for a filter left at "any"."""
+        if value is None:
+            return None
+        for one_option in options:
+            if one_option["v"] == value:
+                return one_option["l"]
+        return None
 
     @classmethod
     def _normalize_query_params(cls, raw: dict) -> dict:

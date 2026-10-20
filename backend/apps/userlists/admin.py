@@ -33,7 +33,8 @@ class UserListOfStreamersAdmin(admin.ModelAdmin):
     search_fields = ("title", "owner__username")
     list_select_related = ("owner",)
     ordering = ("owner", "-created_at")
-    readonly_fields = ("created_at", "updated_at")
+    # search_filters is the record a refresh will re-run, so it isn't hand-edited.
+    readonly_fields = ("created_at", "updated_at", "search_filters")
     filter_horizontal = ("labels",)
 
     def get_queryset(self, request):

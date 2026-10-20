@@ -102,6 +102,15 @@ class CreateListTests(TestCase):
             ["big"],
         )
 
+    def test_stores_the_search_it_was_saved_from(self):
+        response = self._post(search="lang=en&peakmin=100&peakmax=any")
+
+        saved = UserListOfStreamers.objects.get(id=response.data["id"])
+        # Spelled out, "any" included, so a refresh can re-run it as it was.
+        self.assertEqual(saved.search_filters["peakmin"], 100)
+        self.assertEqual(saved.search_filters["peakmax"], "any")
+        self.assertEqual(saved.search_filters["lang"], "en")
+
     def test_a_search_matching_nothing_still_saves_an_empty_list(self):
         response = self._post()
 

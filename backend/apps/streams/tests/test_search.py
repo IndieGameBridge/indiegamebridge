@@ -297,6 +297,33 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertEqual([one["v"] for one in lang_filter["values"]], LANGUAGES)
 
+    def test_explicit_filters_rerun_as_the_same_search(self):
+        # Lists store their search to re-run it. `filters` drops what's set to
+        # "any", and normalizing it again refills that from the form's defaults:
+        # this no-max search would come back capped at the default peak of 200.
+        big = self._make_streamer(1, "big")
+        self._make_stream(big, 1, max_viewers=500, avg_viewers=40, duration=3600)
+        self._rebuild()
+        search = self._search()
+
+        self.assertEqual(StreamerSearch(search.filters).results(), [])
+        rerun = StreamerSearch(search.explicit_filters())
+        self.assertEqual(rerun.filters, search.filters)
+        self.assertEqual(self._logins(rerun.results()), ["big"])
+
+    def test_describe_lists_the_filters_that_narrow_the_search(self):
+        self._make_genres()
+        search = self._search(lang="fr", peakmin=50, peakmax=200, avgmax=100, hoursmin=8, genres=20)
+
+        self.assertEqual(search.describe(), [
+            {"label": "Max Viewers", "value": "50–200"},
+            {"label": "Avg Viewers", "value": "up to 100"},
+            {"label": "Streams", "value": "1+"},
+            {"label": "Hours", "value": "8+"},
+            {"label": "Game Genre #1", "value": "Puzzle"},
+            {"label": "Language", "value": "French"},
+        ])
+
     def test_pass_completes_while_new_profiles_keep_arriving(self):
         # Regression: the cursor used to wrap only on a run that found *nothing* past
         # it. fetch_twitch_streams inserts profiles continuously, so that run never

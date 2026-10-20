@@ -122,7 +122,10 @@ class ListsView(APIView):
 
         with transaction.atomic():
             list_of_streamers = UserListOfStreamers.objects.create(
-                owner=request.user, title=title, description=description,
+                owner=request.user,
+                title=title,
+                description=description,
+                search_filters=search.explicit_filters(),
             )
             if labels:
                 list_of_streamers.labels.set(labels)

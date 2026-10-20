@@ -41,6 +41,14 @@ class UserListOfStreamers(models.Model):
             " label's owner to the list's owner - the write endpoints have to.",
     )
 
+    search_filters = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="The search the list was saved from, every filter spelled out ('any'"
+            " included) so it re-runs as the same search even after the form's defaults"
+            " change. Empty for a list created by hand, which has no search to refresh from.",
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="When the list was created.",

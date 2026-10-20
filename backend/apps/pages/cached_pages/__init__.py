@@ -4,6 +4,7 @@ from .contact import ContactPageBuilder
 from .dashboard import DashboardPageBuilder
 from .genre_trends import GenreTrendsPageBuilder
 from .home import HomePageBuilder
+from .list_of_streamers import ListOfStreamersPageBuilder
 from .login import LoginPageBuilder
 from .opt_out import OptOutPageBuilder
 from .page_footer import PageFooterBuilder
@@ -19,6 +20,7 @@ __all__ = [
     "DashboardPageBuilder",
     "GenreTrendsPageBuilder",
     "HomePageBuilder",
+    "ListOfStreamersPageBuilder",
     "LoginPageBuilder",
     "OptOutPageBuilder",
     "PageFooterBuilder",
