@@ -284,11 +284,10 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# Cookie names + paths. The refresh cookie is path-scoped so it's only sent on
-# the refresh endpoint - keeps it off every other request.
+# Cookie names. Both cookies are site-wide - apps.users.cookies says why the
+# refresh one can't be scoped to the refresh endpoint.
 JWT_ACCESS_COOKIE_NAME = "ig_access"
 JWT_REFRESH_COOKIE_NAME = "ig_refresh"
-JWT_REFRESH_COOKIE_PATH = "/auth/token/refresh/"
 JWT_COOKIE_SECURE = not DEBUG  # Secure=True breaks plain-http dev; relax in DEBUG
 JWT_COOKIE_SAMESITE = "Lax"
 
