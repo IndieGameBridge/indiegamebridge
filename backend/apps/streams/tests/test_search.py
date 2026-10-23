@@ -324,6 +324,24 @@ class RebuildAndSearchTests(TestCase):
             {"label": "Language", "value": "French"},
         ])
 
+    def test_main_language_is_the_one_streamed_most(self):
+        # A list made by hand has no search language, so each streamer shows in
+        # the one with the most hours; more streams break a tie on hours.
+        mostly_french = self._make_streamer(1, "mostly_french")
+        self._make_stream(mostly_french, 1, max_viewers=50, avg_viewers=20, duration=3600)
+        self._make_stream(mostly_french, 2, max_viewers=90, avg_viewers=30, duration=7200, language="fr")
+        tied = self._make_streamer(2, "tied")
+        self._make_stream(tied, 3, max_viewers=50, avg_viewers=20, duration=3600, language="de")
+        self._make_stream(tied, 4, max_viewers=50, avg_viewers=20, duration=1800, language="es")
+        self._make_stream(tied, 5, max_viewers=50, avg_viewers=20, duration=1800, language="es")
+        self._rebuild()
+
+        stats = StreamerSearch.main_language_stats_for_profiles([mostly_french.id, tied.id])
+
+        self.assertEqual(stats[mostly_french.id]["language"], "French")
+        self.assertEqual(stats[mostly_french.id]["peak_viewers"], 90)
+        self.assertEqual(stats[tied.id]["language"], "Spanish")
+
     def test_pass_completes_while_new_profiles_keep_arriving(self):
         # Regression: the cursor used to wrap only on a run that found *nothing* past
         # it. fetch_twitch_streams inserts profiles continuously, so that run never

@@ -1,4 +1,5 @@
 from .base import BaseCachedPageBuilder
+from .list_form import list_form_labels
 from apps.userlists.views.list_entry import MAX_NOTE
 
 
@@ -8,13 +9,29 @@ class ListOfStreamersPageBuilder(BaseCachedPageBuilder):
 
     def build_content(self) -> dict:
         return {
-            "info": "{count} streamers · saved {date}",
+            "info": "{count} streamers · created {date}",
             "saved_from": "Saved from",
+            "list_actions": {
+                "edit_btn": "Edit list",
+                "delete_btn": "Delete list",
+                "delete_confirm": "Delete this list and your notes on its streamers? This cannot be undone.",
+                "delete_error": "Couldn't delete the list. Reload the page and try again.",
+                "form": list_form_labels(
+                    submit_btn="Save changes",
+                    error="Couldn't save the changes. Reload the page and try again.",
+                ),
+            },
+            "empty": "No streamers in this list yet. Add them from the search results or from"
+                " a streamer's profile.",
+            "empty_cta": "Search streamers",
             "view_profile": "View Profile",
             "show_more": "Show More",
             "loading": "Loading...",
             "load_error": "Couldn't load more streamers. Reload the page and try again.",
             "no_stats": "No streams in this list's language in the last 4 weeks.",
+            # A list made by hand shows each streamer in their main language, so
+            # this one means no streams in any language.
+            "no_stats_any": "No streams in the last 4 weeks.",
             "removed": "Removed streamer",
             "removed_note": "This streamer opted out, so their details are gone. Your note stays.",
             "note_label": "Note",

@@ -1,4 +1,4 @@
-"""The owner's lists of streamers: read them for the dashboard, or save a search as a new one."""
+"""The owner's lists of streamers: read them for the dashboard, or create one - from a search, or empty."""
 
 from django.http import QueryDict
 from django.db import transaction
@@ -37,12 +37,31 @@ def _clean(value) -> str:
     return str(value or "").replace("\x00", "").strip()
 
 
+def clean_title(data) -> tuple[str, dict | None]:
+    """A list's title from request data, or the 400 payload saying what's wrong with it."""
+    title = _clean(data.get("title"))
+    if not title:
+        return title, {"title": "Give the list a title."}
+    if len(title) > MAX_TITLE:
+        return title, {"title": f"At most {MAX_TITLE} characters."}
+    return title, None
+
+
+def clean_description(data) -> tuple[str, dict | None]:
+    """A list's note from request data, or the 400 payload saying what's wrong with it."""
+    description = _clean(data.get("description"))
+    if len(description) > MAX_DESCRIPTION:
+        return description, {"description": f"At most {MAX_DESCRIPTION} characters."}
+    return description, None
+
+
 @method_decorator(csrf_protect, name="dispatch")
 class ListsView(APIView):
     """The signed-in user's lists of streamers.
 
     GET returns all of them, newest first, for the dashboard's cards. POST saves
-    the streamers matching a search as a new list.
+    the streamers matching a search as a new list, or - sent without a search -
+    starts an empty one for adding streamers to by hand.
 
     POST carries the search's query string rather than thousands of ids: the ids
     would not fit in a URL, and re-running the search server-side keeps one
@@ -93,17 +112,18 @@ class ListsView(APIView):
         })
 
     def post(self, request):
-        title = _clean(request.data.get("title"))
-        if not title:
-            return self._bad_request({"title": "Give the list a title."})
-        if len(title) > MAX_TITLE:
-            return self._bad_request({"title": f"At most {MAX_TITLE} characters."})
+        title, error = clean_title(request.data)
+        if error:
+            return self._bad_request(error)
+        description, error = clean_description(request.data)
+        if error:
+            return self._bad_request(error)
 
-        description = _clean(request.data.get("description"))
-        if len(description) > MAX_DESCRIPTION:
-            return self._bad_request(
-                {"description": f"At most {MAX_DESCRIPTION} characters."}
-            )
+        # No search at all starts an empty list, made by hand. An empty string is
+        # still a search: the default one a bare /streamers page runs and saves.
+        raw_search = request.data.get("search")
+        if raw_search is not None and not isinstance(raw_search, str):
+            return self._bad_request({"search": "Expected the search's query string."})
 
         labels, label_error = self._resolve_labels(request)
         if label_error:
@@ -117,15 +137,19 @@ class ListsView(APIView):
                 {"detail": f"You already have the maximum of {MAX_LISTS_PER_USER} lists."}
             )
 
-        search = StreamerSearch.from_query_params(QueryDict(request.data.get("search") or ""))
-        profile_ids = search.profile_ids()
+        if raw_search is None:
+            # Nothing to refresh from later, which is what tells the two kinds apart.
+            search_filters, profile_ids = {}, []
+        else:
+            search = StreamerSearch.from_query_params(QueryDict(raw_search))
+            search_filters, profile_ids = search.explicit_filters(), search.profile_ids()
 
         with transaction.atomic():
             list_of_streamers = UserListOfStreamers.objects.create(
                 owner=request.user,
                 title=title,
                 description=description,
-                search_filters=search.explicit_filters(),
+                search_filters=search_filters,
             )
             if labels:
                 list_of_streamers.labels.set(labels)

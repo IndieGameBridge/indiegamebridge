@@ -1,6 +1,6 @@
 from .base import BaseCachedPageBuilder
+from .list_form import list_form_labels
 from apps.streams.search import StreamerSearch
-from apps.userlists.views.lists import MAX_DESCRIPTION, MAX_TITLE
 
 
 class StreamersPageBuilder(BaseCachedPageBuilder):
@@ -34,19 +34,11 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
             },
             "save_list": {
                 "open_btn": "Save as list",
-                "title_label": "List title",
-                "title_placeholder": "e.g. small shooter streamers",
-                "description_label": "Note (optional)",
-                "description_placeholder": "What is this list for?",
                 "note": "Saves every streamer this search found, in the order shown. The list is"
                     " a snapshot and won't change when the search results do.",
-                "submit_btn": "Save list",
-                "saving": "Saving...",
-                "cancel_btn": "Cancel",
-                "error": "Couldn't save the list. Reload the page and try again.",
-                # The endpoint's own limits, so the form stops overlong input as it
-                # is typed rather than bouncing it back as a 400.
-                "title_max_length": MAX_TITLE,
-                "description_max_length": MAX_DESCRIPTION,
+                **list_form_labels(
+                    submit_btn="Save list",
+                    error="Couldn't save the list. Reload the page and try again.",
+                ),
             },
         }

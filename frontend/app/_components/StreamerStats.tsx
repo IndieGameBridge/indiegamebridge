@@ -4,6 +4,8 @@ export type StreamerStatsData = {
     streams_count: number;
     hours_streamed: number;
     genres: string[];
+    // Only on lists made by hand, which mix languages: the one these stats are in.
+    language?: string;
 };
 
 // A streamer's last-4-week numbers and genres. Shared by search results and
@@ -25,6 +27,12 @@ export function StreamerStats({ stats }: { stats: StreamerStatsData }) {
                         <span className="text-brand-blue uppercase">Activity: </span>
                         <span>{stats.streams_count.toLocaleString()} {stats.streams_count > 1 ? 'streams' : 'stream'} • {stats.hours_streamed.toLocaleString()} h</span>
                     </div>
+                    {stats.language && (
+                        <div className="text-nowrap py-1">
+                            <span className="text-brand-blue uppercase">Language: </span>
+                            <span>{stats.language}</span>
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="flex flex-row flex-wrap content-start col-span-1 gap-1 md:col-span-1 lg:col-span-1 md:p-4 md:border-l md:border-l-gray-300 lg:p-4 lg:border-l lg:border-l-gray-300">{

@@ -15,7 +15,8 @@ export type ListEntry = {
     streamer: {
         login: string;
         display_name: string;
-        // null when they have no recent streams in the list's language.
+        // null when they have no recent streams in the list's language, or for
+        // a list made by hand, in any language.
         stats: StreamerStatsData | null;
     } | null;
 };
@@ -27,16 +28,21 @@ export type ListDetail = {
     labels: ListLabel[];
     created_at: string;
     streamers_count: number;
+    // False for a list made by hand: its stats are in each streamer's main language.
+    from_search: boolean;
     search: { label: string; value: string }[];
     entries: ListEntry[];
 };
 
 export type ListEntriesLabels = EntryNoteLabels & {
+    empty: string;
+    empty_cta: string;
     view_profile: string;
     show_more: string;
     loading: string;
     load_error: string;
     no_stats: string;
+    no_stats_any: string;
     removed: string;
     removed_note: string;
 };
@@ -68,6 +74,17 @@ export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEn
         }
     }
 
+    if (entries.length === 0) {
+        return (
+            <div className="border-t border-t-gray-400 pt-8">
+                <p className="mb-8 text-gray-800">{labels.empty}</p>
+                <Link href="/streamers" className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700">
+                    {labels.empty_cta}
+                </Link>
+            </div>
+        );
+    }
+
     return (
         <div>
             {entries.map((entry, index) => (
@@ -89,7 +106,9 @@ export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEn
                         ? <StreamerStats stats={entry.streamer.stats} />
                         : (
                             <p className="border-t border-t-gray-300 py-4 text-sm text-gray-600">
-                                {entry.streamer ? labels.no_stats : labels.removed_note}
+                                {!entry.streamer
+                                    ? labels.removed_note
+                                    : list.from_search ? labels.no_stats : labels.no_stats_any}
                             </p>
                         )}
 

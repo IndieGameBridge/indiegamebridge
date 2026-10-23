@@ -102,6 +102,32 @@ class StreamerSearch:
             stats[row.pop("streamer_profile_id")] = cls._format_stats(row)
         return stats
 
+    @classmethod
+    def main_language_stats_for_profiles(cls, profile_ids) -> dict[int, dict]:
+        """Given streamers' stats in each one's main language, keyed by profile id.
+
+        For lists made by hand, which have no search language to show stats in.
+        The main language is the one with the most hours streamed in the window;
+        more streams, then the language code, break ties. Each row names its
+        language the way the search form does, since a list can mix them.
+        """
+        stats = {}
+        rows = (
+            StreamerSearchStats.objects.filter(streamer_profile_id__in=profile_ids)
+            # DISTINCT ON keeps each streamer's first row in this order.
+            .order_by("streamer_profile_id", "-total_duration_seconds", "-streams_count", "language")
+            .distinct("streamer_profile_id")
+            .values("streamer_profile_id", "language", *STATS_FIELDS)
+        )
+        filters_config, _ = cls.get_filters_config()
+        language_options = next(
+            one_config["values"] for one_config in filters_config if one_config["name"] == "lang"
+        )
+        for row in rows:
+            row["language"] = cls._option_label(language_options, row["language"]) or row["language"]
+            stats[row.pop("streamer_profile_id")] = cls._format_stats(row)
+        return stats
+
     def total(self) -> int:
         # Capped to MAX_RESULTS to match the pageable result set.
         return min(self._stats_queryset().count(), MAX_RESULTS)

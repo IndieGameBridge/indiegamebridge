@@ -24,6 +24,9 @@ from apps.userlists.views.lists import MAX_LISTS_PER_USER, ListsView
 
 User = get_user_model()
 
+# Pass as a field's value to leave the key out of the request altogether.
+OMIT = object()
+
 
 class CreateListTests(TestCase):
     def setUp(self):
@@ -65,6 +68,7 @@ class CreateListTests(TestCase):
     def _post(self, user=None, **payload):
         payload.setdefault("title", "small streamers")
         payload.setdefault("search", "lang=en")
+        payload = {key: value for key, value in payload.items() if value is not OMIT}
         request = self.factory.post("/api/lists/", payload, format="json")
         if user is not False:
             force_authenticate(request, user=user or self.user)
@@ -117,6 +121,38 @@ class CreateListTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["streamers_count"], 0)
         self.assertTrue(UserListOfStreamers.objects.exists())
+
+    def test_without_a_search_starts_an_empty_list(self):
+        # One the default search would find, so an empty list shows no search ran.
+        self._make_streamer(1, "top")
+
+        for search in (OMIT, None):
+            with self.subTest(search=search):
+                response = self._post(search=search)
+
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(response.data["streamers_count"], 0)
+                saved = UserListOfStreamers.objects.get(id=response.data["id"])
+                # No search to refresh from: what marks a list as made by hand.
+                self.assertEqual(saved.search_filters, {})
+                self.assertFalse(saved.entries.exists())
+
+    def test_an_empty_search_is_the_default_search(self):
+        # What a bare /streamers page saves, so it must not start an empty list.
+        self._make_streamer(1, "top")
+
+        response = self._post(search="")
+
+        self.assertEqual(response.data["streamers_count"], 1)
+        saved = UserListOfStreamers.objects.get(id=response.data["id"])
+        self.assertEqual(saved.search_filters, StreamerSearch({}).explicit_filters())
+
+    def test_rejects_a_search_that_is_not_a_query_string(self):
+        for bad_search in (5, ["lang=en"], {"lang": "en"}):
+            with self.subTest(search=bad_search):
+                self.assertEqual(self._post(search=bad_search).status_code, 400)
+
+        self.assertFalse(UserListOfStreamers.objects.exists())
 
     def test_requires_a_title(self):
         for blank in ("", "   "):

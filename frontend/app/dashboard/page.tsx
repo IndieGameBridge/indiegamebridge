@@ -8,6 +8,7 @@ import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
 import { PageHeader, PageFooter, PageFooterContent } from "../_components";
 import { ListCard, ListCardData } from "./_components/ListCard";
+import { NewList, NewListLabels } from "./_components/NewList";
 
 // Reads auth cookies + live backend data per request, so never prerender at
 // build time (the backend isn't reachable then). Render on demand on the Worker.
@@ -18,6 +19,7 @@ type DashboardPageContent = {
     description: string;
     empty_state: string;
     empty_state_cta: string;
+    new_list: NewListLabels;
     footer_content: PageFooterContent;
 };
 
@@ -63,15 +65,23 @@ export default async function DashboardPage() {
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto py-24">
                         {lists.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {lists.map((list) => <ListCard key={list.id} list={list} />)}
-                            </div>
+                            <Fragment>
+                                <div className="mb-8 flex flex-row flex-wrap justify-end gap-4">
+                                    <NewList labels={content.new_list} />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {lists.map((list) => <ListCard key={list.id} list={list} />)}
+                                </div>
+                            </Fragment>
                         ) : (
                             <div className="border-t border-t-gray-400 pt-8">
                                 <p className="mb-8 text-gray-800">{content.empty_state}</p>
-                                <Link href="/streamers" className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700">
-                                    {content.empty_state_cta}
-                                </Link>
+                                <div className="flex flex-row flex-wrap items-center gap-4">
+                                    <Link href="/streamers" className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700">
+                                        {content.empty_state_cta}
+                                    </Link>
+                                    <NewList labels={content.new_list} />
+                                </div>
                             </div>
                         )}
                     </div>

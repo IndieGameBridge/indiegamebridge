@@ -7,6 +7,7 @@ import { getCurrentUser } from "../../_lib/auth";
 import { formatDate } from "../../_lib/format";
 import { serverFetch } from "../../_lib/server-fetch";
 import { LabelChip, PageHeader, PageFooter, PageFooterContent } from "../../_components";
+import { ListActions, ListActionsLabels } from "./_components/ListActions";
 import { ListDetail, ListEntries, ListEntriesLabels } from "./_components/ListEntries";
 
 // Reads auth cookies + live backend data per request, so never prerender at
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
 type ListPageContent = ListEntriesLabels & {
     info: string;
     saved_from: string;
+    list_actions: ListActionsLabels;
     footer_content: PageFooterContent;
 };
 
@@ -55,7 +57,7 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
         throw new Error(`Failed to load list of streamers (status ${listResp.status})`);
     }
 
-    const { info, saved_from, footer_content, ...entriesLabels }: ListPageContent = await contentResp.json();
+    const { info, saved_from, list_actions, footer_content, ...entriesLabels }: ListPageContent = await contentResp.json();
     const list: ListDetail = await listResp.json();
 
     return (
@@ -72,8 +74,8 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
             <main className="flex-1">
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto py-24">
-                        {(list.labels.length > 0 || list.search.length > 0) && (
-                            <div className="mb-16 flex flex-col gap-4 text-sm">
+                        <div className="mb-16 flex flex-row flex-wrap items-start justify-between gap-4 text-sm">
+                            <div className="flex flex-col gap-4 min-w-0">
                                 {list.labels.length > 0 && (
                                     <div className="flex flex-row flex-wrap gap-1">
                                         {list.labels.map((label) => <LabelChip key={label.id} label={label} />)}
@@ -86,7 +88,12 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
                                     </p>
                                 )}
                             </div>
-                        )}
+                            {/* Just the fields it edits, not the entries already sent to ListEntries. */}
+                            <ListActions
+                                list={{ id: list.id, title: list.title, description: list.description }}
+                                labels={list_actions}
+                            />
+                        </div>
 
                         <ListEntries list={list} labels={entriesLabels} />
                     </div>

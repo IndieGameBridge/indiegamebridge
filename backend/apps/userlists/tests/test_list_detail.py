@@ -1,4 +1,4 @@
-"""Tests for one list and its entries (GET /api/lists/<id>/)."""
+"""Tests for one list: reading it with its entries, editing it, deleting it (/api/lists/<id>/)."""
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -6,7 +6,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.streams.models import StreamerProfile, StreamerSearchStats
 from apps.streams.search import PAGE_SIZE, StreamerSearch
-from apps.userlists.models import StreamerInList, UserListOfStreamers
+from apps.userlists.models import StreamerInList, UserLabelForListOfStreamers, UserListOfStreamers
 from apps.userlists.views import ListDetailView
 
 User = get_user_model()
@@ -62,6 +62,19 @@ class ListDetailTests(TestCase):
     def _get(self, list_id=None, user=None, page=None):
         list_id = list_id or self.list.id
         request = self.factory.get(f"/api/lists/{list_id}/", {"p": page} if page else {})
+        return self._send(request, list_id, user)
+
+    def _patch(self, payload, list_id=None, user=None):
+        list_id = list_id or self.list.id
+        request = self.factory.patch(f"/api/lists/{list_id}/", payload, format="json")
+        return self._send(request, list_id, user)
+
+    def _delete(self, list_id=None, user=None):
+        list_id = list_id or self.list.id
+        request = self.factory.delete(f"/api/lists/{list_id}/")
+        return self._send(request, list_id, user)
+
+    def _send(self, request, list_id, user):
         if user is not False:
             force_authenticate(request, user=user or self.user)
         return ListDetailView.as_view()(request, list_id=list_id)
@@ -119,20 +132,90 @@ class ListDetailTests(TestCase):
         self.assertEqual(second["streamers_count"], PAGE_SIZE + 1)
 
     def test_describes_the_search_it_was_saved_from(self):
-        search = self._get().data["search"]
+        data = self._get().data
 
-        self.assertIn({"label": "Language", "value": "English"}, search)
+        self.assertTrue(data["from_search"])
+        self.assertIn({"label": "Language", "value": "English"}, data["search"])
         # No max was set, so the summary shows an open-ended range.
-        self.assertIn({"label": "Max Viewers", "value": "5+"}, search)
+        self.assertIn({"label": "Max Viewers", "value": "5+"}, data["search"])
 
-    def test_a_list_without_a_recorded_search_has_no_stats_or_summary(self):
-        legacy = self._make_list(self.user)
-        self._add(self._make_streamer(1, "solo"), list_of_streamers=legacy)
+    def test_a_list_made_by_hand_shows_each_streamer_in_their_main_language(self):
+        by_hand = self._make_list(self.user)
+        streamer = self._make_streamer(1, "bilingual", languages=("en", "fr"))
+        # More hours in French, so French is the one to show.
+        StreamerSearchStats.objects.filter(streamer_profile=streamer, language="fr").update(
+            total_duration_seconds=72000, peak_viewers=300,
+        )
+        self._add(streamer, list_of_streamers=by_hand)
 
-        data = self._get(list_id=legacy.id).data
+        data = self._get(list_id=by_hand.id).data
 
+        self.assertFalse(data["from_search"])
         self.assertEqual(data["search"], [])
-        self.assertIsNone(data["entries"][0]["streamer"]["stats"])
+        stats = data["entries"][0]["streamer"]["stats"]
+        self.assertEqual(stats["language"], "French")
+        self.assertEqual((stats["peak_viewers"], stats["hours_streamed"]), (300, 20))
+
+    def test_a_list_made_by_hand_has_no_stats_for_a_streamer_gone_quiet(self):
+        by_hand = self._make_list(self.user)
+        self._add(self._make_streamer(1, "quiet", languages=()), list_of_streamers=by_hand)
+
+        (entry,) = self._get(list_id=by_hand.id).data["entries"]
+
+        self.assertIsNone(entry["streamer"]["stats"])
+
+    def test_edits_the_title_and_note(self):
+        response = self._patch({"title": "  to contact  ", "description": "for the demo"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["title"], "to contact")
+        self.list.refresh_from_db()
+        self.assertEqual((self.list.title, self.list.description), ("to contact", "for the demo"))
+
+    def test_edits_only_the_fields_sent(self):
+        self._patch({"description": "keep me"})
+
+        self._patch({"title": "renamed"})
+
+        self.list.refresh_from_db()
+        self.assertEqual((self.list.title, self.list.description), ("renamed", "keep me"))
+
+    def test_rejects_a_blank_title_or_overlong_text(self):
+        for payload in ({"title": "   "}, {"title": "t" * 33}, {"description": "d" * 513}):
+            with self.subTest(payload=payload):
+                self.assertEqual(self._patch(payload).status_code, 400)
+
+        self.list.refresh_from_db()
+        self.assertEqual((self.list.title, self.list.description), ("small streamers", ""))
+
+    def test_deletes_the_list_with_its_entries_but_not_its_labels(self):
+        label = UserLabelForListOfStreamers.objects.create(owner=self.user, title="shooters", color="#0072B2")
+        self.list.labels.add(label)
+        entry = self._add(self._make_streamer(1, "top"), description="replied, wants a key")
+
+        response = self._delete()
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(UserListOfStreamers.objects.filter(id=self.list.id).exists())
+        self.assertFalse(StreamerInList.objects.filter(id=entry.id).exists())
+        self.assertTrue(UserLabelForListOfStreamers.objects.filter(id=label.id).exists())
+        self.assertTrue(StreamerProfile.objects.filter(host_login="top").exists())
+
+    def test_another_users_list_cannot_be_edited_or_deleted(self):
+        theirs = self._make_list(self.other, search={"lang": "en"})
+
+        self.assertEqual(self._patch({"title": "mine now"}, list_id=theirs.id).status_code, 404)
+        self.assertEqual(self._delete(list_id=theirs.id).status_code, 404)
+
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.title, "small streamers")
+
+    def test_editing_and_deleting_require_authentication(self):
+        self.assertIn(self._patch({"title": "renamed"}, user=False).status_code, (401, 403))
+        self.assertIn(self._delete(user=False).status_code, (401, 403))
+
+        self.list.refresh_from_db()
+        self.assertEqual(self.list.title, "small streamers")
 
     def test_another_users_list_is_not_found(self):
         theirs = self._make_list(self.other, search={"lang": "en"})
