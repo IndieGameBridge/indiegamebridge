@@ -2,32 +2,34 @@
 
 Postgres keeps the current month and the KEEP_FULL_MONTHS full months before it.
 Streams that finished earlier are written to ARCHIVE_DIR/streams/<YYYY-MM>.parquet,
-one file per month, and each month is recorded in ArchivedMonth. The streams
-themselves stay in Postgres.
+one file per month, and each month is recorded in ArchivedMonth. This only writes the
+files: delete_archived_streams removes the streams from Postgres, in a run of its own.
 
 The files can be read without Postgres; DuckDB, for one, queries them in place:
 
     SELECT language, count(*) FROM 'archive/streams/*.parquet' GROUP BY 1;
 """
 
-import hashlib
 import os
 import time
-from datetime import date, datetime, timedelta, timezone as dt_timezone
-from pathlib import Path
+from datetime import date, timedelta
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.streams.archive import (
+    KEEP_FULL_MONTHS,
+    archive_lock,
+    files_dir,
+    month_range,
+    parse_month,
+    retention_start,
+    sha256_of,
+)
 from apps.streams.models import ArchivedMonth, Stream, StreamerProfile
-
-# Postgres keeps the current month and this many full months before it. Two months
-# are never less than 59 days, so Postgres always holds at least 8 weeks.
-KEEP_FULL_MONTHS = 2
 
 # Streams read from Postgres, and written to Parquet as one row group, at a time.
 BATCH_SIZE = 20000
@@ -72,20 +74,6 @@ SCHEMA = pa.schema([
     ("genre_ids", pa.list_(pa.int64())),
     ("snapshots", pa.list_(pa.struct([("t", pa.int64()), ("g", pa.int64()), ("v", pa.int64())]))),
 ])
-
-
-def retention_start(now):
-    """When the streams Postgres keeps start: the first moment (UTC) of the month
-    KEEP_FULL_MONTHS before the current one."""
-    months = now.year * 12 + now.month - 1 - KEEP_FULL_MONTHS
-    return datetime(months // 12, months % 12 + 1, 1, tzinfo=dt_timezone.utc)
-
-
-def _month_range(month):
-    """The first moment (UTC) of a month and of the one after it, from its first day."""
-    start = datetime(month.year, month.month, 1, tzinfo=dt_timezone.utc)
-    following = date(month.year + month.month // 12, month.month % 12 + 1, 1)
-    return start, datetime(following.year, following.month, 1, tzinfo=dt_timezone.utc)
 
 
 class _MonthFile:
@@ -134,23 +122,35 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        with archive_lock() as locked:
+            if not locked:
+                self.stdout.write("Another archive run is in progress; not starting.")
+                return
+            self._archive(options["month"])
+
+    def _archive(self, raw_month):
         started = time.monotonic()
         cutoff = retention_start(timezone.now())
         streams = Stream.objects.filter(finished_at__lt=cutoff).exclude(status=Stream.Status.LIVE)
 
-        if options["month"]:
-            month = self._parse_month(options["month"], cutoff)
+        if raw_month:
+            month = parse_month(raw_month)
+            if month_range(month)[0] >= cutoff:
+                raise CommandError(
+                    f"{raw_month} is inside the retention window, which starts {cutoff:%Y-%m-%d};"
+                    " only earlier months are archived."
+                )
             if ArchivedMonth.objects.filter(month=month).exists():
                 self.stdout.write(f"{month:%Y-%m} is archived already.")
                 return
-            month_start, month_end = _month_range(month)
+            month_start, month_end = month_range(month)
             streams = streams.filter(finished_at__gte=month_start, finished_at__lt=month_end)
 
         for archived_month in ArchivedMonth.objects.values_list("month", flat=True):
-            month_start, month_end = _month_range(archived_month)
+            month_start, month_end = month_range(archived_month)
             streams = streams.exclude(finished_at__gte=month_start, finished_at__lt=month_end)
 
-        directory = Path(settings.ARCHIVE_DIR) / "streams"
+        directory = files_dir()
         directory.mkdir(parents=True, exist_ok=True)
         files = {}
         try:
@@ -219,7 +219,7 @@ class Command(BaseCommand):
                 f" but {month_file.streams_count:,} streams were written to it."
             )
 
-        sha256 = self._sha256(month_file.partial_path)
+        sha256 = sha256_of(month_file.partial_path)
         os.replace(month_file.partial_path, month_file.path)
         archived_month = ArchivedMonth.objects.create(
             month=month_file.month,
@@ -235,24 +235,3 @@ class Command(BaseCommand):
             f" (ids {archived_month.first_stream_id}-{archived_month.last_stream_id}),"
             f" {archived_month.file_size / 1024 ** 2:,.1f} MB -> {month_file.path}"
         )
-
-    @staticmethod
-    def _parse_month(raw, cutoff):
-        try:
-            month = datetime.strptime(raw, "%Y-%m").date()
-        except ValueError:
-            raise CommandError(f"--month takes YYYY-MM, not {raw!r}.") from None
-        if _month_range(month)[0] >= cutoff:
-            raise CommandError(
-                f"{raw} is inside the retention window, which starts {cutoff:%Y-%m-%d};"
-                " only earlier months are archived."
-            )
-        return month
-
-    @staticmethod
-    def _sha256(path):
-        digest = hashlib.sha256()
-        with open(path, "rb") as file:
-            for chunk in iter(lambda: file.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()

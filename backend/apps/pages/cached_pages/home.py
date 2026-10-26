@@ -1,8 +1,8 @@
 from django.db import connection
-from django.db.models import Max
+from django.db.models import Max, Sum
 
 from .base import BaseCachedPageBuilder
-from apps.streams.models import Stream, StreamerProfile, StreamerSearchStats
+from apps.streams.models import ArchivedMonth, Stream, StreamerProfile, StreamerSearchStats
 from apps.streams.search import StreamerSearch
 
 
@@ -13,10 +13,10 @@ class HomePageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         # Approximate, O(1) headline counts: MAX(id) for streamers (profiles are
         # only removed on opt-out, so it tracks the total seen) and the planner's
-        # row estimate for streams. Avoids COUNT scans over the streams table that
-        # grow with the data.
+        # row estimate for streams, plus the archived ones no longer in the table.
+        # Avoids COUNT scans over the streams table that grow with the data.
         total_streamers = StreamerProfile.objects.aggregate(max_id=Max("id"))["max_id"] or 0
-        total_streams = self._estimated_stream_count()
+        total_streams = self._estimated_stream_count() + self._archived_stream_count()
         # Searchable streamers = rows in the precomputed search table (active in the
         # last 4 weeks). Slightly over the distinct count since a multi-language
         # streamer has one row per language, but that's a tiny fraction - and the
@@ -91,6 +91,17 @@ class HomePageBuilder(BaseCachedPageBuilder):
             return estimate
         # Fallback if the table was never ANALYZEd (reltuples = -1): exact count.
         return Stream.objects.filter(status=Stream.Status.APPROVED).count()
+
+    @staticmethod
+    def _archived_stream_count() -> int:
+        # Streams of months delete_archived_streams has taken out of Postgres: they now
+        # live only in the archive files, but they were observed all the same.
+        return (
+            ArchivedMonth.objects
+            .filter(rows_deleted_at__isnull=False)
+            .aggregate(total=Sum("streams_count"))["total"]
+            or 0
+        )
 
     @staticmethod
     def _approx(value: int) -> str:

@@ -1,5 +1,6 @@
 """Tests for archive_streams: which streams go to which month's file, and what the file holds."""
 
+import contextlib
 import hashlib
 import tempfile
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -10,11 +11,13 @@ from unittest import mock
 import pyarrow.parquet as pq
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import DEFAULT_DB_ALIAS, connections
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
+from apps.streams import archive
+from apps.streams.archive import archive_lock, retention_start
 from apps.streams.management.commands import archive_streams
-from apps.streams.management.commands.archive_streams import retention_start
 from apps.streams.models import ArchivedMonth, Stream, StreamerProfile
 
 UTC = dt_timezone.utc
@@ -42,6 +45,33 @@ class RetentionStartTests(SimpleTestCase):
         for year, month in [(2027, 3), (2027, 2), (2026, 8), (2028, 3)]:
             now = datetime(year, month, 1, tzinfo=UTC)
             self.assertGreaterEqual(now - retention_start(now), timedelta(weeks=8))
+
+
+class ArchiveLockTests(TestCase):
+    def _try_lock(self, connection):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_try_advisory_lock(%s)", [archive._LOCK_KEY])
+            return cursor.fetchone()[0]
+
+    def test_another_session_cannot_take_it_until_it_is_released(self):
+        other = connections.create_connection(DEFAULT_DB_ALIAS)
+        self.addCleanup(other.close)
+
+        with archive_lock() as locked:
+            self.assertTrue(locked)
+            self.assertFalse(self._try_lock(other))
+
+        self.assertTrue(self._try_lock(other))
+        with other.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_unlock(%s)", [archive._LOCK_KEY])
+
+    def test_yields_false_while_another_session_holds_it(self):
+        other = connections.create_connection(DEFAULT_DB_ALIAS)
+        self.addCleanup(other.close)
+        self.assertTrue(self._try_lock(other))
+
+        with archive_lock() as locked:
+            self.assertFalse(locked)
 
 
 class ArchiveStreamsTests(TestCase):
@@ -203,6 +233,15 @@ class ArchiveStreamsTests(TestCase):
         self._run()
 
         self.assertIn("archived already", self._run("--month", f"{self.last_month:%Y-%m}"))
+
+    def test_does_not_start_while_another_run_holds_the_lock(self):
+        self._stream(self.last_month)
+
+        with mock.patch.object(archive_streams, "archive_lock", return_value=contextlib.nullcontext(False)):
+            output = self._run()
+
+        self.assertIn("Another archive run is in progress", output)
+        self.assertFalse(ArchivedMonth.objects.exists())
 
     def test_a_file_that_does_not_check_out_is_dropped(self):
         self._stream(self.last_month)
