@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 
 import { loadStreamersPage } from "../streamers/actions";
+import { AddToList, AddToListLabels } from "./AddToList";
+import { StreamerStats } from "./StreamerStats";
 
 export type StreamerData = {
+    profile_id: number;
     login: string;
     display_name: string;
     streams_count: number;
@@ -17,6 +20,7 @@ export type StreamerData = {
 
 export type ResultsListLabels = {
     found_count?: string;
+    found_count_one?: string;
     view_profile: string;
     show_more: string;
     loading: string;
@@ -28,6 +32,11 @@ type Props = {
     total?: number;
     can_load_more?: boolean;
     more_href?: string;
+    // Shown beside the result count, e.g. the streamers page's "Save to list".
+    count_actions?: React.ReactNode;
+    // Puts an "Add to list" menu on every row. Only for signed-in pages: the
+    // home page's demo leaves it out.
+    add_to_list?: AddToListLabels;
 };
 
 export function SearchStreamerResultsList({
@@ -36,6 +45,8 @@ export function SearchStreamerResultsList({
     total,
     can_load_more = false,
     more_href,
+    count_actions,
+    add_to_list,
 }: Props) {
     const [loadedResults, setLoadedResults] = useState<StreamerData[]>(search_results);
     const [knownTotal, setKnownTotal] = useState<number>(total ?? search_results.length);
@@ -62,8 +73,16 @@ export function SearchStreamerResultsList({
             {/* Result count, between the form and the listing; tracks Show More.
                 Only shown when a real total is supplied (the home demo passes none). */}
             {total !== undefined && labels.found_count && (
-                <div className="mb-8 text-lg text-brand-blue">
-                    {labels.found_count.replace("{count}", knownTotal.toLocaleString())}
+                <div className="mb-8 flex flex-row flex-wrap items-center justify-between gap-4">
+                    <div className="text-lg text-brand-blue">
+                        {knownTotal === 1 && labels.found_count_one
+                            ? labels.found_count_one
+                            : labels.found_count.replace("{count}", knownTotal.toLocaleString())}
+                    </div>
+                    {/* A Fragment's only child rather than a sibling in this row: an
+                        element passed in from a server component can still be loading
+                        here, and React then reports it as an unkeyed list item. */}
+                    <Fragment>{count_actions}</Fragment>
                 </div>
             )}
 
@@ -74,35 +93,14 @@ export function SearchStreamerResultsList({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-2 gap-6">
                         <div className="font-bold text-lg"><span className="text-gray-500 font-normal mr-1">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
+                            {add_to_list && <AddToList profileId={one_result.profile_id} labels={add_to_list} />}
                             <Link className="text-sm align-baseline inline-block p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
                                 href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">{labels.view_profile}</Link>
                         </div>
                     </div>
 
                     {/* Listing body */}
-                    <div className="border-gray-300 border-t text-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
-                        <div className="mb-4 pt-4">
-                            <div className="flex flex-col gap-1">
-                                <div className="text-nowrap py-1">
-                                    <span className="text-brand-blue uppercase">Peak: </span>
-                                    <span>{one_result.peak_viewers.toLocaleString()} viewers</span>
-                                </div>
-                                <div className="text-nowrap py-1">
-                                    <span className="text-brand-blue uppercase">Avg: </span>
-                                    <span>{one_result.avg_viewers.toLocaleString()} viewers</span>
-                                </div>
-                                <div className="text-nowrap py-1">
-                                    <span className="text-brand-blue uppercase">Activity: </span>
-                                    <span>{one_result.streams_count.toLocaleString()} {one_result.streams_count > 1 ? 'streams' : 'stream'} • {one_result.hours_streamed.toLocaleString()} h</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex flex-row flex-wrap content-start col-span-1 gap-1 md:col-span-1 lg:col-span-1 md:p-4 md:border-l md:border-l-gray-300 lg:p-4 lg:border-l lg:border-l-gray-300">{
-                            one_result.genres.map((genre_name, genre_index) => (
-                                <div key={`streamer-genre-${genre_index}`} className="self-start py-1 px-2 rounded-sm bg-gray-200">{genre_name}</div>
-                            ))
-                        }</div>
-                    </div>
+                    <StreamerStats stats={one_result} />
                 </div>
             ))}
 

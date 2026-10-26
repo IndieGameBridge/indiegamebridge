@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CurrentUser } from "../_lib/auth";
@@ -16,12 +17,15 @@ export function NavLink({ href, className, children }: { href: string; className
 }
 
 export function PageHeader(
-    { user, title, description, info, link_to_twitch }: {
+    { user, title, description, info, link_to_twitch, actions }: {
         user: CurrentUser | null;
         title?: string;
         description?: string;
         info?: string;
         link_to_twitch?: string;
+        // Shown beside the title, before the Twitch link, e.g. the profile
+        // page's "Add to list".
+        actions?: React.ReactNode;
     }
 ) {
     return (
@@ -45,10 +49,18 @@ export function PageHeader(
                 <div className="max-w-[1000] mx-auto">
                     <div className="flex flex-row items-center justify-between flex-wrap gap-y-8">
                         {title && <h1 className="text-3xl">{title}</h1>}
-                        {link_to_twitch
-                            && <a className="text-sm align-baseline inline-block py-1 px-4 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark text-center border border-twitch-brand hover:border-twitch-brand-dark"
-                                href={link_to_twitch} target="_blank" rel="nofollow">Visit Twitch Channel</a>
-                        }
+                        {(actions || link_to_twitch) && (
+                            <div className="flex flex-row flex-wrap items-center gap-4">
+                                {/* A Fragment's only child rather than a sibling here: an
+                                    element passed in from a server component can still be
+                                    loading, and React then reports it as an unkeyed list item. */}
+                                <Fragment>{actions}</Fragment>
+                                {link_to_twitch
+                                    && <a className="text-sm align-baseline inline-block py-1 px-4 bg-twitch-brand text-white font-medium rounded hover:bg-twitch-brand-dark text-center border border-twitch-brand hover:border-twitch-brand-dark"
+                                        href={link_to_twitch} target="_blank" rel="nofollow">Visit Twitch Channel</a>
+                                }
+                            </div>
+                        )}
                     </div>
                     {description && <p className="mt-6 text-lg">{description}</p>}
                     {info && <p className="mt-6 opacity-70">{info}</p>}

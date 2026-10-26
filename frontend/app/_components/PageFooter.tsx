@@ -25,19 +25,19 @@ export function PageFooter({ content }: { content: PageFooterContent; } ) {
         : <Link className={`text-blue-400 hover:text-white hover:underline ${link_styles}`} href={`/optout`} rel="nofollow">{content.opt_out_text}</Link>;
     return (
         <footer className="pt-16 pb-12 px-6 bg-brand-blue text-white shadow-sm shadow-gray-200">
-            <section className="max-w-[1000] mx-auto text-white font-thin mb-4">
+            <section className="max-w-[1000] mx-auto text-white font-thin mb-4 flex flex-col items-start md:flex-row md:flex-wrap gap-x-4">
                 {content.footer_links.map((one_link, index) => (
                     one_link.is_internal && pathname === one_link.url
                         ? <span key={`footer-link-${index}`}
-                            className={`p-2 mr-4 text-white underline ${link_styles}`}>{one_link.text}</span>
+                            className={`p-2 text-white underline ${link_styles}`}>{one_link.text}</span>
                         : one_link.is_internal
                         ? <Link key={`footer-link-${index}`}
                             href={one_link.url}
-                            className={`p-2 mr-4 text-white hover:underline ${link_styles}`}
+                            className={`p-2 text-white hover:underline ${link_styles}`}
                             rel={one_link.nofollow ? 'nofollow' : undefined}>{one_link.text}</Link>
                         : <a key={`footer-link-${index}`}
                             href={one_link.url}
-                            className={`p-2 mr-4 text-white hover:underline ${link_styles}`}
+                            className={`p-2 text-white hover:underline ${link_styles}`}
                             rel={one_link.nofollow ? 'nofollow' : undefined}>{one_link.text}</a>
                 ))}
             </section>

@@ -23,6 +23,11 @@ const FRONTEND_PROTO = new URL(FRONTEND_URL).protocol.replace(":", "");
 // forward the host, which breaks the Twitch login flow.
 const PROXY_PREFIXES = ["/accounts/", "/auth/", "/api/"];
 
+// Proxied calls that never act as the logged-in user, so an expired access
+// token isn't refreshed for them: the OAuth dance (it runs on allauth's
+// session), logout, and the refresh endpoint itself.
+const NO_REFRESH_PREFIXES = ["/accounts/", "/auth/logout/", "/auth/token/refresh/"];
+
 // Hop-by-hop / framing headers the runtime must recompute. Forwarding stale
 // values from the upstream corrupts the response body.
 const STRIP_RESPONSE_HEADERS = new Set([
@@ -32,7 +37,15 @@ const STRIP_RESPONSE_HEADERS = new Set([
     "connection",
 ]);
 
-async function proxyToBackend(request: NextRequest): Promise<Response> {
+type Refresh = {
+    // The request's Cookie header with the new tokens in, for whatever handles
+    // the request next. Absent when the refresh token was turned down.
+    cookieHeader?: string;
+    // Set-Cookie headers to pass on to the browser.
+    setCookies: string[];
+};
+
+async function proxyToBackend(request: NextRequest, refresh: Refresh | null): Promise<Response> {
     const url = request.nextUrl;
     // Django uses APPEND_SLASH, so ensure exactly one trailing slash on the path
     // (the query string is preserved separately).
@@ -43,6 +56,15 @@ async function proxyToBackend(request: NextRequest): Promise<Response> {
     headers.delete("host"); // let fetch set Host to the backend origin
     headers.set("x-forwarded-host", FRONTEND_HOST);
     headers.set("x-forwarded-proto", FRONTEND_PROTO);
+    if (refresh?.cookieHeader) headers.set("cookie", refresh.cookieHeader);
+
+    // The refresh's cookies go first, so a response that sets or clears the same
+    // ones (opt-out, account deletion) has the last word. They go out even if
+    // Django can't be reached: the old refresh token is spent either way.
+    const outHeaders = new Headers();
+    for (const cookie of refresh?.setCookies ?? []) {
+        outHeaders.append("set-cookie", cookie);
+    }
 
     const hasBody = request.method !== "GET" && request.method !== "HEAD";
     let upstream: Response;
@@ -56,12 +78,11 @@ async function proxyToBackend(request: NextRequest): Promise<Response> {
             ...(hasBody ? { duplex: "half" } : {}),
         } as RequestInit);
     } catch {
-        return new Response("Bad Gateway", { status: 502 });
+        return new Response("Bad Gateway", { status: 502, headers: outHeaders });
     }
 
     // Rebuild headers: drop framing headers, and re-append each Set-Cookie
     // individually (a plain copy folds multiple Set-Cookie into one).
-    const outHeaders = new Headers();
     upstream.headers.forEach((value, key) => {
         const lower = key.toLowerCase();
         if (lower === "set-cookie" || STRIP_RESPONSE_HEADERS.has(lower)) return;
@@ -85,6 +106,54 @@ async function proxyToBackend(request: NextRequest): Promise<Response> {
         statusText: upstream.statusText,
         headers: outHeaders,
     });
+}
+
+// Trades the refresh token for a new access token (and a rotated refresh
+// token). Concurrent refreshes with the same token are safe: the backend gives
+// them all the same new pair for a short while. Returns null when the backend
+// couldn't answer - down or throttling - so the cookie stays for the next
+// request to try again.
+async function refreshTokens(request: NextRequest, refreshToken: string): Promise<Refresh | null> {
+    const csrf = request.cookies.get(CSRF_COOKIE);
+    const upstreamCookies = [`${REFRESH_COOKIE}=${refreshToken}`];
+    if (csrf) upstreamCookies.push(`${CSRF_COOKIE}=${csrf.value}`);
+    // Lets the backend's per-IP throttle count the visitor, as on proxied calls.
+    const forwardedFor = request.headers.get("x-forwarded-for");
+
+    let refreshResp: Response;
+    try {
+        refreshResp = await fetch(`${API_BASE}/auth/token/refresh/`, {
+            method: "POST",
+            headers: {
+                cookie: upstreamCookies.join("; "),
+                ...(csrf ? { "X-CSRFToken": csrf.value } : {}),
+                ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+                // CSRF middleware accepts requests whose Origin matches CSRF_TRUSTED_ORIGINS.
+                origin: FRONTEND_URL,
+            },
+        });
+    } catch {
+        return null;
+    }
+    if (refreshResp.status === 429 || refreshResp.status >= 500) {
+        return null;
+    }
+    if (!refreshResp.ok) {
+        // Turned down (expired, blacklisted, CSRF). Wipe the stale refresh cookie;
+        // the request goes on logged out and the user logs in again.
+        return { setCookies: [`${REFRESH_COOKIE}=; Path=/; Max-Age=0`] };
+    }
+
+    const setCookies = refreshResp.headers.getSetCookie();
+    const overrides = new Map<string, string>();
+    for (const sc of setCookies) {
+        const parsed = extractCookieNameValue(sc);
+        if (parsed) overrides.set(parsed.name, parsed.value);
+    }
+    return {
+        cookieHeader: rebuildCookieHeader(request.headers.get("cookie") ?? "", overrides),
+        setCookies,
+    };
 }
 
 function extractCookieNameValue(setCookie: string): { name: string; value: string } | null {
@@ -118,61 +187,33 @@ function rebuildCookieHeader(original: string, overrides: Map<string, string>): 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // The access cookie runs out with its token; the refresh cookie lasts two
+    // weeks. When only the latter is left, trade it in before anything below -
+    // a proxied API call or a page render - needs the user.
+    const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+    const refresh =
+        refreshToken &&
+        !request.cookies.has(ACCESS_COOKIE) &&
+        !NO_REFRESH_PREFIXES.some((p) => pathname.startsWith(p))
+            ? await refreshTokens(request, refreshToken)
+            : null;
+
     // Transparent reverse proxy to Django for the browser-facing prefixes.
     if (PROXY_PREFIXES.some((p) => pathname.startsWith(p))) {
-        return proxyToBackend(request);
+        return proxyToBackend(request, refresh);
     }
 
-    // --- Proactive access-token refresh for page (document) requests ---
-    // Access token still present (or user has neither) - nothing to do.
-    if (request.cookies.has(ACCESS_COOKIE)) {
-        return NextResponse.next();
-    }
-    const refresh = request.cookies.get(REFRESH_COOKIE);
     if (!refresh) {
         return NextResponse.next();
     }
 
-    const csrf = request.cookies.get(CSRF_COOKIE);
-    const upstreamCookies = [`${REFRESH_COOKIE}=${refresh.value}`];
-    if (csrf) upstreamCookies.push(`${CSRF_COOKIE}=${csrf.value}`);
-
-    // TODO: race condition - if multiple tabs hit this at the same moment the access cookie expires, the first refresh
-    // consumes the refresh token (BLACKLIST_AFTER_ROTATION) and the rest get 401 here, rendering logged-out until re-login.
-    // Fix later via single-flight refresh (shared cache lock by refresh-token JTI) or a brief blacklist grace window on the backend.
-    const refreshResp = await fetch(`${API_BASE}/auth/token/refresh/`, {
-        method: "POST",
-        headers: {
-            cookie: upstreamCookies.join("; "),
-            ...(csrf ? { "X-CSRFToken": csrf.value } : {}),
-            // CSRF middleware accepts requests whose Origin matches CSRF_TRUSTED_ORIGINS.
-            origin: FRONTEND_URL,
-        },
-    });
-
-    if (!refreshResp.ok) {
-        // Refresh failed (expired/blacklisted). Wipe the stale refresh cookie and let the downstream render in logged-out state; user re-logs in.
-        const response = NextResponse.next();
-        response.cookies.delete(REFRESH_COOKIE);
-        return response;
-    }
-
-    const setCookieHeaders = refreshResp.headers.getSetCookie();
-    const overrides = new Map<string, string>();
-    for (const sc of setCookieHeaders) {
-        const parsed = extractCookieNameValue(sc);
-        if (parsed) overrides.set(parsed.name, parsed.value);
-    }
-
     // Override the Cookie header for downstream rendering so getCurrentUser() sees the freshly minted access token within the same request cycle.
-    const newCookieHeader = rebuildCookieHeader(request.headers.get("cookie") ?? "", overrides);
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("cookie", newCookieHeader);
-
+    if (refresh.cookieHeader) requestHeaders.set("cookie", refresh.cookieHeader);
     const response = NextResponse.next({ request: { headers: requestHeaders } });
 
     // Forward Set-Cookie from Django to the browser so subsequent requests carry the rotated tokens.
-    for (const sc of setCookieHeaders) {
+    for (const sc of refresh.setCookies) {
         response.headers.append("set-cookie", sc);
     }
     return response;

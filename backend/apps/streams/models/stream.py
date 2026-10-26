@@ -18,7 +18,10 @@ class Stream(models.Model):
     streamer_profile = models.ForeignKey(
         StreamerProfile,
         on_delete=models.CASCADE,
-        related_name="streams"
+        related_name="streams",
+        # unique_host_stream leads with this column, so it serves lookups by
+        # streamer; a separate index would only be another one to write.
+        db_index=False,
     )
 
     status = models.CharField(
@@ -39,7 +42,6 @@ class Stream(models.Model):
 
     max_viewers = models.PositiveIntegerField(
         default=0,
-        db_index=True,
         help_text="Max viewers observed across all snapshots."
             " Populated when the stream goes offline; live streams stay at 0."
     )
@@ -95,9 +97,13 @@ class Stream(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["streamer_profile", "host_stream_id"], name="unique_host_stream"),
         ]
+        # Keep this list short: every poll rewrites each live stream, and each
+        # rewrite adds an entry to every index. Search filters by viewers,
+        # duration and genres on StreamerSearchStats, not here.
         indexes = [
+            # For enrich_igdb_games, which refreshes genre_ids on streams that
+            # played newly enriched games.
             GinIndex(fields=["host_game_ids"], name="stream_host_game_ids_gin"),
-            GinIndex(fields=["genre_ids"], name="stream_genre_ids_gin"),
             # Targets _finalize_offline_streams: filter(status=LIVE, finished_at__lt=...).
             # LIVE is a tiny fraction of total rows, so the partial index stays small
             # and the planner can walk it directly instead of seq-scanning the table.
@@ -106,8 +112,6 @@ class Stream(models.Model):
                 name="stream_live_finished_at_idx",
                 condition=models.Q(status="live"),
             ),
-            models.Index(fields=["duration"], name="stream_duration_idx"),
-            models.Index(fields=["avg_viewers"], name="stream_avg_viewers_idx"),
         ]
 
     def __str__(self):

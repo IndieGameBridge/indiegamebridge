@@ -1,11 +1,13 @@
 import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUser } from "../../_lib/auth";
 import { serverFetch } from "../../_lib/server-fetch";
 import { formatStreamTime } from "../../_lib/format";
 import {
+    AddToList,
+    AddToListLabels,
     PageHeader,
     PageFooter,
     PageFooterContent,
@@ -25,6 +27,9 @@ export const dynamic = "force-dynamic";
 
 type StreamerProfilePageContent = {
     title: string;
+    // null when no streamer has this login.
+    profile_id: number | null;
+    add_to_list: AddToListLabels;
     stats_title: string;
     streams_title: string;
     show_more: string;
@@ -70,6 +75,11 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
 
     const content: StreamerProfilePageContent = await response.json();
 
+    // No streamer has this login, e.g. one who opted out after the link was made.
+    if (content.profile_id === null) {
+        notFound();
+    }
+
     const twitchUrl = "https://www.twitch.tv/";
 
     return (
@@ -78,6 +88,7 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                 user={user}
                 title={content.title}
                 link_to_twitch={twitchUrl + streamer_login}
+                actions={<AddToList profileId={content.profile_id} labels={content.add_to_list} />}
             />
 
             <main className="flex-1">

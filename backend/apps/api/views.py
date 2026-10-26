@@ -36,6 +36,8 @@ class CachedPageContentView(APIView):
             payload = StreamerProfileStreams(streamer_profile).results() if streamer_profile else {"streams": [], "stats": None}
             page.content["streams"] = payload["streams"]
             page.content["stats"] = payload["stats"]
+            # What the page's "Add to list" sends; None when there's no such streamer.
+            page.content["profile_id"] = streamer_profile.id if streamer_profile else None
 
         header = page_parts.get("page_header")
         footer = page_parts.get("page_footer")
@@ -64,31 +66,16 @@ class StreamerSearchView(APIView):
     throttle_classes = [AnonRateThrottle, UserRateThrottle, ScopedRateThrottle]
     throttle_scope = "search"
 
-    # Multi-valued query params — read via getlist so repeated keys are preserved.
-    # Names must match the filter config in StreamerSearch.get_filters_config.
-    _LIST_PARAMS = ("wdays",)
-
-    # Query params that control paging rather than filtering — excluded from the
-    # filter dict so they don't affect the cache key.
-    _PAGING_PARAMS = ("p",)
-
     def get(self, request):
-        raw_filters = {}
-        for key in request.GET.keys():
-            if key in self._PAGING_PARAMS:
-                continue
-            if key in self._LIST_PARAMS:
-                raw_filters[key] = request.GET.getlist(key)
-            else:
-                raw_filters[key] = request.GET.get(key)
-
         try:
             page = max(1, int(request.GET.get("p", "1")))
         except ValueError:
             page = 1
         offset = (page - 1) * SEARCH_PAGE_SIZE
 
-        search = StreamerSearch(raw_filters)
+        # Param handling lives on StreamerSearch so that saving a search as a
+        # list goes through exactly the same rules.
+        search = StreamerSearch.from_query_params(request.GET)
         return Response({
             "filters": search.filters,
             "results": search.results(offset=offset, limit=SEARCH_PAGE_SIZE),
