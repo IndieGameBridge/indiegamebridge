@@ -36,6 +36,8 @@ class CachedPageContentView(APIView):
             payload = StreamerProfileStreams(streamer_profile).results() if streamer_profile else {"streams": [], "stats": None}
             page.content["streams"] = payload["streams"]
             page.content["stats"] = payload["stats"]
+            # What the page's "Add to list" sends; None when there's no such streamer.
+            page.content["profile_id"] = streamer_profile.id if streamer_profile else None
 
         header = page_parts.get("page_header")
         footer = page_parts.get("page_footer")

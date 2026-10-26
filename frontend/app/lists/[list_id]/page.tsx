@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 type ListPageContent = ListEntriesLabels & {
     info: string;
+    info_one: string;
     saved_from: string;
     list_actions: ListActionsLabels;
     footer_content: PageFooterContent;
@@ -57,7 +58,7 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
         throw new Error(`Failed to load list of streamers (status ${listResp.status})`);
     }
 
-    const { info, saved_from, list_actions, footer_content, ...entriesLabels }: ListPageContent = await contentResp.json();
+    const { info, info_one, saved_from, list_actions, footer_content, ...entriesLabels }: ListPageContent = await contentResp.json();
     const list: ListDetail = await listResp.json();
 
     return (
@@ -66,7 +67,7 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
                 user={user}
                 title={list.title}
                 description={list.description}
-                info={info
+                info={(list.streamers_count === 1 ? info_one : info)
                     .replace("{count}", list.streamers_count.toLocaleString())
                     .replace("{date}", formatDate(list.created_at))}
             />

@@ -10,6 +10,7 @@ class ListOfStreamersPageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "info": "{count} streamers · created {date}",
+            "info_one": "1 streamer · created {date}",
             "saved_from": "Saved from",
             "list_actions": {
                 "edit_btn": "Edit list",
@@ -25,6 +26,9 @@ class ListOfStreamersPageBuilder(BaseCachedPageBuilder):
                 " a streamer's profile.",
             "empty_cta": "Search streamers",
             "view_profile": "View Profile",
+            "remove_btn": "Remove from list",
+            "remove_confirm": "Remove this streamer from the list? Your note on them goes too.",
+            "remove_error": "Couldn't remove the streamer. Reload the page and try again.",
             "show_more": "Show More",
             "loading": "Loading...",
             "load_error": "Couldn't load more streamers. Reload the page and try again.",

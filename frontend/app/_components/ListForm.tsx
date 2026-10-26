@@ -24,8 +24,9 @@ function readCookie(name: string): string {
 }
 
 // A 400 from the lists endpoints carries one user-facing message, keyed by the
-// field it is about, or by "detail" for the per-user cap on lists.
-function messageFrom(payload: unknown): string | null {
+// field it is about, or by "detail" for a cap, on lists per user or streamers
+// per list.
+export function messageFrom(payload: unknown): string | null {
     if (payload && typeof payload === "object") {
         const message = Object.values(payload)[0];
         if (typeof message === "string") return message;

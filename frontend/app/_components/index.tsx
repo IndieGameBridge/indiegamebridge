@@ -4,6 +4,7 @@ export * from "./SearchStreamerResultsList";
 export * from "./StreamerStats";
 export * from "./LabelChip";
 export * from "./ListForm";
+export * from "./AddToList";
 export * from "./StreamersDistribution";
 export * from "./GenreTrends";
 export * from "./StreamSnapshotsChart";

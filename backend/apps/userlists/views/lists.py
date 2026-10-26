@@ -2,7 +2,7 @@
 
 from django.http import QueryDict
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from rest_framework import status
@@ -59,8 +59,10 @@ def clean_description(data) -> tuple[str, dict | None]:
 class ListsView(APIView):
     """The signed-in user's lists of streamers.
 
-    GET returns all of them, newest first, for the dashboard's cards. POST saves
-    the streamers matching a search as a new list, or - sent without a search -
+    GET returns all of them, newest first, for the dashboard's cards and the
+    add-to-list menus. With ?contains=<profile id> each list also says whether
+    it holds that streamer; every list is still returned. POST saves the
+    streamers matching a search as a new list, or - sent without a search -
     starts an empty one for adding streamers to by hand.
 
     POST carries the search's query string rather than thousands of ids: the ids
@@ -92,6 +94,19 @@ class ListsView(APIView):
             # without this the cards would come back in no fixed order.
             .order_by(*UserListOfStreamers._meta.ordering)
         )
+
+        raw_contains = request.GET.get("contains")
+        if raw_contains is not None:
+            try:
+                contains = int(raw_contains)
+            except ValueError:
+                return self._bad_request({"contains": "Expected a streamer id."})
+            lists_of_streamers = lists_of_streamers.annotate(contains_streamer=Exists(
+                StreamerInList.objects.filter(
+                    list_of_streamers=OuterRef("pk"), streamer_profile_id=contains,
+                )
+            ))
+
         return Response({
             "lists": [
                 {
@@ -106,6 +121,11 @@ class ListsView(APIView):
                     # notes and all.
                     "streamers_count": one_list.streamers_count,
                     "created_at": one_list.created_at.isoformat(),
+                    **(
+                        {"contains": one_list.contains_streamer}
+                        if raw_contains is not None
+                        else {}
+                    ),
                 }
                 for one_list in lists_of_streamers
             ],

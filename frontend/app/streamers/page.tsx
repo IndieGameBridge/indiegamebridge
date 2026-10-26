@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import {
+    AddToListLabels,
     SearchStreamerForm,
     SearchStreamerResultsList,
     SearchFormData,
@@ -25,6 +26,7 @@ type StreamersPageContent = {
     description: string;
     search_form: SearchFormData;
     results_labels: ResultsListLabels;
+    add_to_list: AddToListLabels;
     save_list: SaveListLabels;
     footer_content: PageFooterContent;
 };
@@ -110,6 +112,7 @@ export default async function StreamersPage({
                             labels={content.results_labels}
                             total={search.total}
                             can_load_more
+                            add_to_list={content.add_to_list}
                             count_actions={search.total > 0
                                 ? <SaveSearchAsList search_query={searchQuery} labels={content.save_list} />
                                 : undefined}

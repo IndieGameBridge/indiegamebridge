@@ -87,7 +87,7 @@ export function ListActions({ list, labels }: {
                     type="button"
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="text-sm text-red-600 hover:underline cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="text-sm p-1 bg-red-600 text-white font-medium rounded hover:bg-red-700 min-w-36 border border-red-600 hover:border-red-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
                 >
                     {labels.delete_btn}
                 </button>

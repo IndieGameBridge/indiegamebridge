@@ -10,12 +10,17 @@ from rest_framework.views import APIView
 
 from apps.streams.search import PAGE_SIZE, StreamerSearch
 from apps.userlists.models import UserListOfStreamers
+from apps.userlists.views.list_entries import MAX_STREAMERS_PER_LIST
 from apps.userlists.views.lists import clean_description, clean_title
 
 
 @method_decorator(csrf_protect, name="dispatch")
 class ListDetailView(APIView):
     """One list and a page of its entries, in the order they were saved.
+
+    Pages are PAGE_SIZE entries from ?offset=N rather than numbered: the list
+    page removes entries as it goes, and the next page has to start right after
+    the ones still shown, wherever that now is.
 
     Each entry carries the streamer's current stats in the list's language - the
     one its search ran in - so the list reads like the results it came from, with
@@ -37,10 +42,11 @@ class ListDetailView(APIView):
         )
 
         try:
-            page = max(1, int(request.GET.get("p", "1")))
+            # No list is longer than the cap, and an offset past Postgres's
+            # bigint would fail the query rather than come back empty.
+            offset = min(max(0, int(request.GET.get("offset", "0"))), MAX_STREAMERS_PER_LIST)
         except ValueError:
-            page = 1
-        offset = (page - 1) * PAGE_SIZE
+            offset = 0
         entries = list(
             list_of_streamers.entries.select_related("streamer_profile")[offset:offset + PAGE_SIZE]
         )

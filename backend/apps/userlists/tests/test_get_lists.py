@@ -24,8 +24,8 @@ class GetListsTests(TestCase):
         self.user = User.objects.create_user(username="dev")
         self.other = User.objects.create_user(username="other")
 
-    def _get(self, user=None):
-        request = self.factory.get("/api/lists/")
+    def _get(self, user=None, **params):
+        request = self.factory.get("/api/lists/", params)
         if user is not False:
             force_authenticate(request, user=user or self.user)
         return ListsView.as_view()(request)
@@ -93,6 +93,28 @@ class GetListsTests(TestCase):
         # Counts and labels stay with the list they belong to.
         self.assertEqual(cards["bare"]["streamers_count"], 0)
         self.assertEqual(cards["bare"]["labels"], [])
+        # Only asked for by the add-to-list menus.
+        self.assertNotIn("contains", cards["pitched"])
+
+    def test_contains_marks_the_lists_holding_a_streamer(self):
+        holding = self._make_list("holding")
+        streamer = self._add_streamer(holding, 1)
+        self._add_streamer(self._make_list("others"), 2)
+        self._make_list("bare")
+
+        response = self._get(contains=streamer.id)
+
+        self.assertEqual(response.status_code, 200)
+        # Every list comes back, marked rather than filtered.
+        self.assertEqual(
+            {card["title"]: card["contains"] for card in response.data["lists"]},
+            {"holding": True, "others": False, "bare": False},
+        )
+
+    def test_rejects_a_contains_that_is_not_an_id(self):
+        self._make_list("bare")
+
+        self.assertEqual(self._get(contains="top").status_code, 400)
 
     def test_a_user_without_lists_gets_an_empty_collection(self):
         self._make_list("theirs", owner=self.other)

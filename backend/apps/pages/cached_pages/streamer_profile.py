@@ -1,3 +1,4 @@
+from .add_to_list import add_to_list_labels
 from .base import BaseCachedPageBuilder
 
 
@@ -8,6 +9,7 @@ class StreamerProfilePageBuilder(BaseCachedPageBuilder):
     def build_content(self) -> dict:
         return {
             "title": f"Streamer: %streamer_display_name%",
+            "add_to_list": add_to_list_labels(),
             "stats_title": f"Last 4-Week Stats",
             "streams_title": f"All Streams",
             "show_more": f"Show More",

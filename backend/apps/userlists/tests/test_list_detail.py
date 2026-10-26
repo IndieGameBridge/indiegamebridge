@@ -59,9 +59,9 @@ class ListDetailTests(TestCase):
             description=description,
         )
 
-    def _get(self, list_id=None, user=None, page=None):
+    def _get(self, list_id=None, user=None, offset=None):
         list_id = list_id or self.list.id
-        request = self.factory.get(f"/api/lists/{list_id}/", {"p": page} if page else {})
+        request = self.factory.get(f"/api/lists/{list_id}/", {} if offset is None else {"offset": offset})
         return self._send(request, list_id, user)
 
     def _patch(self, payload, list_id=None, user=None):
@@ -123,13 +123,42 @@ class ListDetailTests(TestCase):
             self._add(self._make_streamer(index + 1, f"streamer{index}", languages=()))
 
         first = self._get().data
-        second = self._get(page=2).data
+        second = self._get(offset=PAGE_SIZE).data
 
         self.assertEqual(len(first["entries"]), PAGE_SIZE)
         self.assertEqual(
             [entry["streamer"]["login"] for entry in second["entries"]], [f"streamer{PAGE_SIZE}"],
         )
         self.assertEqual(second["streamers_count"], PAGE_SIZE + 1)
+
+    def test_a_page_starts_at_any_offset(self):
+        # After removing one of the first page's entries, the next page has to
+        # start one earlier, or the entry that moved up would never be shown.
+        for index in range(3):
+            self._add(self._make_streamer(index + 1, f"streamer{index}", languages=()))
+
+        entries = self._get(offset=1).data["entries"]
+
+        self.assertEqual(
+            [entry["streamer"]["login"] for entry in entries], ["streamer1", "streamer2"],
+        )
+
+    def test_a_bad_offset_reads_from_the_start(self):
+        self._add(self._make_streamer(1, "first", languages=()))
+
+        for bad_offset in ("abc", "-5"):
+            with self.subTest(offset=bad_offset):
+                (entry,) = self._get(offset=bad_offset).data["entries"]
+                self.assertEqual(entry["streamer"]["login"], "first")
+
+    def test_an_offset_past_the_end_is_an_empty_page(self):
+        self._add(self._make_streamer(1, "first", languages=()))
+
+        for offset in ("1", "99999999999999999999999"):
+            with self.subTest(offset=offset):
+                response = self._get(offset=offset)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["entries"], [])
 
     def test_describes_the_search_it_was_saved_from(self):
         data = self._get().data
