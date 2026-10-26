@@ -1,8 +1,7 @@
-from django.db import connection
-from django.db.models import Max, Sum
+from django.db.models import Sum
 
 from .base import BaseCachedPageBuilder
-from apps.streams.models import ArchivedMonth, Stream, StreamerProfile, StreamerSearchStats
+from apps.streams.models import StreamerSearchStats
 from apps.streams.search import StreamerSearch
 
 
@@ -11,17 +10,7 @@ class HomePageBuilder(BaseCachedPageBuilder):
     log_label = "Home page"
 
     def build_content(self) -> dict:
-        # Approximate, O(1) headline counts: MAX(id) for streamers (profiles are
-        # only removed on opt-out, so it tracks the total seen) and the planner's
-        # row estimate for streams, plus the archived ones no longer in the table.
-        # Avoids COUNT scans over the streams table that grow with the data.
-        total_streamers = StreamerProfile.objects.aggregate(max_id=Max("id"))["max_id"] or 0
-        total_streams = self._estimated_stream_count() + self._archived_stream_count()
-        # Searchable streamers = rows in the precomputed search table (active in the
-        # last 4 weeks). Slightly over the distinct count since a multi-language
-        # streamer has one row per language, but that's a tiny fraction - and the
-        # figure is presented as approximate anyway. Cheap COUNT on a ~1M narrow table.
-        searchable_streamers = StreamerSearchStats.objects.count()
+        active_streamers, recent_streams = self._search_window_counts()
         filters_config, _ = StreamerSearch.get_filters_config()
 
         demo_search = StreamerSearch()
@@ -36,8 +25,8 @@ class HomePageBuilder(BaseCachedPageBuilder):
             "seo_description": "Find Twitch streamers who actively play your game's genre, "
                 "ranked by real viewership from the last 4 weeks. IndieGameBridge helps indie "
                 "developers reach the right streamers to pitch and grow their audience.",
-            "info": f"Tracking {self._approx(total_streamers)} streamers across {self._approx(total_streams)} observed streams,"
-                f" with {self._approx(searchable_streamers)} active and searchable in the last 4 weeks",
+            "info": f"Tracking {self._approx(active_streamers)} streamers active in the last 4 weeks"
+                f" across {self._approx(recent_streams)} observed streams, all of them searchable",
             "project_goal": {
                 "title": f"How indie developers find the right Twitch streamers",
                 "description": f"IndieGameBridge helps indie game developers find and collaborate with Twitch streamers who regularly broadcast specific game genres to a relevant audience."
@@ -76,32 +65,15 @@ class HomePageBuilder(BaseCachedPageBuilder):
         }
 
     @staticmethod
-    def _estimated_stream_count() -> int:
-        # Planner row estimate (instant) instead of an exact COUNT that scans the
-        # whole streams table. Non-approved streams are a small transient slice,
-        # so the whole-table estimate closely tracks the approved count.
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT reltuples::bigint FROM pg_class WHERE relname = %s",
-                [Stream._meta.db_table],
-            )
-            row = cursor.fetchone()
-        estimate = int(row[0]) if row and row[0] else 0
-        if estimate > 0:
-            return estimate
-        # Fallback if the table was never ANALYZEd (reltuples = -1): exact count.
-        return Stream.objects.filter(status=Stream.Status.APPROVED).count()
-
-    @staticmethod
-    def _archived_stream_count() -> int:
-        # Streams of months delete_archived_streams has taken out of Postgres: they now
-        # live only in the archive files, but they were observed all the same.
-        return (
-            ArchivedMonth.objects
-            .filter(rows_deleted_at__isnull=False)
-            .aggregate(total=Sum("streams_count"))["total"]
-            or 0
-        )
+    def _search_window_counts() -> tuple[int, int]:
+        # Streamers and streams over the search window, read from the precomputed
+        # search table: the headline then describes exactly what a search can find,
+        # and nothing counts over the streams table. A streamer has a row per
+        # language, hence the distinct; a stream has one language, so it's in one row.
+        rows = StreamerSearchStats.objects
+        streamers = rows.values("streamer_profile_id").distinct().count()
+        streams = rows.aggregate(total=Sum("streams_count"))["total"] or 0
+        return streamers, streams
 
     @staticmethod
     def _approx(value: int) -> str:

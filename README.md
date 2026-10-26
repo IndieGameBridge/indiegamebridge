@@ -42,7 +42,7 @@ The public **Genre Trends** page compares Twitch's game genres by real activity 
 
 ### Cached pages and widgets
 
-- Public page payloads are pre-rendered into a **`CachedPage`** table by **`update_cached_pages`** and served as-is. The home page (rebuilt daily) embeds a live demo search and headline counts (using O(1) approximations rather than full-table counts).
+- Public page payloads are pre-rendered into a **`CachedPage`** table by **`update_cached_pages`** and served as-is. The home page (rebuilt daily) embeds a live demo search and headline counts for the search window, read from `StreamerSearchStats` rather than counted over the streams table.
 - The home "Streamer Peak-Viewer Distribution" widget is a separate cached payload built by **`refresh_distribution`** (command-driven only, so a page request never triggers the recompute).
 
 ### Frontend

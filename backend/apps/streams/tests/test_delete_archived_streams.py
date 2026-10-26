@@ -12,7 +12,6 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.pages.cached_pages.home import HomePageBuilder
 from apps.streams.archive import retention_start
 from apps.streams.management.commands import delete_archived_streams
 from apps.streams.models import ArchivedMonth, Stream, StreamerProfile
@@ -82,16 +81,6 @@ class DeleteArchivedStreamsTests(TestCase):
         self.assertIn(f"Deleted {self.last_month:%Y-%m}: 3 streams", output)
         # The file is the archive now; it stays.
         self.assertTrue(self._month_file(self.last_month).exists())
-
-    def test_the_home_page_keeps_counting_deleted_streams(self):
-        for _ in range(3):
-            self._stream(self.last_month)
-        self._archive()
-        self.assertEqual(HomePageBuilder._archived_stream_count(), 0)
-
-        self._delete()
-
-        self.assertEqual(HomePageBuilder._archived_stream_count(), 3)
 
     def test_a_changed_file_leaves_the_streams_in_place(self):
         self._stream(self.last_month)
