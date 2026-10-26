@@ -14,7 +14,7 @@ from unittest import mock
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.fetch.management.commands.fetch_twitch_streams import Command
+from apps.fetch.management.commands.fetch_twitch_streams import MIN_VIEWERS_TO_KEEP, Command
 from apps.streams.models import Game, Stream, StreamerProfile
 from core.utils.twitch_api_client import StreamTuple
 
@@ -430,3 +430,150 @@ class FinalizeOfflineStreamsTests(TestCase):
         self._run_finalize()
 
         self.assertFalse(Game.objects.filter(host_game_id=800).exists())
+
+    def test_streams_a_recheck_found_ended_are_finalized_while_fresh(self):
+        snapshots = [
+            {"g": 100, "v": 10, "t": 1700000000},
+            {"g": 100, "v": 20, "t": 1700000900},
+        ]
+        ended = self._make_stream(
+            host_stream_id=14, status=Stream.Status.LIVE, finished_at=timezone.now(), snapshots=snapshots,
+        )
+        still_live = self._make_stream(
+            host_stream_id=15, status=Stream.Status.LIVE, finished_at=timezone.now(), snapshots=snapshots,
+        )
+
+        threshold = timezone.now() - timedelta(minutes=self.THRESHOLD_MINUTES)
+        finalized, deleted = self.command._finalize_offline_streams(threshold, {ended.id})
+
+        ended.refresh_from_db()
+        still_live.refresh_from_db()
+        self.assertEqual((finalized, deleted), (1, 0))
+        self.assertEqual(ended.status, Stream.Status.OFFLINE)
+        self.assertEqual(ended.max_viewers, 20)
+        self.assertEqual(still_live.status, Stream.Status.LIVE)
+
+
+class RecheckMissingStreamsTests(TestCase):
+    """The poll stops paging once streams fall under MIN_VIEWERS_TO_KEEP, so a tracked
+    stream can go missing from it while still live. Missing ones are asked about by
+    streamer: the live ones get a real snapshot, the rest are reported ended."""
+
+    def setUp(self):
+        self.command = _build_command()
+        self.run_started_at = timezone.now()
+
+    def _tracked_stream(self, host_user_id=2001, host_stream_id=1001, language="en", peak=5):
+        """A live stream last seen in the previous run, at `peak` viewers."""
+        profile = StreamerProfile.objects.create(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=host_user_id,
+            host_login=f"login{host_user_id}",
+            host_display_name=f"Name{host_user_id}",
+        )
+        return Stream.objects.create(
+            streamer_profile=profile,
+            host_stream_id=host_stream_id,
+            status=Stream.Status.LIVE,
+            language=language,
+            started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
+            finished_at=self.run_started_at - timedelta(minutes=20),
+            snapshots=[{"g": 3001, "v": peak, "t": 1700000000}],
+        )
+
+    def _run(self, polled=(), live=(), end_time_anchor=10**12, excluded_twitch_ids=frozenset()):
+        """Polls with `polled` as the only page; the recheck finds `live` live."""
+        patcher, instance = _patch_iter_streams((list(polled), None))
+        instance.get_streams_by_user_ids.side_effect = (
+            lambda user_ids: [one_stream for one_stream in live if one_stream.host_user_id in user_ids]
+        )
+        try:
+            _, ended_ids = self.command._poll_streams_by_lang(
+                the_language="en",
+                end_time_anchor=end_time_anchor,
+                excluded_twitch_ids=excluded_twitch_ids,
+                run_started_at=self.run_started_at,
+            )
+        finally:
+            patcher.stop()
+        return ended_ids, instance
+
+    def test_the_poll_stops_paging_under_the_minimum(self):
+        _, instance = self._run()
+
+        self.assertEqual(instance.iter_streams.call_args.kwargs["min_viewers"], MIN_VIEWERS_TO_KEEP)
+
+    def test_a_tracked_stream_under_the_minimum_gets_its_real_count(self):
+        stream = self._tracked_stream()
+
+        ended_ids, instance = self._run(live=[_make_stream_tuple(viewers=1)])
+
+        instance.get_streams_by_user_ids.assert_called_once_with([2001])
+        stream.refresh_from_db()
+        self.assertEqual(ended_ids, [])
+        self.assertEqual([one_snapshot["v"] for one_snapshot in stream.snapshots], [5, 1])
+        self.assertGreaterEqual(stream.finished_at, self.run_started_at)
+
+    def test_a_tracked_stream_twitch_no_longer_has_is_reported_ended(self):
+        stream = self._tracked_stream()
+
+        ended_ids, _ = self._run(live=[])
+
+        stream.refresh_from_db()
+        self.assertEqual(ended_ids, [stream.id])
+        # Left as it is; finalizing it is up to the caller.
+        self.assertEqual(stream.status, Stream.Status.LIVE)
+        self.assertEqual(len(stream.snapshots), 1)
+
+    def test_a_stream_the_poll_returned_is_not_rechecked(self):
+        self._tracked_stream()
+
+        ended_ids, instance = self._run(polled=[_make_stream_tuple(viewers=40)])
+
+        instance.get_streams_by_user_ids.assert_not_called()
+        self.assertEqual(ended_ids, [])
+
+    def test_a_stream_that_never_reached_the_minimum_is_not_rechecked(self):
+        self._tracked_stream(peak=MIN_VIEWERS_TO_KEEP - 1)
+
+        ended_ids, instance = self._run()
+
+        instance.get_streams_by_user_ids.assert_not_called()
+        self.assertEqual(ended_ids, [])
+
+    def test_a_streamers_new_stream_is_left_to_the_poll(self):
+        old = self._tracked_stream()
+
+        ended_ids, _ = self._run(live=[_make_stream_tuple(host_stream_id=1002, viewers=1)])
+
+        self.assertEqual(ended_ids, [old.id])
+        self.assertFalse(Stream.objects.filter(host_stream_id=1002).exists())
+
+    def test_other_languages_and_excluded_streamers_are_not_rechecked(self):
+        self._tracked_stream(language="de")
+        self._tracked_stream(host_user_id=2002, host_stream_id=1002)
+
+        ended_ids, instance = self._run(excluded_twitch_ids=frozenset({2002}))
+
+        instance.get_streams_by_user_ids.assert_not_called()
+        self.assertEqual(ended_ids, [])
+
+    def test_streamers_are_asked_about_100_a_request(self):
+        for i in range(150):
+            self._tracked_stream(host_user_id=5000 + i, host_stream_id=9000 + i)
+
+        ended_ids, instance = self._run()
+
+        self.assertEqual(
+            [len(one_call.args[0]) for one_call in instance.get_streams_by_user_ids.call_args_list],
+            [100, 50],
+        )
+        self.assertEqual(len(ended_ids), 150)
+
+    def test_nothing_is_rechecked_after_the_deadline(self):
+        self._tracked_stream()
+
+        ended_ids, instance = self._run(end_time_anchor=0)
+
+        instance.get_streams_by_user_ids.assert_not_called()
+        self.assertEqual(ended_ids, [])

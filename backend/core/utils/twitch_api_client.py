@@ -39,6 +39,59 @@ _STR_FIELD_MAX_LENGTHS = {
 }
 
 
+def _parse_streams(raw_streams):
+    """StreamTuples from a Helix /streams `data` array, skipping entries that can't be stored.
+
+    Args:
+        raw_streams (list[dict]): The `data` array of a Helix /streams response.
+
+    Returns:
+        tuple[list[StreamTuple], bool]: The streams, and whether any entry carried a
+        non-numeric ID.
+    """
+    streams = []
+    non_numeric_id_type_detected = False
+    for one_raw_stream in raw_streams:
+        raw_stream_id = one_raw_stream.get("id")
+        raw_user_id = one_raw_stream.get("user_id")
+        raw_game_id = one_raw_stream.get("game_id")
+
+        # Silently skip streams with any empty ID
+        if not all([raw_stream_id, raw_user_id, raw_game_id]):
+            continue
+
+        # Helix returns these as strings; we store them as BIGINT for size/speed.
+        # Skip the stream if any value is unexpectedly non-numeric rather than crashing the round.
+        try:
+            host_stream_id = int(raw_stream_id)
+            host_user_id = int(raw_user_id)
+            host_game_id = int(raw_game_id)
+        except (TypeError, ValueError):
+            non_numeric_id_type_detected = True
+            continue
+
+        current_stream = StreamTuple(
+            status=one_raw_stream.get("type", None),
+            host_stream_id=host_stream_id,
+            host_user_id=host_user_id,
+            host_login=one_raw_stream.get("user_login", None),
+            host_display_name=one_raw_stream.get("user_name", None),
+            host_game_id=host_game_id,
+            viewers=one_raw_stream.get("viewer_count", None),
+            started_at=one_raw_stream.get("started_at", None),
+        )
+
+        # All fields are required - 0 viewers is a count, not a missing value - and
+        # string fields must fit their DB column
+        if all(value not in (None, "") for value in current_stream) and all(
+            len(getattr(current_stream, field)) <= max_len
+            for field, max_len in _STR_FIELD_MAX_LENGTHS.items()
+        ):
+            streams.append(current_stream)
+
+    return streams, non_numeric_id_type_detected
+
+
 class TwitchApiClient(TwitchApiBaseClient):
     """Client for the Twitch Helix API."""
 
@@ -86,7 +139,7 @@ class TwitchApiClient(TwitchApiBaseClient):
         resp = self._request("GET", f"{_TWITCH_API_URL}/streams", params=params)
         return resp.json()
 
-    def iter_streams(self, language, end_time_anchor, max_requests=_DEFAULT_MAX_REQUESTS_PER_LANGUAGE_POLL_ROUND, cursor=None) -> tuple[list[StreamTuple], str]:
+    def iter_streams(self, language, end_time_anchor, max_requests=_DEFAULT_MAX_REQUESTS_PER_LANGUAGE_POLL_ROUND, cursor=None, min_viewers=None) -> tuple[list[StreamTuple], str]:
         """Paginates through live streams for one language, up to max_requests pages.
 
         Args:
@@ -97,54 +150,28 @@ class TwitchApiClient(TwitchApiBaseClient):
             max_requests (int, optional): Maximum number of paginated requests to issue in this
                 call. Defaults to _DEFAULT_MAX_REQUESTS_PER_LANGUAGE_POLL_ROUND.
             cursor (str, optional): Pagination cursor to resume from. Defaults to None.
+            min_viewers (int, optional): Stop after the first page whose last stream has fewer
+                viewers than this. Helix sorts streams by viewers, highest first, so every later
+                page would be under it too. Defaults to None (page to the end).
 
         Returns:
             tuple[list[StreamTuple], str | None]: Collected streams and the next cursor
-            (None if pagination is exhausted).
+            (None if pagination is exhausted, or stopped under min_viewers).
         """
 
         streams = []
         non_numeric_id_type_detected = False
         for _ in range(max_requests):
             raw_streams = self.get_streams(language, after=cursor)
-            for one_raw_stream in raw_streams.get("data", []):
-                raw_stream_id = one_raw_stream.get("id")
-                raw_user_id = one_raw_stream.get("user_id")
-                raw_game_id = one_raw_stream.get("game_id")
-
-                # Silently skip streams with any empty ID
-                if not all([raw_stream_id, raw_user_id, raw_game_id]):
-                    continue
-
-                # Helix returns these as strings; we store them as BIGINT for size/speed.
-                # Skip the stream if any value is unexpectedly non-numeric rather than crashing the round.
-                try:
-                    host_stream_id = int(raw_stream_id)
-                    host_user_id = int(raw_user_id)
-                    host_game_id = int(raw_game_id)
-                except (TypeError, ValueError):
-                    non_numeric_id_type_detected = True
-                    continue
-
-                current_stream = StreamTuple(
-                    status=one_raw_stream.get("type", None),
-                    host_stream_id=host_stream_id,
-                    host_user_id=host_user_id,
-                    host_login=one_raw_stream.get("user_login", None),
-                    host_display_name=one_raw_stream.get("user_name", None),
-                    host_game_id=host_game_id,
-                    viewers=one_raw_stream.get("viewer_count", None),
-                    started_at=one_raw_stream.get("started_at", None),
-                )
-
-                # All fields are required, and string fields must fit their DB column
-                if all(current_stream) and all(
-                    len(getattr(current_stream, field)) <= max_len
-                    for field, max_len in _STR_FIELD_MAX_LENGTHS.items()
-                ):
-                    streams.append(current_stream)
+            raw_page = raw_streams.get("data", [])
+            page_streams, page_has_non_numeric_id = _parse_streams(raw_page)
+            streams.extend(page_streams)
+            non_numeric_id_type_detected = non_numeric_id_type_detected or page_has_non_numeric_id
 
             cursor = raw_streams.get("pagination", {}).get("cursor")
+
+            if min_viewers is not None and raw_page and (raw_page[-1].get("viewer_count") or 0) < min_viewers:
+                cursor = None
 
             if not cursor or time.time() >= end_time_anchor:
                 break
@@ -154,3 +181,31 @@ class TwitchApiClient(TwitchApiBaseClient):
             logger.warning("IMPORTANT: non-numeric ID field was detected in Helix API response while polling streams!")
 
         return streams, cursor
+
+    def get_streams_by_user_ids(self, user_ids) -> list[StreamTuple]:
+        """Fetches the live streams of the given streamers, whatever their viewers or language.
+
+        Helix `/helix/streams` accepts up to 100 `user_id` params per request; the caller
+        must chunk accordingly. Streamers who aren't live are simply absent from the result.
+
+        Args:
+            user_ids (list[int]): Twitch user ids (host_user_id) to look up.
+
+        Returns:
+            list[StreamTuple]: The live streams among them.
+        """
+        if not user_ids:
+            return []
+        params = {
+            "type": "live",
+            "user_id": [str(i) for i in user_ids],
+            "first": _DEFAULT_PAGE_SIZE,
+        }
+        resp = self._request("GET", f"{_TWITCH_API_URL}/streams", params=params)
+        streams, non_numeric_id_type_detected = _parse_streams(resp.json().get("data", []))
+
+        # Normally, this will never happen, but it allows us to be notified if it happens.
+        if non_numeric_id_type_detected:
+            logger.warning("IMPORTANT: non-numeric ID field was detected in Helix API response while rechecking streams!")
+
+        return streams

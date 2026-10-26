@@ -179,3 +179,71 @@ class TwitchApiClientIterStreamsTests(SimpleTestCase):
                 started_at="2025-06-01T12:00:00Z",
             ),
         )
+
+    def test_keeps_streams_with_zero_viewers(self):
+        """0 viewers is a count, not a missing field."""
+        client = self._client()
+        page = {"data": [_make_raw_stream(viewer_count=0)], "pagination": {}}
+        with mock.patch.object(client, "get_streams", return_value=page):
+            streams, _ = client.iter_streams(language="en", end_time_anchor=10**12)
+
+        self.assertEqual([s.viewers for s in streams], [0])
+
+    def test_stops_after_a_page_that_ends_under_min_viewers(self):
+        """Helix sorts by viewers, so every page after one that ends under the
+        minimum would be under it too: that page is the last one fetched."""
+        client = self._client()
+        pages = [
+            {
+                "data": [_make_raw_stream(id="1", viewer_count=50), _make_raw_stream(id="2", user_id="22", viewer_count=3)],
+                "pagination": {"cursor": "abc"},
+            },
+            {
+                "data": [_make_raw_stream(id="3", user_id="33", viewer_count=4), _make_raw_stream(id="4", user_id="44", viewer_count=2)],
+                "pagination": {"cursor": "def"},
+            },
+            {
+                "data": [_make_raw_stream(id="5", user_id="55", viewer_count=1)],
+                "pagination": {},
+            },
+        ]
+        with mock.patch.object(client, "get_streams", side_effect=pages) as gs:
+            streams, cursor = client.iter_streams(
+                language="en", end_time_anchor=10**12, min_viewers=3
+            )
+
+        # The page that crosses the minimum is kept whole.
+        self.assertEqual([s.host_stream_id for s in streams], [1, 2, 3, 4])
+        self.assertIsNone(cursor)
+        self.assertEqual(gs.call_count, 2)
+
+
+class TwitchApiClientStreamsByUserIdsTests(SimpleTestCase):
+    """Constructed via ``__new__`` for the same reason as the iter_streams tests."""
+
+    def _client(self):
+        return TwitchApiClient.__new__(TwitchApiClient)
+
+    def test_asks_for_the_given_streamers_and_parses_their_streams(self):
+        client = self._client()
+        response = mock.Mock()
+        response.json.return_value = {"data": [_make_raw_stream(id="9", user_id="2", viewer_count=1)]}
+        with mock.patch.object(client, "_request", return_value=response) as request:
+            streams = client.get_streams_by_user_ids([1, 2])
+
+        request.assert_called_once_with(
+            "GET",
+            "https://api.twitch.tv/helix/streams",
+            params={"type": "live", "user_id": ["1", "2"], "first": 100},
+        )
+        self.assertEqual(
+            [(s.host_stream_id, s.host_user_id, s.viewers) for s in streams],
+            [(9, 2, 1)],
+        )
+
+    def test_no_streamers_means_no_request(self):
+        client = self._client()
+        with mock.patch.object(client, "_request") as request:
+            self.assertEqual(client.get_streams_by_user_ids([]), [])
+
+        request.assert_not_called()
