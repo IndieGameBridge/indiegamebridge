@@ -1,9 +1,31 @@
 from django.contrib import admin
+from django.template.defaultfilters import filesizeformat
 
-from apps.streams.models import JsonCache, Stream, StreamerProfileCache
+from apps.streams.models import ArchivedMonth, JsonCache, Stream, StreamerProfileCache
 
 
 admin.site.register(Stream)
+
+
+@admin.register(ArchivedMonth)
+class ArchivedMonthAdmin(admin.ModelAdmin):
+    """View only: archive_streams writes these, and a record removed by hand would
+    leave its file on disk with nothing pointing at it."""
+
+    list_display = ("month", "streams_count", "size", "archived_at", "rows_deleted_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Size", ordering="file_size")
+    def size(self, obj):
+        return filesizeformat(obj.file_size)
 
 
 @admin.register(JsonCache)

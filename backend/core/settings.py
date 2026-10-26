@@ -222,6 +222,12 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
+# Stream archive
+# archive_streams writes finished streams older than the retention window here,
+# one Parquet file per month, under streams/.
+ARCHIVE_DIR = Path(env.str("ARCHIVE_DIR", default=str(BASE_DIR / "archive")))
+
+
 # Auth: DRF reads JWT from an HttpOnly cookie OR Authorization: Bearer header.
 # Bearer path future-proofs for a native/mobile client; cookie path is what the
 # Next.js SSR frontend uses, since browsers can't attach Authorization headers
