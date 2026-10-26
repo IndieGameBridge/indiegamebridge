@@ -250,9 +250,9 @@ REST_FRAMEWORK = {
         # arbitrary filters); applied on top of the anon ceiling.
         "search": "30/min",
         "contact": "5/hour",
-        # Creating a list re-runs a search and writes up to MAX_RESULTS rows.
-        # A user can only keep MAX_LISTS_PER_USER of them, so this only has to
-        # leave room for ordinary create/delete churn.
+        # Saving a search as a list, or adding a search's results to one,
+        # re-runs the search and writes up to MAX_RESULTS rows. Lists are capped
+        # in number and in size, so this only has to leave room for ordinary churn.
         "userlists_write": "60/hour",
     },
     # See NUM_PROXIES above - lets DRF read the real client IP from
