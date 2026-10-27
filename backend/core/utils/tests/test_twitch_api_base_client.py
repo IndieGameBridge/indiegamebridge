@@ -105,6 +105,21 @@ class TwitchApiBaseClientTests(SimpleTestCase):
         self.assertEqual(kwargs["headers"]["Client-ID"], "test-client-id")
         self.assertEqual(kwargs["headers"]["Authorization"], "Bearer tok")
 
+    def test_request_counts_every_request_sent_retries_included(self):
+        self.mock_http.post.return_value = self._token_response()
+        self.mock_http.request.side_effect = [
+            _mock_response(503),
+            _mock_response(200),
+            _mock_response(200),
+        ]
+
+        client = TwitchApiBaseClient()
+        client._request("GET", "https://api.twitch.tv/helix/streams")
+        client._request("GET", "https://api.twitch.tv/helix/streams")
+
+        # The retry is a request sent too; the token refresh isn't counted.
+        self.assertEqual(client.requests_sent, 3)
+
     def test_request_401_first_attempt_refreshes_token_and_retries(self):
         self.mock_http.post.side_effect = [
             self._token_response("tok-1"),

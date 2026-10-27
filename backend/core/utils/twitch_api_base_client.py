@@ -28,6 +28,9 @@ class TwitchApiBaseClient:
         self._token = None
         self._token_expires_at = 0
         self._client = httpx.Client(timeout=20)
+        # Requests sent through _request, retries included: what this client has used
+        # of its API's rate limit. Token refreshes don't count against it, so they're left out.
+        self.requests_sent = 0
 
     def _ensure_token(self):
         if self._token and time.time() < self._token_expires_at - _TOKEN_REFRESH_MARGIN_SECONDS:
@@ -58,6 +61,7 @@ class TwitchApiBaseClient:
             headers = self._headers()
             if extra_headers:
                 headers.update(extra_headers)
+            self.requests_sent += 1
             try:
                 resp = self._client.request(method, url, headers=headers, **kwargs)
             except httpx.TransportError as e:

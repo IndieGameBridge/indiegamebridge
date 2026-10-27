@@ -9,12 +9,15 @@ with too little data must be dropped.
 """
 
 from datetime import datetime, timedelta, timezone as dt_timezone
+from io import StringIO
 from unittest import mock
 
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
 from apps.fetch.management.commands.fetch_twitch_streams import Command
+from apps.fetch.models import FetchRun, FetchRunLanguage
 from apps.streams.models import Game, Stream, StreamerProfile
 from core.utils.twitch_api_client import StreamTuple
 
@@ -61,6 +64,7 @@ def _patch_iter_streams(*responses):
     instance.__enter__.return_value = instance
     instance.__exit__.return_value = False
     instance.iter_streams.side_effect = side_effect
+    instance.requests_sent = 0
     return patcher, instance
 
 
@@ -430,3 +434,211 @@ class FinalizeOfflineStreamsTests(TestCase):
         self._run_finalize()
 
         self.assertFalse(Game.objects.filter(host_game_id=800).exists())
+
+
+class PollStatsTests(TestCase):
+    """What `_poll_streams_by_lang` records about a language's polling."""
+
+    def setUp(self):
+        self.command = _build_command()
+
+    def _poll(self, *responses, end_time_anchor=10**12, excluded_twitch_ids=frozenset()):
+        patcher, _ = _patch_iter_streams(*responses)
+        try:
+            return self.command._poll_streams_by_lang(
+                the_language="en",
+                end_time_anchor=end_time_anchor,
+                excluded_twitch_ids=excluded_twitch_ids,
+                stats=FetchRunLanguage(language="en"),
+            )
+        finally:
+            patcher.stop()
+
+    def test_counts_what_each_fetched_stream_came_to(self):
+        excluded = _make_stream_tuple(host_user_id=2001, host_stream_id=1001)
+        new = _make_stream_tuple(host_user_id=2002, host_stream_id=1002)
+        other = _make_stream_tuple(host_user_id=2003, host_stream_id=1003)
+
+        stats = self._poll(([excluded, new, new, other], None), excluded_twitch_ids=frozenset({2001}))
+
+        self.assertEqual(
+            (stats.streams_fetched, stats.streams_excluded, stats.streams_duplicates, stats.streams_written),
+            (4, 1, 1, 2),
+        )
+        self.assertEqual((stats.streams_created, stats.profiles_created), (2, 2))
+
+    def test_streams_and_streamers_seen_before_are_written_not_created(self):
+        profile = StreamerProfile.objects.create(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=2001,
+            host_login="loginx",
+            host_display_name="DisplayName",
+        )
+        Stream.objects.create(
+            streamer_profile=profile,
+            host_stream_id=1001,
+            status=Stream.Status.LIVE,
+            language="en",
+            started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
+            finished_at=timezone.now(),
+            snapshots=[],
+        )
+
+        stats = self._poll(([_make_stream_tuple()], None))
+
+        self.assertEqual((stats.streams_written, stats.streams_created, stats.profiles_created), (1, 0, 0))
+
+    def test_each_round_adds_up_and_is_recorded(self):
+        patcher, client = _patch_iter_streams()
+        responses = [
+            ([_make_stream_tuple(host_stream_id=1001)], "cursor-1"),
+            ([_make_stream_tuple(host_stream_id=1002, host_user_id=2002)], None),
+        ]
+
+        def iter_streams(**kwargs):
+            # As paging through two pages would
+            client.requests_sent += 2
+            return responses.pop(0)
+
+        client.iter_streams.side_effect = iter_streams
+        try:
+            stats = self.command._poll_streams_by_lang(the_language="en", end_time_anchor=10**12)
+        finally:
+            patcher.stop()
+
+        self.assertEqual((stats.rounds, stats.requests, stats.streams_written), (2, 4, 2))
+        self.assertEqual([one_round["requests"] for one_round in stats.rounds_detail], [2, 2])
+        self.assertEqual([one_round["written"] for one_round in stats.rounds_detail], [1, 1])
+
+    def test_stopping_at_the_time_limit_is_recorded(self):
+        stats = self._poll(([_make_stream_tuple()], "more-pages"), end_time_anchor=0)
+
+        self.assertTrue(stats.time_limit_hit)
+
+    def test_running_out_of_pages_is_not_the_time_limit(self):
+        stats = self._poll(([_make_stream_tuple()], None), end_time_anchor=0)
+
+        self.assertFalse(stats.time_limit_hit)
+
+    def test_a_round_that_raises_leaves_the_rounds_before_it(self):
+        patcher, client = _patch_iter_streams()
+        client.iter_streams.side_effect = [
+            ([_make_stream_tuple()], "cursor-1"),
+            RuntimeError("Helix down"),
+        ]
+        stats = FetchRunLanguage(language="en")
+        try:
+            with self.assertRaises(RuntimeError):
+                self.command._poll_streams_by_lang(the_language="en", end_time_anchor=10**12, stats=stats)
+        finally:
+            patcher.stop()
+
+        self.assertEqual((stats.rounds, stats.streams_written), (1, 1))
+
+
+def _poll_one_round(the_language, end_time_anchor, excluded_twitch_ids, stats):
+    """Stands in for a language's polling thread. It mustn't touch the database:
+    the test's transaction isn't visible from other threads."""
+    stats.add_round(
+        requests=3, fetched=5, excluded=1, duplicates=1, created=2, profiles_created=1,
+        helix_seconds=0.5, write_seconds=0.25,
+    )
+    return stats
+
+
+class FetchRunRecordingTests(TestCase):
+    """`handle` records each run, with a row per language, for the admin."""
+
+    def setUp(self):
+        self.profile = StreamerProfile.objects.create(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=2001,
+            host_login="loginx",
+            host_display_name="DisplayName",
+        )
+        self.next_host_stream_id = 1000
+
+    def _ended_stream(self, snapshots):
+        self.next_host_stream_id += 1
+        return Stream.objects.create(
+            streamer_profile=self.profile,
+            host_stream_id=self.next_host_stream_id,
+            status=Stream.Status.LIVE,
+            language="en",
+            started_at=timezone.now() - timedelta(hours=4),
+            finished_at=timezone.now() - timedelta(hours=2),
+            snapshots=snapshots,
+        )
+
+    def _fetch(self, poll):
+        with (
+            mock.patch.object(Command, "_poll_streams_by_lang", side_effect=poll),
+            self.assertLogs("apps.fetch", level="INFO"),
+        ):
+            call_command("fetch_twitch_streams", stdout=StringIO())
+
+    def test_a_run_is_recorded_with_a_row_per_language(self):
+        self._ended_stream([{"g": 1, "v": 10, "t": 1700000000}, {"g": 1, "v": 12, "t": 1700000900}])
+        self._ended_stream([{"g": 1, "v": 10, "t": 1700000000}])
+
+        self._fetch(_poll_one_round)
+
+        run = FetchRun.objects.get()
+        self.assertEqual(run.status, FetchRun.Status.SUCCEEDED)
+        self.assertIsNotNone(run.finished_at)
+        self.assertGreaterEqual(run.duration_seconds, 0)
+        # 4 languages, each writing 3 of the 5 streams it fetched
+        self.assertEqual(run.streams_collected, 12)
+        self.assertEqual((run.streams_finalized, run.streams_dropped), (1, 1))
+        self.assertIsNotNone(run.finalize_seconds)
+        self.assertFalse(run.time_limit_hit)
+
+        self.assertCountEqual(run.languages.values_list("language", flat=True), ["en", "de", "fr", "es"])
+        en = run.languages.get(language="en")
+        self.assertEqual(
+            (en.rounds, en.requests, en.streams_written, en.streams_created, en.profiles_created),
+            (1, 3, 3, 2, 1),
+        )
+        self.assertIsNotNone(en.duration_seconds)
+        self.assertEqual(en.error, "")
+
+    def test_a_language_that_raises_fails_the_run_but_not_the_other_languages(self):
+        def poll(the_language, end_time_anchor, excluded_twitch_ids, stats):
+            _poll_one_round(the_language, end_time_anchor, excluded_twitch_ids, stats)
+            if the_language == "de":
+                raise RuntimeError("Helix down")
+            return stats
+
+        self._fetch(poll)
+
+        run = FetchRun.objects.get()
+        self.assertEqual(run.status, FetchRun.Status.FAILED)
+        self.assertEqual(run.error, "")
+        de = run.languages.get(language="de")
+        self.assertEqual(de.error, "RuntimeError: Helix down")
+        # What it wrote before raising still counts
+        self.assertEqual(de.streams_written, 3)
+        self.assertEqual(run.streams_collected, 12)
+        self.assertFalse(run.languages.exclude(language="de").exclude(error="").exists())
+
+    def test_a_language_stopped_at_the_time_limit_marks_the_run(self):
+        def poll(the_language, end_time_anchor, excluded_twitch_ids, stats):
+            stats.time_limit_hit = the_language == "en"
+            return stats
+
+        self._fetch(poll)
+
+        run = FetchRun.objects.get()
+        self.assertTrue(run.time_limit_hit)
+        self.assertEqual(run.status, FetchRun.Status.SUCCEEDED)
+
+    def test_a_failure_outside_the_languages_is_recorded_and_raised(self):
+        with mock.patch.object(Command, "_finalize_offline_streams", side_effect=RuntimeError("database gone")):
+            with self.assertRaises(RuntimeError):
+                self._fetch(_poll_one_round)
+
+        run = FetchRun.objects.get()
+        self.assertEqual(run.status, FetchRun.Status.FAILED)
+        self.assertEqual(run.error, "RuntimeError: database gone")
+        self.assertIsNotNone(run.finished_at)
+        self.assertEqual(run.languages.count(), 4)

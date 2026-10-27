@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.utils.twitch_api_client import TwitchApiClient
+from apps.fetch.models import FetchRun, FetchRunLanguage
 from apps.streams.models import StreamerProfile, Stream, Game
 from apps.users.models import TwitchExclusion
 
@@ -30,6 +31,17 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         logger.info("Starting to fetch streams...")
 
+        # Recorded as the run starts, so a run that never finishes still shows up in the admin.
+        run = FetchRun.objects.create(started_at=timezone.now())
+        try:
+            self._fetch_streams(run)
+        except Exception as exc:
+            run.error = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            run.finish()
+
+    def _fetch_streams(self, run):
         # TODO LATER: use values from admin settings
         languages = ["en", "de", "fr", "es"]
 
@@ -67,8 +79,6 @@ class Command(BaseCommand):
 
         end_time_anchor = time.time() + total_max_poll_time
 
-        total_collected = 0
-
         # Opted-out Twitch IDs to skip this run. Loaded once into a frozenset so
         # the per-stream check is an O(1) in-memory lookup (a query-per-stream
         # would be thousands of round-trips per poll round). The set is read-only
@@ -80,25 +90,34 @@ class Command(BaseCommand):
         )
         logger.info("Loaded %s excluded Twitch IDs to skip", len(excluded_twitch_ids))
 
+        # One unsaved row per language, which its polling thread fills in as it goes.
+        languages_stats = [FetchRunLanguage(run=run, language=one_language) for one_language in languages]
+        polling_started_at = time.monotonic()
+
         # Poll each language in a separate thread
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(languages)) as executor:
             # Schedule poll for each language and store the future objects
-            future_to_poll = {
+            future_to_stats = {
                 executor.submit(
                     self._poll_streams_by_lang,
-                    the_language=one_language,
+                    the_language=stats.language,
                     end_time_anchor=end_time_anchor,
                     excluded_twitch_ids=excluded_twitch_ids,
-                ): f"Fetch streams for language: {one_language}"
-                for one_language in languages
+                    stats=stats,
+                ): stats
+                for stats in languages_stats
             }
 
-            for future in concurrent.futures.as_completed(future_to_poll):
-                label = future_to_poll[future]
+            for future in concurrent.futures.as_completed(future_to_stats):
+                stats = future_to_stats[future]
+                # Timed here rather than in the thread, so a language whose polling raised gets its duration too
+                stats.duration_seconds = time.monotonic() - polling_started_at
+                label = f"Fetch streams for language: {stats.language}"
                 try:
-                    total_collected += future.result()
-                except Exception:
+                    future.result()
+                except Exception as exc:
                     logger.exception("%s failed", label)
+                    stats.error = f"{type(exc).__name__}: {exc}"
                 logger.info("Completed - %s", label)
 
                 # When poll for certain language is finished, then the max value of available requests for each language should be recalculated,
@@ -107,17 +126,26 @@ class Command(BaseCommand):
                 if nof_current_languages > 0:
                     self.allowed_requests_per_language_poll_round = min(round(self.total_max_requests_per_poll_round / nof_current_languages), max_requests_per_language_poll_round)
 
+            FetchRunLanguage.objects.bulk_create(languages_stats)
+            total_collected = sum(stats.streams_written for stats in languages_stats)
+            run.streams_collected = total_collected
+            run.time_limit_hit = any(stats.time_limit_hit for stats in languages_stats)
+
             # For every storing stream with live status and finished_at older than 4 cron time span for the polling,
             # finalize per-game metrics from its snapshots, mark it offline, and drop the snapshots.
             # Streams with only a single snapshot at this point are dropped entirely (insufficient data).
             stale_stream_threshold = timezone.now() - timedelta(minutes=4 * cron_interval_minutes)
+            finalize_started_at = time.monotonic()
             finalized_count, deleted_count = self._finalize_offline_streams(stale_stream_threshold)
+            run.finalize_seconds = time.monotonic() - finalize_started_at
+            run.streams_finalized = finalized_count
+            run.streams_dropped = deleted_count
 
         logger.info("Total streams collected: %s", total_collected)
         logger.info("Marked %s stale streams as offline", finalized_count)
         logger.info("Dropped %s stale streams with insufficient snapshots", deleted_count)
 
-    def _poll_streams_by_lang(self, the_language, end_time_anchor, excluded_twitch_ids=frozenset()):
+    def _poll_streams_by_lang(self, the_language, end_time_anchor, excluded_twitch_ids=frozenset(), stats=None):
         """Polls Twitch streams for one language until the cursor is exhausted or the deadline is hit.
 
         Runs sequential poll rounds, each issuing up to
@@ -133,10 +161,15 @@ class Command(BaseCommand):
                 whatever was collected so far is returned.
             excluded_twitch_ids (frozenset[int]): Opted-out host_user_ids to skip.
                 Read-only; shared across language threads.
+            stats (FetchRunLanguage, optional): Unsaved row that each round's counts and
+                timings are added to once its writes are committed. The caller keeps it,
+                so it holds what was done even if polling raises. A new one if not given.
 
         Returns:
-            int: Total number of streams collected for this language across all rounds.
+            FetchRunLanguage: `stats`, still unsaved.
         """
+        if stats is None:
+            stats = FetchRunLanguage(language=the_language)
 
         with TwitchApiClient() as client:
             dedup_ids = set()
@@ -144,12 +177,15 @@ class Command(BaseCommand):
             while True:
                 round_started_at = time.time()
 
+                requests_before = client.requests_sent
+                helix_started_at = time.monotonic()
                 response_streams, cursor = client.iter_streams(
                     language=the_language,
                     end_time_anchor=end_time_anchor,
                     max_requests=self.allowed_requests_per_language_poll_round,
                     cursor=cursor
                 )
+                helix_seconds = time.monotonic() - helix_started_at
 
                 logger.info("Unfiltered streams fetched per poll round: %s | Language: %s", len(response_streams), the_language)
 
@@ -158,20 +194,26 @@ class Command(BaseCommand):
                 poll_now = timezone.now()
                 poll_timestamp = int(poll_now.timestamp())
 
+                # The round's skips and first sightings, added to stats once its writes are committed
+                excluded = duplicates = new_streams = new_profiles = 0
+                write_started_at = time.monotonic()
+
                 # Insert/update data
                 with transaction.atomic():
                     for one_stream in response_streams:
 
                         # Skip streamers who opted out of data collection (in-memory, O(1)).
                         if one_stream.host_user_id in excluded_twitch_ids:
+                            excluded += 1
                             continue
 
                         # Avoid duplicated streams due to possible page shifts during the poll
                         if one_stream.host_stream_id in dedup_ids:
+                            duplicates += 1
                             continue
                         dedup_ids.add(one_stream.host_stream_id)
 
-                        profile, _ = StreamerProfile.objects.get_or_create(
+                        profile, profile_created = StreamerProfile.objects.get_or_create(
                             host=StreamerProfile.Host.TWITCH,
                             host_user_id=one_stream.host_user_id,
                             defaults={
@@ -179,6 +221,8 @@ class Command(BaseCommand):
                                 "host_display_name": one_stream.host_display_name,
                             }
                         )
+                        if profile_created:
+                            new_profiles += 1
 
                         # Update rarely changed fields on mismatch
                         if (profile.host_login, profile.host_display_name) != (one_stream.host_login, one_stream.host_display_name):
@@ -204,7 +248,9 @@ class Command(BaseCommand):
                             }
                         )
 
-                        if not created:
+                        if created:
+                            new_streams += 1
+                        else:
                             stream.snapshots.append(new_snapshot)
                             stream.status = Stream.Status.LIVE
                             stream.language = the_language
@@ -213,6 +259,17 @@ class Command(BaseCommand):
                             stream.save(update_fields=[
                                 "status", "language", "started_at", "finished_at", "snapshots",
                             ])
+
+                stats.add_round(
+                    requests=client.requests_sent - requests_before,
+                    fetched=len(response_streams),
+                    excluded=excluded,
+                    duplicates=duplicates,
+                    created=new_streams,
+                    profiles_created=new_profiles,
+                    helix_seconds=helix_seconds,
+                    write_seconds=time.monotonic() - write_started_at,
+                )
 
                 # Normal end of the language polling
                 if not response_streams or not cursor:
@@ -223,7 +280,7 @@ class Command(BaseCommand):
                 # slowly. If this fires regularly, raise the cron interval and total_max_poll_time in step.
                 if time.time() >= end_time_anchor:
                     logger.warning("Stream polling terminated as time limit exceeded. Language: %s", the_language)
-                    # TODO LATER: make entry for admin dashboard analytics with details about the issue
+                    stats.time_limit_hit = True
                     break
 
                 # Respect Helix rate limits
@@ -233,7 +290,7 @@ class Command(BaseCommand):
                 if time_to_sleep > 0:
                     time.sleep(time_to_sleep)
 
-        return len(dedup_ids)
+        return stats
 
     def _finalize_offline_streams(self, stale_stream_threshold):
         """Transitions stale live streams to OFFLINE and computes summary fields from `snapshots`.
