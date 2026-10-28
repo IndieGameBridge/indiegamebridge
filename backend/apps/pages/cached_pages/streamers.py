@@ -1,5 +1,6 @@
 from .add_to_list import add_to_list_labels
 from .base import BaseCachedPageBuilder
+from .export_menu import export_menu_labels
 from .list_form import list_form_labels
 from apps.streams.search import StreamerSearch
 
@@ -35,6 +36,7 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                 "loading": "Loading...",
             },
             "add_to_list": add_to_list_labels(),
+            "export": export_menu_labels(),
             "save_list": {
                 "open_btn": "Save to list",
                 "new_list_btn": "Save as new list",

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ExportMenu, ExportMenuLabels } from "../../../_components/ExportMenu";
 import { ListForm, ListFormLabels } from "../../../_components/ListForm";
 
 export type ListActionsLabels = {
@@ -11,6 +12,8 @@ export type ListActionsLabels = {
     delete_confirm: string;
     delete_error: string;
     form: ListFormLabels;
+    // Absent until the page's cached text is rebuilt with it.
+    export?: ExportMenuLabels;
 };
 
 function readCookie(name: string): string {
@@ -18,9 +21,11 @@ function readCookie(name: string): string {
     return match ? decodeURIComponent(match[1]) : "";
 }
 
-// Edit the list's title and note, or delete the list.
-export function ListActions({ list, labels }: {
+// Export the list, edit its title and note, or delete it. An empty list has
+// nothing to export.
+export function ListActions({ list, exportable, labels }: {
     list: { id: number; title: string; description: string };
+    exportable: boolean;
     labels: ListActionsLabels;
 }) {
     const router = useRouter();
@@ -75,6 +80,9 @@ export function ListActions({ list, labels }: {
     return (
         <div className="flex flex-col items-end gap-2">
             <div className="flex flex-row items-center gap-6">
+                {exportable && labels.export && (
+                    <ExportMenu url={`/api/lists/${list.id}/export/`} labels={labels.export} />
+                )}
                 <button
                     type="button"
                     onClick={() => setEditing(true)}

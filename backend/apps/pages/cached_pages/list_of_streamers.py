@@ -1,4 +1,5 @@
 from .base import BaseCachedPageBuilder
+from .export_menu import export_menu_labels
 from .list_form import list_form_labels
 from apps.userlists.views.list_entry import MAX_NOTE
 
@@ -21,6 +22,7 @@ class ListOfStreamersPageBuilder(BaseCachedPageBuilder):
                     submit_btn="Save changes",
                     error="Couldn't save the changes. Reload the page and try again.",
                 ),
+                "export": export_menu_labels(),
             },
             "empty": "No streamers in this list yet. Add them from the search results or from"
                 " a streamer's profile.",

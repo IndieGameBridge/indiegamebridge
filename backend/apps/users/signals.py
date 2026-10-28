@@ -67,21 +67,10 @@ def get_client_ip(request) -> str | None:
     return _clean_ip(request.META.get("REMOTE_ADDR"))
 
 
-def _tracking_allowed(user) -> bool:
-    """The AccountSettings row is created lazily, so a missing row means the
-    user never touched the toggle - that's the model default (True)."""
-    allowed = (
-        AccountSettings.objects.filter(user=user)
-        .values_list("allow_tracking", flat=True)
-        .first()
-    )
-    return True if allowed is None else allowed
-
-
 @receiver(user_logged_in)
 def record_login_snapshot(sender, request, user, **kwargs):
     try:
-        if not _tracking_allowed(user):
+        if not AccountSettings.tracking_allowed(user):
             return
         update_last_login(sender, user, **kwargs)
         ip = get_client_ip(request) if request is not None else None

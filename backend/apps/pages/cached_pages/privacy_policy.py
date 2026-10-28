@@ -11,7 +11,7 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
             "description": f"How IndieGameBridge collects, uses, and protects your data.",
             "return_home": f"Return to Home Page",
             "contact_link_text": f"Contact page",
-            "last_updated": f"Last updated: May 31, 2026",
+            "last_updated": f"Last updated: October 28, 2026",
             "intro": f"This Privacy Policy explains what data IndieGameBridge collects, why we"
                 f" collect it, and the choices you have. IndieGameBridge helps indie game"
                 f" developers discover Twitch streamers by aggregating publicly available"
@@ -24,10 +24,15 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" including the Twitch user ID, login and display name, game categories,"
                         f" viewer counts, language, and timestamps. Account data: when you sign in"
                         f" with Twitch, we receive your Twitch user ID, username, and display name"
-                        f" from Twitch. We do not request or store your email address. Usage data:"
+                        f" from Twitch. We do not request your email address from Twitch. Usage data:"
                         f" unless you disable it in your"
-                        f" account settings, we may collect anonymous information about which"
-                        f" features you use, to help us improve the service.",
+                        f" account settings, we record which features you use, such as the lists"
+                        f" and searches you export, to help us improve the service. Sign-in records:"
+                        f" under the same setting, each time you sign in we record the time and your"
+                        f" IP address, and may look up an approximate location for that address"
+                        f" (country, region, and city). Contact messages: when you write to us"
+                        f" through the contact form, we store your name, email address, and message,"
+                        f" along with your IP address and browser type to deal with spam and abuse.",
                 },
                 {
                     "heading": f"How We Use Data",
@@ -36,13 +41,25 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" and to improve our features. We do not sell your personal data.",
                 },
                 {
+                    "heading": f"Your Lists and Exports",
+                    "body": f"Lists you save, and the notes you write in them, are private to your"
+                        f" account and are deleted with it. If a streamer in one of your lists opts"
+                        f" out, their details are removed from the list, but your note on them stays."
+                        f" Files you export from a list or a search are copies made at that moment:"
+                        f" a streamer's later opt-out removes their data from IndieGameBridge, but"
+                        f" not from files already downloaded.",
+                },
+                {
                     "heading": f"Legal Basis (GDPR)",
                     "body": f"For users in the EEA and UK, we process publicly available Twitch"
                         f" data on the basis of our legitimate interest in providing a discovery"
                         f" tool for indie developers. We process your account data to provide the"
-                        f" service you request (account creation and login). Usage analytics are"
-                        f" processed on the basis of legitimate interest and can be disabled at any"
-                        f" time in your account settings.",
+                        f" service you request (account creation and login). Usage analytics and"
+                        f" sign-in records are processed on the basis of our legitimate interest in"
+                        f" understanding how, and from where, the service is used, and can be"
+                        f" disabled at any time in your account settings. Contact messages are"
+                        f" processed on the basis of our legitimate interest in answering them and"
+                        f" keeping the form free of spam.",
                 },
                 {
                     "heading": f"Cookies",
@@ -55,7 +72,11 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                     "heading": f"Third-Party Services",
                     "body": f"We rely on Twitch for authentication and as our source of stream"
                         f" data, and on IGDB for game metadata. Signing in with Twitch is also"
-                        f" subject to Twitch's own privacy policy.",
+                        f" subject to Twitch's own privacy policy. To find a sign-in's approximate"
+                        f" location, we send its IP address to ipinfo.io. The contact form is"
+                        f" protected from bots by Cloudflare Turnstile, and the site is hosted by"
+                        f" Cloudflare and DigitalOcean. Some of these services are based in the"
+                        f" United States, so data they handle may be processed there.",
                 },
                 {
                     "heading": f"Your Choices and Rights",
@@ -72,7 +93,8 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" delete the streams data tied to your Twitch ID at the same time."
                         f" Depending on your location, you may"
                         f" have rights to access, correct, or delete your personal data; contact us"
-                        f" to exercise them.",
+                        f" to exercise them. You can also lodge a complaint with your local data"
+                        f" protection authority.",
                 },
                 {
                     "heading": f"Data Retention",
@@ -80,7 +102,10 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" service. When you opt out, data tied to your Twitch ID is removed, though"
                         f" copies may persist in caches for up to an hour while they refresh. Account"
                         f" data is kept until you delete your account, after which your account,"
-                        f" settings, and Twitch login link are removed.",
+                        f" settings, and Twitch login link are removed. Usage and sign-in records"
+                        f" are deleted after 12 months, or sooner if you delete your account."
+                        f" Contact messages are deleted after 12 months; ask through the contact"
+                        f" page if you want yours deleted sooner.",
                 },
                 {
                     "heading": f"Changes to This Policy",

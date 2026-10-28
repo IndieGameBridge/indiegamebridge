@@ -12,3 +12,4 @@ sqlparse==0.5.5
 tzdata==2026.2
 httpx==0.28.1
 pyarrow==26.0.0
+XlsxWriter==3.3.0

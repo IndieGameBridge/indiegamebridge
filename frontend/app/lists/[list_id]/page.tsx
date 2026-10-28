@@ -92,6 +92,7 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
                             {/* Just the fields it edits, not the entries already sent to ListEntries. */}
                             <ListActions
                                 list={{ id: list.id, title: list.title, description: list.description }}
+                                exportable={list.streamers_count > 0}
                                 labels={list_actions}
                             />
                         </div>

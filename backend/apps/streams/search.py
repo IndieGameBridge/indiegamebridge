@@ -119,14 +119,19 @@ class StreamerSearch:
             .distinct("streamer_profile_id")
             .values("streamer_profile_id", "language", *STATS_FIELDS)
         )
+        for row in rows:
+            row["language"] = cls.language_label(row["language"])
+            stats[row.pop("streamer_profile_id")] = cls._format_stats(row)
+        return stats
+
+    @classmethod
+    def language_label(cls, language: str) -> str:
+        """A language code the way the search form names it: "en" is "English"."""
         filters_config, _ = cls.get_filters_config()
         language_options = next(
             one_config["values"] for one_config in filters_config if one_config["name"] == "lang"
         )
-        for row in rows:
-            row["language"] = cls._option_label(language_options, row["language"]) or row["language"]
-            stats[row.pop("streamer_profile_id")] = cls._format_stats(row)
-        return stats
+        return cls._option_label(language_options, language) or language
 
     def total(self) -> int:
         # Capped to MAX_RESULTS to match the pageable result set.

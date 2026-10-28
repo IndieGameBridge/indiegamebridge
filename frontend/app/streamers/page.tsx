@@ -13,6 +13,7 @@ import {
     PageFooter,
     PageFooterContent,
 } from "../_components";
+import { ExportMenu, ExportMenuLabels } from "../_components/ExportMenu";
 import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
 import { SaveSearchAsList, SaveListLabels } from "./_components/SaveSearchAsList";
@@ -28,6 +29,8 @@ type StreamersPageContent = {
     results_labels: ResultsListLabels;
     add_to_list: AddToListLabels;
     save_list: SaveListLabels;
+    // Absent until the page's cached text is rebuilt with it.
+    export?: ExportMenuLabels;
     footer_content: PageFooterContent;
 };
 
@@ -114,7 +117,14 @@ export default async function StreamersPage({
                             can_load_more
                             add_to_list={content.add_to_list}
                             count_actions={search.total > 0
-                                ? <SaveSearchAsList search_query={searchQuery} labels={content.save_list} />
+                                ? (
+                                    <div className="flex flex-row flex-wrap items-start gap-6">
+                                        {content.export && (
+                                            <ExportMenu url="/api/streamers/export/" query={searchQuery} labels={content.export} />
+                                        )}
+                                        <SaveSearchAsList search_query={searchQuery} labels={content.save_list} />
+                                    </div>
+                                )
                                 : undefined}
                         />
                     </div>

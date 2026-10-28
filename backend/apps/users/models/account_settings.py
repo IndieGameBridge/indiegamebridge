@@ -14,7 +14,8 @@ class AccountSettings(models.Model):
     poll independently of the user record.
 
     allow_tracking also gates login bookkeeping (LoginSnapshot rows and the
-    last_login timestamp) - see apps.users.signals.
+    last_login timestamp) - see apps.users.signals - and the record of a user's
+    exports (apps.exports).
     """
 
     user = models.OneToOneField(
@@ -31,3 +32,14 @@ class AccountSettings(models.Model):
 
     def __str__(self):
         return f"AccountSettings for {self.user}"
+
+    @classmethod
+    def tracking_allowed(cls, user) -> bool:
+        """The row is created lazily, so a missing row means the user never
+        touched the toggle - that's the model default (True)."""
+        allowed = (
+            cls.objects.filter(user=user)
+            .values_list("allow_tracking", flat=True)
+            .first()
+        )
+        return True if allowed is None else allowed

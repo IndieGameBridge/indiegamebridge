@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     "apps.fetch",
     "apps.pages",
     "apps.contact",
+    "apps.exports",
 ]
 
 SITE_ID = 1
@@ -260,6 +261,10 @@ REST_FRAMEWORK = {
         # re-runs the search and writes up to MAX_RESULTS rows. Lists are capped
         # in number and in size, so this only has to leave room for ordinary churn.
         "userlists_write": "60/hour",
+        # Exporting a list or a search as a file reads up to MAX_RESULTS rows.
+        # Someone exporting by hand stays far below this; a script copying the
+        # data a file at a time doesn't.
+        "exports": "30/hour",
     },
     # See NUM_PROXIES above - lets DRF read the real client IP from
     # X-Forwarded-For so per-IP throttles bucket visitors individually.
