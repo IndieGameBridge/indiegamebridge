@@ -1,5 +1,6 @@
-"""What archive_streams and delete_archived_streams share: the retention window, month
-boundaries, where the files live, and the lock that keeps their runs apart."""
+"""What the archive commands share: the retention window, month boundaries, where the
+files live, the check of a file against its record, and the lock that keeps their runs
+apart."""
 
 import hashlib
 from contextlib import contextmanager
@@ -51,6 +52,15 @@ def sha256_of(path):
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def file_problem(archived_month, path):
+    """Why a month's file isn't the one its record describes, or None when it is."""
+    if not path.exists():
+        return f"its file {path} is missing"
+    if path.stat().st_size != archived_month.file_size or sha256_of(path) != archived_month.sha256:
+        return f"{path} isn't the file its record describes - its size or SHA-256 differs"
+    return None
 
 
 @contextmanager

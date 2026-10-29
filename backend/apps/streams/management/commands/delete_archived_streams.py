@@ -1,7 +1,7 @@
 """Delete from Postgres the streams of months archive_streams has written to files.
 
 Works through the archived months whose streams are still in Postgres, oldest first.
-A month is touched only if its file is still the one archive_streams wrote - same size,
+A month is touched only if its file is still the one its record describes - same size,
 same SHA-256 - and each batch is checked against the ids in that file before it's
 deleted, so no stream leaves Postgres without being in its month's file.
 
@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Min
 from django.utils import timezone
 
-from apps.streams.archive import archive_lock, files_dir, month_range, parse_month, sha256_of
+from apps.streams.archive import archive_lock, file_problem, files_dir, month_range, parse_month
 from apps.streams.models import ArchivedMonth, Stream
 
 # Ids covered by one batch. Ids run about three to every stream kept - low-viewer
@@ -130,14 +130,10 @@ class Command(BaseCommand):
 
     @staticmethod
     def _check_file(archived_month, path, label):
-        """Refuse a month whose file isn't the one archive_streams wrote."""
-        if not path.exists():
-            raise CommandError(f"{label}: its file {path} is missing; its streams were left in place.")
-        if path.stat().st_size != archived_month.file_size or sha256_of(path) != archived_month.sha256:
-            raise CommandError(
-                f"{label}: {path} isn't the file archive_streams wrote - its size or SHA-256"
-                " differs; its streams were left in place."
-            )
+        """Refuse a month whose file isn't the one its record describes."""
+        problem = file_problem(archived_month, path)
+        if problem:
+            raise CommandError(f"{label}: {problem}; its streams were left in place.")
 
     @staticmethod
     def _sorted_ids(path):

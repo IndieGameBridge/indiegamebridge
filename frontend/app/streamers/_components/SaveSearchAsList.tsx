@@ -59,7 +59,7 @@ export function SaveSearchAsList({ search_query, labels }: { search_query: strin
                 onClick={() => setOpen(!open)}
                 aria-expanded={open}
                 aria-controls={menuId}
-                className="text-sm p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
+                className="w-full text-sm p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
             >
                 {labels.open_btn} <span aria-hidden="true">▾</span>
             </button>

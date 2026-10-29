@@ -78,8 +78,8 @@ export function ListActions({ list, exportable, labels }: {
     }
 
     return (
-        <div className="flex flex-col items-end gap-2">
-            <div className="flex flex-row items-center gap-6">
+        <div className="w-full md:w-auto flex flex-col md:items-end gap-2">
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
                 {exportable && labels.export && (
                     <ExportMenu url={`/api/lists/${list.id}/export/`} labels={labels.export} />
                 )}

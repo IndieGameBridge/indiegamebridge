@@ -11,7 +11,7 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
             "description": f"How IndieGameBridge collects, uses, and protects your data.",
             "return_home": f"Return to Home Page",
             "contact_link_text": f"Contact page",
-            "last_updated": f"Last updated: October 28, 2026",
+            "last_updated": f"Last updated: October 29, 2026",
             "intro": f"This Privacy Policy explains what data IndieGameBridge collects, why we"
                 f" collect it, and the choices you have. IndieGameBridge helps indie game"
                 f" developers discover Twitch streamers by aggregating publicly available"
@@ -99,8 +99,11 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                 {
                     "heading": f"Data Retention",
                     "body": f"We retain collected stream data while it remains useful for the"
-                        f" service. When you opt out, data tied to your Twitch ID is removed, though"
-                        f" copies may persist in caches for up to an hour while they refresh. Account"
+                        f" service; streams older than two to three months move from our database to"
+                        f" archive files. When you opt out, data tied to your Twitch ID is removed"
+                        f" from the database right away, though copies may persist in caches for up"
+                        f" to an hour while they refresh. It is removed from the archive files within"
+                        f" a week, and from backups of them when those are next replaced. Account"
                         f" data is kept until you delete your account, after which your account,"
                         f" settings, and Twitch login link are removed. Usage and sign-in records"
                         f" are deleted after 12 months, or sooner if you delete your account."

@@ -118,7 +118,7 @@ export default async function StreamersPage({
                             add_to_list={content.add_to_list}
                             count_actions={search.total > 0
                                 ? (
-                                    <div className="flex flex-row flex-wrap items-start gap-6">
+                                    <div className="w-full md:w-auto flex flex-col md:flex-row md:items-start gap-6">
                                         {content.export && (
                                             <ExportMenu url="/api/streamers/export/" query={searchQuery} labels={content.export} />
                                         )}

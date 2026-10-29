@@ -7,7 +7,8 @@ class ArchivedMonth(models.Model):
 
     A stream belongs to the month it finished in (UTC). Once a stream is finished
     its finished_at no longer changes, so a past month's file is complete: no stream
-    can land in it after it has been written.
+    can land in it after it has been written. Streams can leave it, though:
+    remove_opted_out_from_archive rewrites it without the streamers who opt out.
     """
 
     month = models.DateField(
@@ -51,6 +52,13 @@ class ArchivedMonth(models.Model):
         null=True,
         blank=True,
         help_text="When the month's streams were deleted from Postgres; empty until then.",
+    )
+
+    rewritten_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the file was last rewritten without the streams of streamers who opted"
+            " out; empty if never. Copies of the file made before then still hold them.",
     )
 
     class Meta:
