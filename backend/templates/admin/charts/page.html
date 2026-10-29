@@ -1,0 +1,318 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  /* Chart colors. The series and status colors were checked for colorblind separation
+     and contrast against the admin's light (#fff) and dark (#121212) backgrounds. */
+  .viz, html[data-theme="light"] .viz {
+    --viz-grid: #e1e0d9;
+    --viz-axis: #c3c2b7;
+    --viz-muted: #898781;
+    --viz-weekend: rgba(11, 11, 11, 0.035);
+    --viz-series-1: #2a78d6;
+    --viz-series-2: #eb6834;
+    --viz-series-3: #1baf7a;
+    --viz-other: #898781;
+    --viz-critical: #d03b3b;
+    --viz-warning: #fab219;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root .viz {
+      --viz-grid: #2c2c2a;
+      --viz-axis: #383835;
+      --viz-weekend: rgba(255, 255, 255, 0.04);
+      --viz-series-1: #3987e5;
+      --viz-series-2: #d95926;
+      --viz-series-3: #199e70;
+    }
+  }
+  html[data-theme="dark"] .viz {
+    --viz-grid: #2c2c2a;
+    --viz-axis: #383835;
+    --viz-weekend: rgba(255, 255, 255, 0.04);
+    --viz-series-1: #3987e5;
+    --viz-series-2: #d95926;
+    --viz-series-3: #199e70;
+  }
+
+  .viz-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin: 0 0 8px; }
+  .viz-windows { display: flex; flex-wrap: wrap; gap: 8px; }
+  .viz-windows a { padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 4px; color: var(--body-fg); }
+  .viz-windows a:hover { background: var(--darkened-bg); text-decoration: none; }
+  .viz-windows a[aria-current] { border-color: var(--body-quiet-color); font-weight: 600; }
+  .viz-windows a[aria-current]::before { content: "\2713\00a0"; }
+  .viz-select { display: flex; align-items: center; gap: 8px; margin: 0; }
+  .viz-select label { color: var(--body-quiet-color); }
+  .viz-range { margin: 0 0 20px; color: var(--body-quiet-color); }
+
+  .viz-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin: 0 0 36px; }
+  .viz-tile { padding: 10px 12px; border: 1px solid var(--hairline-color); border-radius: 6px; }
+  .viz-tile-label { display: flex; align-items: center; gap: 6px; color: var(--body-quiet-color); font-size: 0.8125rem; }
+  .viz-tile-value { margin-top: 4px; color: var(--body-fg); font-size: 1.5rem; font-weight: 600; }
+  .viz-tile-note { margin-top: 2px; color: var(--body-quiet-color); font-size: 0.75rem; }
+
+  .viz-figure { position: relative; margin: 0 0 44px; }
+  .viz-figure h2 { margin: 0 0 4px; }
+  .viz-subtitle { max-width: 75ch; margin: 0 0 10px; color: var(--body-quiet-color); }
+  .viz-plot-title { margin: 14px 0 2px; padding: 0; background: none; color: var(--body-fg); font-size: 0.8125rem; font-weight: 600; text-transform: none; }
+  ul.viz-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 6px; padding: 0; color: var(--body-quiet-color); font-size: 0.8125rem; }
+  ul.viz-legend li { display: flex; align-items: center; gap: 6px; padding: 0; list-style: none; }
+  .viz-key { display: inline-block; flex: none; }
+  .viz-key-line { width: 14px; height: 2px; border-radius: 1px; background: var(--c); }
+  .viz-key-rect { width: 10px; height: 10px; border-radius: 2px; background: var(--c); }
+
+  /* A plot is a row: its y-axis labels, the plot itself, which scrolls when it's wider
+     than the page, and the labels at the ends of its lines. The labels, markers and
+     columns are HTML over the stretched SVG, so they keep their size. */
+  .viz-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 124px; }
+  .viz-y-axis, .viz-end-labels, .viz-canvas { position: relative; height: var(--plot-height); }
+  .viz-y-axis span, .viz-end-labels span, .viz-x-label { position: absolute; font-size: 0.75rem; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+  .viz-y-axis span { right: 8px; transform: translateY(-50%); color: var(--viz-muted); }
+  .viz-end-labels span { left: 8px; transform: translateY(-50%); color: var(--body-quiet-color); }
+  .viz-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .viz-canvas { width: 100%; }
+  .viz-plot { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
+  .viz-plot[data-source] { cursor: pointer; }
+  .viz-plot:focus { outline: none; }
+  .viz-plot:focus-visible { outline: 2px solid var(--link-fg); outline-offset: -2px; }
+  .viz-x-label { color: var(--viz-muted); transform: translateX(-50%); }
+  /* A day's name stays at the plot's left edge while the day is scrolled past it. */
+  .viz-day-label { position: absolute; z-index: 1; pointer-events: none; }
+  .viz-day-label span { position: sticky; left: 0; display: inline-block; padding: 0 4px; color: var(--body-quiet-color); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+  .viz-weekend { fill: var(--viz-weekend); }
+  .viz-grid, .viz-baseline, .viz-reference, .viz-cursor { stroke-width: 1; vector-effect: non-scaling-stroke; shape-rendering: crispEdges; }
+  .viz-grid { stroke: var(--viz-grid); }
+  .viz-baseline { stroke: var(--viz-axis); }
+  .viz-reference { stroke: var(--body-quiet-color); }
+  .viz-cursor { stroke: var(--body-quiet-color); visibility: hidden; pointer-events: none; }
+  .viz-area { fill: var(--c); fill-opacity: 0.14; }
+  .viz-line { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .viz-column { position: absolute; width: 24px; margin-left: -12px; background: var(--c); pointer-events: none; }
+  .viz-column-top { border-radius: 4px 4px 0 0; }
+  .viz-column-group.is-active .viz-column { filter: brightness(1.18); }
+  .viz-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; pointer-events: none; }
+  .viz-dot-critical { border-radius: 50%; background: var(--viz-critical); box-shadow: 0 0 0 2px var(--body-bg); }
+  .viz-dot-warning { width: 12px; height: 11px; margin: -7px 0 0 -6px; background: var(--viz-warning); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  /* The legend's and the tiles' keys for those two. */
+  .viz-marker-critical { fill: var(--viz-critical); }
+  .viz-marker-warning { fill: var(--viz-warning); }
+
+  .viz-tooltip { position: absolute; z-index: 10; min-width: 150px; max-width: 340px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--body-bg); color: var(--body-fg); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14); font-size: 0.8125rem; pointer-events: none; }
+  .viz-tooltip-title { margin-bottom: 4px; color: var(--body-quiet-color); }
+  .viz-tooltip-row { display: flex; align-items: baseline; gap: 6px; margin-top: 3px; }
+  .viz-tooltip-row .viz-key { align-self: center; }
+  .viz-tooltip-row strong { font-variant-numeric: tabular-nums; }
+  .viz-tooltip-label { color: var(--body-quiet-color); }
+
+  .viz-table summary { margin-top: 8px; color: var(--link-fg); cursor: pointer; }
+  .viz-table table { margin-top: 8px; }
+  .viz-table .viz-number { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Home</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; Graphs
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="viz">
+  <div class="viz-filters">
+    <nav class="viz-windows" aria-label="Time range">
+      {% for option in windows %}<a href="{{ option.href }}"{% if option.selected %} aria-current="page"{% endif %}>{{ option.label }}</a>{% endfor %}
+    </nav>
+    {% if select %}
+      <form class="viz-select" method="get">
+        <input type="hidden" name="days" value="{{ days }}">
+        <label for="viz-select">{{ select.label }}</label>
+        <select id="viz-select" name="{{ select.name }}" onchange="this.form.submit()">
+          {% for option in select.options %}<option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit">Show</button></noscript>
+      </form>
+    {% endif %}
+  </div>
+  {% if figures %}
+    <p class="viz-range">{{ range_text }}</p>
+    <div class="viz-tiles">
+      {% for tile in tiles %}
+        <div class="viz-tile">
+          <div class="viz-tile-label">{% if tile.marker %}{% include "admin/charts/key.html" with shape=tile.marker %}{% endif %}{{ tile.label }}</div>
+          <div class="viz-tile-value">{% if tile.url %}<a href="{{ tile.url }}">{{ tile.value }}</a>{% else %}{{ tile.value }}{% endif %}</div>
+          {% if tile.note %}<div class="viz-tile-note">{{ tile.note }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    {% for figure in figures %}{% include "admin/charts/figure.html" %}{% endfor %}
+    {% for source in hover_sources %}{{ source.data|json_script:source.element_id }}{% endfor %}
+    <script>
+      // Plots on one axis scroll together, and open on the latest data. Then the hover
+      // layer: a crosshair, or the hovered column, and a tooltip listing the plot's values
+      // at the nearest x position. Click or Enter opens what it shows; the arrow keys step
+      // through the positions once a plot has focus.
+      (() => {
+        "use strict";
+        const scrollers = [...document.querySelectorAll(".viz-scroll")];
+        // Until the plots are scrolled by hand, keep "now" at their right edge, through
+        // whatever changes their width as the page settles, the admin's sidebar for one.
+        let scrolledByHand = false;
+        const toNow = () => {
+          if (scrolledByHand) return;
+          for (const scroller of scrollers) {
+            scroller.scrollLeft = (Number(scroller.dataset.now) / 100) * scroller.scrollWidth + 48 - scroller.clientWidth;
+          }
+        };
+        const resizes = new ResizeObserver(toNow);
+        for (const scroller of scrollers) {
+          resizes.observe(scroller);
+          for (const event of ["wheel", "pointerdown", "touchstart", "keydown"]) {
+            scroller.addEventListener(event, () => { scrolledByHand = true; }, { passive: true });
+          }
+          scroller.addEventListener("scroll", () => {
+            for (const other of scrollers) {
+              if (other === scroller || other.dataset.group !== scroller.dataset.group) continue;
+              if (Math.abs(other.scrollLeft - scroller.scrollLeft) > 1) other.scrollLeft = scroller.scrollLeft;
+            }
+          }, { passive: true });
+        }
+
+        for (const svg of document.querySelectorAll(".viz-plot[data-source]")) {
+          const sourceNode = document.getElementById(`viz-source-${svg.dataset.source}`);
+          const source = sourceNode && JSON.parse(sourceNode.textContent);
+          if (!source || !source.xs.length) continue;
+          const fields = JSON.parse(svg.dataset.fields);
+          const figure = svg.closest(".viz-figure");
+          const tooltip = figure.querySelector(".viz-tooltip");
+          const cursor = svg.querySelector(".viz-cursor");
+          const columns = [...svg.parentElement.querySelectorAll(".viz-column-group")];
+          const scroller = svg.closest(".viz-scroll");
+          const width = svg.viewBox.baseVal.width;
+          let current = -1;
+
+          // Scroll a position stepped to from the keyboard into view.
+          const reveal = (index) => {
+            const at = (source.xs[index] / width) * svg.getBoundingClientRect().width;
+            if (at < scroller.scrollLeft + 24 || at > scroller.scrollLeft + scroller.clientWidth - 24) {
+              scroller.scrollLeft = at - scroller.clientWidth / 2;
+            }
+          };
+
+          const nearest = (x) => {
+            const xs = source.xs;
+            let low = 0;
+            let high = xs.length - 1;
+            while (low < high) {
+              const middle = (low + high) >> 1;
+              if (xs[middle] < x) low = middle + 1;
+              else high = middle;
+            }
+            return low > 0 && x - xs[low - 1] < xs[low] - x ? low - 1 : low;
+          };
+
+          const show = (index) => {
+            current = index;
+            const row = source.rows[index];
+            const x = source.xs[index];
+            if (cursor) {
+              cursor.setAttribute("x1", x);
+              cursor.setAttribute("x2", x);
+              cursor.style.visibility = "visible";
+            }
+            for (const column of columns) column.classList.toggle("is-active", Number(column.dataset.index) === index);
+
+            // Values are inserted as text, never as markup: some of them are error messages.
+            const title = document.createElement("div");
+            title.className = "viz-tooltip-title";
+            title.textContent = row.title;
+            const lines = [title];
+            for (const field of fields) {
+              const value = row.values[field.field];
+              if (value === null || value === undefined) continue;
+              const line = document.createElement("div");
+              line.className = "viz-tooltip-row";
+              if (field.color) {
+                const key = document.createElement("span");
+                key.className = "viz-key viz-key-line";
+                key.style.setProperty("--c", `var(--viz-${field.color})`);
+                line.append(key);
+              }
+              const strong = document.createElement("strong");
+              strong.textContent = value;
+              line.append(strong);
+              if (field.label) {
+                const label = document.createElement("span");
+                label.className = "viz-tooltip-label";
+                label.textContent = field.label;
+                line.append(label);
+              }
+              lines.push(line);
+            }
+            tooltip.replaceChildren(...lines);
+            tooltip.hidden = false;
+
+            const frame = figure.getBoundingClientRect();
+            const box = svg.getBoundingClientRect();
+            const at = box.left - frame.left + (x / width) * box.width;
+            const fitsRight = at + 12 + tooltip.offsetWidth <= frame.width;
+            tooltip.style.left = `${Math.max(fitsRight ? at + 12 : at - 12 - tooltip.offsetWidth, 0)}px`;
+            tooltip.style.top = `${box.top - frame.top + 4}px`;
+          };
+
+          const hide = () => {
+            current = -1;
+            tooltip.hidden = true;
+            if (cursor) cursor.style.visibility = "hidden";
+            for (const column of columns) column.classList.remove("is-active");
+          };
+
+          const open = () => {
+            const url = current >= 0 && source.rows[current].url;
+            if (url) window.location.href = url;
+          };
+
+          svg.addEventListener("pointermove", (event) => {
+            const box = svg.getBoundingClientRect();
+            show(nearest(((event.clientX - box.left) / box.width) * width));
+          });
+          svg.addEventListener("pointerleave", () => {
+            if (document.activeElement !== svg) hide();
+          });
+          svg.addEventListener("click", open);
+          // A scroll moves the plot under its tooltip, which would point at the wrong run. The
+          // plots of a figure share the tooltip, so only the one showing it hides it.
+          scroller.addEventListener("scroll", () => {
+            if (current >= 0 && document.activeElement !== svg) hide();
+          }, { passive: true });
+          svg.addEventListener("focus", () => {
+            const index = current >= 0 ? current : source.xs.length - 1;
+            reveal(index);
+            show(index);
+          });
+          svg.addEventListener("blur", hide);
+          svg.addEventListener("keydown", (event) => {
+            const last = source.xs.length - 1;
+            const moves = { ArrowLeft: current - 1, ArrowRight: current + 1, Home: 0, End: last };
+            if (event.key in moves) {
+              event.preventDefault();
+              const index = Math.min(Math.max(moves[event.key], 0), last);
+              reveal(index);
+              show(index);
+            } else if (event.key === "Enter") {
+              open();
+            } else if (event.key === "Escape") {
+              hide();
+            }
+          });
+        }
+      })();
+    </script>
+  {% else %}
+    <p>{{ empty_text }}</p>
+  {% endif %}
+</div>
+{% endblock %}

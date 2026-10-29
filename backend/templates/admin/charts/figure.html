@@ -1,0 +1,29 @@
+<section class="viz-figure" id="{{ figure.key }}" aria-labelledby="{{ figure.key }}-title">
+  <h2 id="{{ figure.key }}-title">{{ figure.title }}</h2>
+  <p class="viz-subtitle">{{ figure.subtitle }}</p>
+  {% if figure.legend %}
+    <ul class="viz-legend">
+      {% for item in figure.legend %}<li>{% include "admin/charts/key.html" with shape=item.shape color=item.color %}{{ item.label }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+  {% for plot in figure.plots %}
+    {% if plot.title %}<h3 class="viz-plot-title">{{ plot.title }}</h3>{% endif %}
+    {% include "admin/charts/plot.html" %}
+  {% endfor %}
+  <div class="viz-tooltip" aria-hidden="true" hidden></div>
+  {% if figure.table_rows %}
+    <details class="viz-table">
+      <summary>Numbers by day</summary>
+      <table>
+        <thead>
+          <tr>{% for header in figure.table_headers %}<th scope="col"{% if not forloop.first %} class="viz-number"{% endif %}>{{ header }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in figure.table_rows %}
+            <tr>{% for cell in row %}{% if forloop.first %}<th scope="row">{{ cell }}</th>{% else %}<td class="viz-number">{{ cell }}</td>{% endif %}{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% endif %}
+</section>

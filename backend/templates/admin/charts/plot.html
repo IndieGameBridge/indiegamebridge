@@ -1,0 +1,26 @@
+{% load l10n %}{% localize off %}
+<div class="viz-row" style="--plot-height: {{ plot.height }}px">
+  <div class="viz-y-axis" aria-hidden="true">{% for tick in plot.y_ticks %}<span style="top: {{ tick.at }}px">{{ tick.label }}</span>{% endfor %}</div>
+  <div class="viz-scroll" data-now="{{ plot.now_percent }}" data-group="{{ plot.group }}">
+    <div class="viz-canvas" style="{% if plot.stretch %}min-width{% else %}width{% endif %}: {{ plot.width }}px">
+      <svg class="viz-plot" viewBox="0 0 {{ plot.width }} {{ plot.height }}" preserveAspectRatio="none" role="img" aria-label="{{ plot.label }}"{% if plot.hover %} tabindex="0" data-source="{{ plot.hover }}" data-fields="{{ plot.fields_json }}"{% endif %}>
+        {% for band in plot.weekends %}<rect class="viz-weekend" x="{{ band.x }}" y="{{ plot.top }}" width="{{ band.width }}" height="{{ plot.inner_height }}"/>{% endfor %}
+        {% for x in plot.midnights %}<line class="viz-grid" x1="{{ x }}" x2="{{ x }}" y1="{{ plot.top }}" y2="{{ plot.base }}"/>{% endfor %}
+        {% for tick in plot.y_ticks %}<line class="viz-grid" x1="0" x2="{{ plot.width }}" y1="{{ tick.at }}" y2="{{ tick.at }}"/>{% endfor %}
+        <line class="viz-baseline" x1="0" x2="{{ plot.width }}" y1="{{ plot.base }}" y2="{{ plot.base }}"/>
+        {% for reference in plot.references %}<line class="viz-reference" x1="0" x2="{{ plot.width }}" y1="{{ reference.y }}" y2="{{ reference.y }}"/>{% endfor %}
+        {% for area in plot.areas %}<path class="viz-area" style="--c: var(--viz-{{ area.color }})" d="{{ area.path }}"/>{% endfor %}
+        {% for line in plot.lines %}<path class="viz-line" style="--c: var(--viz-{{ line.color }})" d="{{ line.path }}"/>{% endfor %}
+        {% if plot.crosshair %}<line class="viz-cursor" x1="0" x2="0" y1="{{ plot.top }}" y2="{{ plot.base }}"/>{% endif %}
+      </svg>
+      {% for label in plot.x_labels %}{% if label.kind == "day" %}<div class="viz-day-label" style="left: {{ label.left }}%; width: {{ label.width }}%; top: {{ plot.day_label_top }}px"><span>{{ label.text }}</span></div>{% else %}<span class="viz-x-label viz-x-label-{{ label.kind }}" style="left: {{ label.left }}%; top: {{ plot.x_label_top }}px">{{ label.text }}</span>{% endif %}{% endfor %}
+      {% for column in plot.columns %}<div class="viz-column-group" data-index="{{ column.index }}">{% for part in column.parts %}<div class="viz-column{% if part.rounded %} viz-column-top{% endif %}" style="left: {{ column.left }}%; top: {{ part.top }}px; height: {{ part.height }}px; --c: var(--viz-{{ part.color }})"></div>{% endfor %}</div>{% endfor %}
+      {% for marker in plot.markers %}<span class="viz-dot viz-dot-{{ marker.kind }}" style="left: {{ marker.left }}%; top: {{ marker.y }}px"></span>{% endfor %}
+    </div>
+  </div>
+  <div class="viz-end-labels" aria-hidden="true">
+    {% for reference in plot.references %}<span style="top: {{ reference.y }}px">{{ reference.text }}</span>{% endfor %}
+    {% for label in plot.labels %}<span style="top: {{ label.y }}px">{{ label.text }}</span>{% endfor %}
+  </div>
+</div>
+{% endlocalize %}

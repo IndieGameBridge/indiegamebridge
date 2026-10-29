@@ -2,7 +2,9 @@ from datetime import timedelta
 
 from django.contrib import admin
 
+from apps.fetch.graphs import fetch_graphs
 from apps.fetch.models import FetchRun, FetchRunLanguage
+from core.utils.admin_charts import GraphsAdminMixin
 
 
 def _as_duration(seconds):
@@ -41,9 +43,11 @@ class FetchRunLanguageInline(admin.TabularInline):
 
 
 @admin.register(FetchRun)
-class FetchRunAdmin(admin.ModelAdmin):
-    """View only: fetch_twitch_streams writes these as it runs."""
+class FetchRunAdmin(GraphsAdminMixin, admin.ModelAdmin):
+    """View only: fetch_twitch_streams writes these as it runs. Graphs of them are a
+    link away from the list."""
 
+    graphs_title = "Fetch run graphs"
     list_display = (
         "started_at", "status", "duration", "streams_collected",
         "streams_finalized", "streams_dropped", "time_limit_hit",
@@ -64,3 +68,6 @@ class FetchRunAdmin(admin.ModelAdmin):
     @admin.display(description="Duration", ordering="duration_seconds")
     def duration(self, obj):
         return _as_duration(obj.duration_seconds)
+
+    def graphs_context(self, request, days):
+        return fetch_graphs(days, language=request.GET.get("lang", ""))
