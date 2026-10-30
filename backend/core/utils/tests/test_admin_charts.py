@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone as dt_timezone
 from django.test import SimpleTestCase
 
 from core.utils.admin_charts import (
+    COLUMN_DAY_WIDTH,
     DEFAULT_WINDOW,
     Plot,
     TimeAxis,
@@ -65,7 +66,8 @@ class TimeAxisTests(SimpleTestCase):
     def test_shades_the_weekend_and_marks_where_days_meet(self):
         axis = TimeAxis(FIRST_DAY, LAST_DAY, 720, NOW)
         self.assertEqual([band.x for band in axis.weekends()], [720, 1440])
-        self.assertEqual(axis.midnights(), [720, 1440, 2160])
+        plot = Plot(axis, label="", height=168, max_value=1)
+        self.assertEqual((plot.midnights, plot.separators), ([720, 1440, 2160], []))
 
     def test_wide_days_get_their_hours(self):
         labels = TimeAxis(FIRST_DAY, FIRST_DAY, 720, NOW).labels()
@@ -74,17 +76,23 @@ class TimeAxisTests(SimpleTestCase):
         ])
         self.assertEqual(labels[2].left, 50)
 
-    def test_narrow_days_get_a_name_under_their_middle(self):
+    def test_narrow_days_get_a_short_name_under_their_middle(self):
         labels = TimeAxis(FIRST_DAY, LAST_DAY, 72, NOW).labels()
-        self.assertEqual([label.text for label in labels], ["Fri 23", "Sat 24", "Sun 25", "Mon 26"])
+        self.assertEqual([label.text for label in labels], ["Fr 23", "Sa 24", "Su 25", "Mo 26"])
         self.assertEqual(labels[0].left, 12.5)
 
-    def test_days_of_one_column_keep_close_together(self):
-        axis = TimeAxis(FIRST_DAY, LAST_DAY, 32, NOW, stretch=False)
-        # Names every other day, so they don't run into each other, and no lines between days.
-        self.assertEqual([label.text for label in axis.labels()], ["Fri 23", "Sun 25"])
-        self.assertEqual(axis.midnights(), [])
-        self.assertFalse(Plot(axis, label="", height=150, max_value=1).stretch)
+    def test_days_too_narrow_for_their_names_skip_some(self):
+        labels = TimeAxis(FIRST_DAY, LAST_DAY, 32, NOW).labels()
+        self.assertEqual([label.text for label in labels], ["Fr 23", "Su 25"])
+
+    def test_days_of_one_column_name_every_column(self):
+        plot = Plot(TimeAxis(FIRST_DAY, LAST_DAY, COLUMN_DAY_WIDTH, NOW, stretch=False), label="", height=150, max_value=1)
+        self.assertEqual(len(plot.x_labels), 4)
+        # The lines between days part their names, not their columns, which fill the
+        # days but for a gap.
+        self.assertEqual((plot.midnights, plot.separators), ([], [48, 96, 144]))
+        self.assertEqual(plot.column_width, 40)
+        self.assertFalse(plot.stretch)
 
 
 class PathTests(SimpleTestCase):

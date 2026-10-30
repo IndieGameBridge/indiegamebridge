@@ -31,11 +31,17 @@ WINDOWS = (7, 14, 30)
 DEFAULT_WINDOW = 14
 
 # A day this wide gets the hours every HOUR_LABEL_STEP, and its name on a row of its
-# own under them; a narrower one just its name under its middle, on every day or every
-# few days, so that the names stay MIN_DAY_LABEL_GAP apart.
+# own under them; a narrower one just its short name under its middle, as "We 28", on
+# every day or every few days, so that the names stay MIN_DAY_LABEL_GAP apart: a name
+# takes about 35 pixels, and fonts differ.
 MIN_HOURS_DAY_WIDTH = 240
 HOUR_LABEL_STEP = 6
-MIN_DAY_LABEL_GAP = 56
+MIN_DAY_LABEL_GAP = 48
+
+# Days of one column each are just wide enough to name every column, and the columns
+# as wide as their days but for COLUMN_GAP between them.
+COLUMN_DAY_WIDTH = MIN_DAY_LABEL_GAP
+COLUMN_GAP = 8
 
 # End labels closer than this would overlap; the lower one is left to the legend.
 MIN_END_LABEL_GAP = 14
@@ -199,12 +205,10 @@ class TimeAxis:
                     labels.append(XLabel(self.percent((index + hour / 24) * self.day_width), f"{hour:02d}:00", "hour"))
             return labels
         every = math.ceil(MIN_DAY_LABEL_GAP / self.day_width)
-        return [XLabel(self.percent(self.day_x(day)), f"{day:%a} {day.day}", "middle") for day in self.days[::every]]
+        return [XLabel(self.percent(self.day_x(day)), f"{day:%a}"[:2] + f" {day.day}", "middle") for day in self.days[::every]]
 
     def midnights(self):
-        """Where one day ends and the next starts; narrow days need no line between them."""
-        if self.label_rows == 1:
-            return []
+        """Where one day ends and the next starts."""
         return [round(index * self.day_width, 1) for index in range(1, len(self.days))]
 
     def weekends(self):
@@ -271,8 +275,12 @@ class Plot:
         values, self.max_value = nice_ticks(max_value, integer=integer)
         self.y_ticks = [Tick(self.y(value), tick_text(value)) for value in values]
         self.x_labels = axis.labels()
-        self.midnights = axis.midnights()
+        # Lines between wide days cross the plot; between narrow ones, as under columns,
+        # they only part the days' names, down to the names' bottom.
+        self.midnights, self.separators = (axis.midnights(), []) if axis.label_rows == 2 else ([], axis.midnights())
+        self.separator_bottom = self.x_label_top + 16
         self.weekends = axis.weekends()
+        self.column_width = axis.day_width - COLUMN_GAP
         self.areas, self.lines, self.columns = [], [], []
         self.references, self.markers, self.labels = [], [], []
         self.hover = ""

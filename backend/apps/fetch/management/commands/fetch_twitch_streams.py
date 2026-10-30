@@ -4,7 +4,7 @@ from datetime import timedelta
 import concurrent.futures
 
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 
 from core.utils.twitch_api_client import TwitchApiClient
@@ -194,71 +194,28 @@ class Command(BaseCommand):
                 poll_now = timezone.now()
                 poll_timestamp = int(poll_now.timestamp())
 
-                # The round's skips and first sightings, added to stats once its writes are committed
-                excluded = duplicates = new_streams = new_profiles = 0
+                # The round's skips, added to stats with its first sightings once its writes are committed
+                excluded = duplicates = 0
                 write_started_at = time.monotonic()
+
+                streams_to_write = []
+                for one_stream in response_streams:
+
+                    # Skip streamers who opted out of data collection (in-memory, O(1)).
+                    if one_stream.host_user_id in excluded_twitch_ids:
+                        excluded += 1
+                        continue
+
+                    # Avoid duplicated streams due to possible page shifts during the poll
+                    if one_stream.host_stream_id in dedup_ids:
+                        duplicates += 1
+                        continue
+                    dedup_ids.add(one_stream.host_stream_id)
+                    streams_to_write.append(one_stream)
 
                 # Insert/update data
                 with transaction.atomic():
-                    for one_stream in response_streams:
-
-                        # Skip streamers who opted out of data collection (in-memory, O(1)).
-                        if one_stream.host_user_id in excluded_twitch_ids:
-                            excluded += 1
-                            continue
-
-                        # Avoid duplicated streams due to possible page shifts during the poll
-                        if one_stream.host_stream_id in dedup_ids:
-                            duplicates += 1
-                            continue
-                        dedup_ids.add(one_stream.host_stream_id)
-
-                        profile, profile_created = StreamerProfile.objects.get_or_create(
-                            host=StreamerProfile.Host.TWITCH,
-                            host_user_id=one_stream.host_user_id,
-                            defaults={
-                                "host_login": one_stream.host_login,
-                                "host_display_name": one_stream.host_display_name,
-                            }
-                        )
-                        if profile_created:
-                            new_profiles += 1
-
-                        # Update rarely changed fields on mismatch
-                        if (profile.host_login, profile.host_display_name) != (one_stream.host_login, one_stream.host_display_name):
-                            profile.host_login = one_stream.host_login
-                            profile.host_display_name = one_stream.host_display_name
-                            profile.save(update_fields=["host_login", "host_display_name"])
-
-                        new_snapshot = {
-                            "g": one_stream.host_game_id,
-                            "v": one_stream.viewers,
-                            "t": poll_timestamp,
-                        }
-
-                        stream, created = Stream.objects.get_or_create(
-                            streamer_profile=profile,
-                            host_stream_id=one_stream.host_stream_id,
-                            defaults={
-                                "status": Stream.Status.LIVE,
-                                "language": the_language,
-                                "started_at": one_stream.started_at,
-                                "finished_at": poll_now,
-                                "snapshots": [new_snapshot],
-                            }
-                        )
-
-                        if created:
-                            new_streams += 1
-                        else:
-                            stream.snapshots.append(new_snapshot)
-                            stream.status = Stream.Status.LIVE
-                            stream.language = the_language
-                            stream.started_at = one_stream.started_at
-                            stream.finished_at = poll_now
-                            stream.save(update_fields=[
-                                "status", "language", "started_at", "finished_at", "snapshots",
-                            ])
+                    new_profiles, new_streams = self._write_streams(the_language, streams_to_write, poll_now, poll_timestamp)
 
                 stats.add_round(
                     requests=client.requests_sent - requests_before,
@@ -291,6 +248,102 @@ class Command(BaseCommand):
                     time.sleep(time_to_sleep)
 
         return stats
+
+    def _write_streams(self, the_language, streams, poll_now, poll_timestamp):
+        """Writes a poll round's streams in a few statements, however many there are.
+
+        Creates the streamers seen for the first time and updates the logins and display
+        names that changed, then gives every stream the round's snapshot in one upsert:
+        appended to a stream seen before, which goes (back) to live, or as the first one
+        of a new stream. Written stream by stream, at about three queries each, writing
+        took most of a run's time.
+
+        Args:
+            the_language (str): The polled language, which each stream is written with.
+            streams (list[StreamTuple]): The round's streams, without the excluded and the duplicates.
+            poll_now (datetime): The round's poll time, each stream's `finished_at`.
+            poll_timestamp (int): The same as a unix time, each snapshot's `t`.
+
+        Returns:
+            tuple[int, int]: (streamer profiles created, streams created).
+        """
+        if not streams:
+            return 0, 0
+
+        # Each streamer once, as last seen in the round
+        streamers = {one_stream.host_user_id: one_stream for one_stream in streams}
+
+        profile_ids, renamed = {}, []
+        for profile_id, host_user_id, host_login, host_display_name in StreamerProfile.objects.filter(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id__in=list(streamers),
+        ).values_list("id", "host_user_id", "host_login", "host_display_name"):
+            profile_ids[host_user_id] = profile_id
+            one_stream = streamers[host_user_id]
+            # Update rarely changed fields on mismatch
+            if (host_login, host_display_name) != (one_stream.host_login, one_stream.host_display_name):
+                renamed.append(StreamerProfile(
+                    id=profile_id,
+                    host_login=one_stream.host_login,
+                    host_display_name=one_stream.host_display_name,
+                ))
+        StreamerProfile.objects.bulk_update(renamed, ["host_login", "host_display_name"])
+
+        # Sorted, as the streams are below, so that two languages' rounds sharing rows lock
+        # them in the same order and wait for each other rather than deadlock. Unlike
+        # ignore_conflicts, update_conflicts brings each one back with its id, even when
+        # the other round has just created it.
+        new_profiles = [
+            StreamerProfile(
+                host=StreamerProfile.Host.TWITCH,
+                host_user_id=host_user_id,
+                host_login=one_stream.host_login,
+                host_display_name=one_stream.host_display_name,
+            )
+            for host_user_id, one_stream in sorted(streamers.items())
+            if host_user_id not in profile_ids
+        ]
+        StreamerProfile.objects.bulk_create(
+            new_profiles,
+            update_conflicts=True,
+            unique_fields=["host", "host_user_id"],
+            update_fields=["host_login", "host_display_name"],
+        )
+        profile_ids.update((profile.host_user_id, profile.id) for profile in new_profiles)
+
+        # The streams as one array per column, which unnest turns back into rows
+        columns = zip(*(
+            (profile_ids[one_stream.host_user_id], one_stream.host_stream_id, one_stream.started_at, one_stream.host_game_id, one_stream.viewers)
+            for one_stream in streams
+        ))
+        with connection.cursor() as cur:
+            # In the unique key's order, for the same reason as the streamers above. xmax
+            # is 0 only on the rows the statement inserted, which counts the new streams.
+            cur.execute(
+                """
+                INSERT INTO streams_stream (
+                    streamer_profile_id, host_stream_id, status, language, started_at, finished_at,
+                    snapshots, max_viewers, avg_viewers, host_game_ids, genre_ids, duration
+                )
+                SELECT seen.profile_id, seen.stream_id, 'live', %s, seen.started_at, %s,
+                       jsonb_build_array(jsonb_build_object('g', seen.game_id, 'v', seen.viewers, 't', %s)),
+                       0, 0, '{}', '{}', 0
+                FROM unnest(%s::bigint[], %s::bigint[], %s::timestamptz[], %s::bigint[], %s::integer[])
+                     AS seen(profile_id, stream_id, started_at, game_id, viewers)
+                ORDER BY seen.profile_id, seen.stream_id
+                ON CONFLICT (streamer_profile_id, host_stream_id) DO UPDATE
+                SET snapshots = streams_stream.snapshots || EXCLUDED.snapshots,
+                    status = EXCLUDED.status,
+                    language = EXCLUDED.language,
+                    started_at = EXCLUDED.started_at,
+                    finished_at = EXCLUDED.finished_at
+                RETURNING xmax = 0;
+                """,
+                [the_language, poll_now, poll_timestamp, *(list(column) for column in columns)],
+            )
+            new_streams = sum(inserted for (inserted,) in cur.fetchall())
+
+        return len(new_profiles), new_streams
 
     def _finalize_offline_streams(self, stale_stream_threshold):
         """Transitions stale live streams to OFFLINE and computes summary fields from `snapshots`.

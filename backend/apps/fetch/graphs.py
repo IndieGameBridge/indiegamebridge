@@ -14,6 +14,7 @@ from django.utils import timezone
 from apps.fetch.models import FetchRun
 from apps.streams.search import StreamerSearch
 from core.utils.admin_charts import (
+    COLUMN_DAY_WIDTH,
     Figure,
     HoverSource,
     LegendItem,
@@ -46,10 +47,8 @@ GAP = timedelta(minutes=45)
 NEVER_FINISHED_AFTER = timedelta(hours=1)
 
 # Each day is drawn at least this wide: 10 pixels a run, at three runs an hour. The
-# plots of one column a day have days of their own, just wider than a column, so the
-# columns stand close together.
+# plots of one column a day have narrower days of their own, COLUMN_DAY_WIDTH.
 DAY_WIDTH = 720
-COLUMN_DAY_WIDTH = 32
 
 # The values of a run's tooltip row, and of a day's, in this order.
 RUN_TIME, STATUS, WRITING, HELIX, FINALIZING, OTHER, BUSIEST, AVERAGE, WRITTEN, KEPT, DROPPED = range(11)

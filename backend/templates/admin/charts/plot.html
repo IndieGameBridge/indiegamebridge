@@ -1,5 +1,5 @@
 {% load l10n %}{% localize off %}
-<div class="viz-row" style="--plot-height: {{ plot.height }}px">
+<div class="viz-row" style="--plot-height: {{ plot.height }}px; --column-width: {{ plot.column_width }}px">
   <div class="viz-y-axis" aria-hidden="true">{% for tick in plot.y_ticks %}<span style="top: {{ tick.at }}px">{{ tick.label }}</span>{% endfor %}</div>
   <div class="viz-scroll" data-now="{{ plot.now_percent }}" data-group="{{ plot.group }}">
     <div class="viz-canvas" style="{% if plot.stretch %}min-width{% else %}width{% endif %}: {{ plot.width }}px">
@@ -8,6 +8,7 @@
         {% for x in plot.midnights %}<line class="viz-grid" x1="{{ x }}" x2="{{ x }}" y1="{{ plot.top }}" y2="{{ plot.base }}"/>{% endfor %}
         {% for tick in plot.y_ticks %}<line class="viz-grid" x1="0" x2="{{ plot.width }}" y1="{{ tick.at }}" y2="{{ tick.at }}"/>{% endfor %}
         <line class="viz-baseline" x1="0" x2="{{ plot.width }}" y1="{{ plot.base }}" y2="{{ plot.base }}"/>
+        {% for x in plot.separators %}<line class="viz-baseline" x1="{{ x }}" x2="{{ x }}" y1="{{ plot.base }}" y2="{{ plot.separator_bottom }}"/>{% endfor %}
         {% for reference in plot.references %}<line class="viz-reference" x1="0" x2="{{ plot.width }}" y1="{{ reference.y }}" y2="{{ reference.y }}"/>{% endfor %}
         {% for area in plot.areas %}<path class="viz-area" style="--c: var(--viz-{{ area.color }})" d="{{ area.path }}"/>{% endfor %}
         {% for line in plot.lines %}<path class="viz-line" style="--c: var(--viz-{{ line.color }})" d="{{ line.path }}"/>{% endfor %}

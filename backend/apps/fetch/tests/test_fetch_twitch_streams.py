@@ -1,8 +1,8 @@
 """Tests for the fetch_twitch_streams management command.
 
-The persistence loop in `_poll_streams_by_lang` is the highest-value thing to
-test — it has real branching (get_or_create vs update, profile mismatch update,
-dedup, snapshot append) and any regression silently corrupts data.
+The persistence in `_poll_streams_by_lang` is the highest-value thing to
+test — it has real branching (new or seen-before streams and streamers, profile
+mismatch update, dedup, snapshot append) and any regression silently corrupts data.
 `_finalize_offline_streams` is exercised directly: stale streams must end up
 OFFLINE with `max_viewers` and `host_game_ids` derived from `snapshots`, and streams
 with too little data must be dropped.
@@ -196,6 +196,51 @@ class PollStreamsByLangPersistenceTests(TestCase):
 
         self.assertEqual(Stream.objects.count(), 1)
         self.assertEqual(len(Stream.objects.get().snapshots), 2)
+
+    def test_a_stream_seen_again_after_going_offline_is_live_again_with_its_snapshots(self):
+        profile = StreamerProfile.objects.create(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=2001,
+            host_login="loginx",
+            host_display_name="DisplayName",
+        )
+        stream = Stream.objects.create(
+            streamer_profile=profile,
+            host_stream_id=1001,
+            status=Stream.Status.OFFLINE,
+            language="de",
+            started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
+            finished_at=timezone.now() - timedelta(hours=2),
+            snapshots=[{"g": 3000, "v": 50, "t": 1}],
+        )
+
+        self._run(([_make_stream_tuple(started_at="2025-01-01T00:05:00Z", viewers=70)], None))
+
+        stream.refresh_from_db()
+        self.assertEqual((stream.status, stream.language), (Stream.Status.LIVE, "en"))
+        self.assertEqual(stream.started_at, datetime(2025, 1, 1, 0, 5, tzinfo=dt_timezone.utc))
+        self.assertEqual([(snap["g"], snap["v"]) for snap in stream.snapshots], [(3000, 50), (3001, 70)])
+
+    def test_each_stream_is_written_to_its_own_streamer(self):
+        StreamerProfile.objects.create(
+            host=StreamerProfile.Host.TWITCH,
+            host_user_id=2002,
+            host_login="known",
+            host_display_name="Known",
+        )
+        self._run(([
+            _make_stream_tuple(host_user_id=2003, host_stream_id=1003, host_login="third", viewers=30),
+            _make_stream_tuple(host_user_id=2001, host_stream_id=1001, host_login="first", viewers=10),
+            _make_stream_tuple(host_user_id=2002, host_stream_id=1002, host_login="known", host_display_name="Known", viewers=20),
+        ], None))
+
+        self.assertEqual(
+            sorted(
+                (stream.host_stream_id, stream.streamer_profile.host_user_id, stream.streamer_profile.host_login, stream.snapshots[0]["v"])
+                for stream in Stream.objects.select_related("streamer_profile")
+            ),
+            [(1001, 2001, "first", 10), (1002, 2002, "known", 20), (1003, 2003, "third", 30)],
+        )
 
 
 class FinalizeOfflineStreamsTests(TestCase):

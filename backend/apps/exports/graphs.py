@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.exports.models import Export
 from core.utils.admin_charts import (
+    COLUMN_DAY_WIDTH,
     Figure,
     HoverSource,
     LegendItem,
@@ -19,10 +20,6 @@ from core.utils.admin_charts import (
     counted_text,
     day_text,
 )
-
-# Each day is drawn this wide, just wider than its column, so the columns stand close
-# together rather than stretched apart across a wide screen.
-DAY_WIDTH = 32
 
 # The values of a day's tooltip row, in this order.
 EXPORTS, AGAIN, FIRST, USERS = range(4)
@@ -60,7 +57,7 @@ def export_graphs(days, now=None):
 
     today = now.astimezone(dt_timezone.utc).date()
     recorded_from = exports[0]["day"]
-    axis = TimeAxis(max(today - timedelta(days=days - 1), recorded_from), today, DAY_WIDTH, now, stretch=False)
+    axis = TimeAxis(max(today - timedelta(days=days - 1), recorded_from), today, COLUMN_DAY_WIDTH, now, stretch=False)
     by_day = {day: [] for day in axis.days}
     for export in exports:
         if export["day"] in by_day:

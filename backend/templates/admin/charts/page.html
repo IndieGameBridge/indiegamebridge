@@ -88,7 +88,7 @@
   .viz-cursor { stroke: var(--body-quiet-color); visibility: hidden; pointer-events: none; }
   .viz-area { fill: var(--c); fill-opacity: 0.14; }
   .viz-line { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-  .viz-column { position: absolute; width: 24px; margin-left: -12px; background: var(--c); pointer-events: none; }
+  .viz-column { position: absolute; width: var(--column-width); margin-left: calc(var(--column-width) / -2); background: var(--c); pointer-events: none; }
   .viz-column-top { border-radius: 4px 4px 0 0; }
   .viz-column-group.is-active .viz-column { filter: brightness(1.18); }
   .viz-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; pointer-events: none; }
