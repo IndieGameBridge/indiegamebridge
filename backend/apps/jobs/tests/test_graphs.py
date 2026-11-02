@@ -76,7 +76,7 @@ class AllJobsTests(TestCase):
         self.assertEqual(rows["update_cached_pages"][6].text, "None yet")
         tiles = {tile.label: tile for tile in context["tiles"]}
         # approve_streams, and the hourly jobs that never ran: too many to name in the tile.
-        self.assertEqual((tiles["Overdue jobs"].value, tiles["Overdue jobs"].note), ("4", ""))
+        self.assertEqual((tiles["Overdue jobs"].value, tiles["Overdue jobs"].note), ("3", ""))
 
     def test_names_the_overdue_jobs_when_few(self):
         _fetch_run(NOW - timedelta(minutes=10))

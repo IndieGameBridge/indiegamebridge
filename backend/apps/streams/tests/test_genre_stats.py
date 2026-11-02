@@ -1,19 +1,19 @@
 """Tests for the per-genre stats read-model behind the Genre Trends page.
 
-rebuild_genre_stats walks streamers in chunks, accumulating each chunk's contribution
-into GenreStats draft counters, then publishes draft -> published when the cursor wraps
-past the end of the set (one full pass = one cycle). Covered here:
+rebuild_genre_stats recomputes every genre and language in one pass and replaces the
+table's rows. Covered here:
 
   - streams/streamers per genre come from each stream's distinct genre_ids, and a
     multi-genre stream counts toward each of its genres;
   - hours per genre split a stream's real duration by snapshot share, with non-game
     (ungenred) snapshots - e.g. Just Chatting - contributing nothing;
-  - streams outside the 4-week window are ignored;
-  - distinct streamers sum correctly when a cycle spans several chunks;
-  - published values only change at the end of a cycle, not mid-build.
+  - streams outside the 4-week window are ignored, and a rebuild drops the numbers
+    of streams that have left it;
+  - a streamer counts once per genre, however many streams they made.
 """
 
 from datetime import datetime, timedelta, timezone as dt_timezone
+from io import StringIO
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -66,21 +66,8 @@ class RebuildGenreStatsTests(TestCase):
             genre_ids=genre_ids,
         )
 
-    def _run_full_cycle(self, chunk=20000):
-        # reset zeroes the draft + cursor and processes the first chunk; repeated runs
-        # cover the rest. The run whose chunk reaches the tail of the id range completes
-        # the cycle: it publishes draft -> published and wraps the cursor back to 0.
-        call_command("rebuild_genre_stats", reset=True, chunk=chunk)
-        for _ in range(50):
-            if self._cursor() == 0:  # wrapped -> cycle complete, draft published
-                break
-            call_command("rebuild_genre_stats", chunk=chunk)
-
-    @staticmethod
-    def _cursor():
-        from apps.streams.models import GenreStatsBuildState
-        state = GenreStatsBuildState.objects.filter(pk=1).first()
-        return state.last_profile_id if state else 0
+    def _rebuild(self):
+        call_command("rebuild_genre_stats", stdout=StringIO())
 
     @staticmethod
     def _stats(host_genre_id, language="en"):
@@ -97,7 +84,7 @@ class RebuildGenreStatsTests(TestCase):
         self._make_stream(s1, 1, duration=3600, genre_ids=[10, 20])
         self._make_stream(s2, 2, duration=3600, genre_ids=[10])
 
-        self._run_full_cycle()
+        self._rebuild()
 
         action = self._stats(10)
         puzzle = self._stats(20)
@@ -116,7 +103,7 @@ class RebuildGenreStatsTests(TestCase):
             snapshots=[{"g": 100}, {"g": 100}, {"g": 999}, {"g": 999}],
         )
 
-        self._run_full_cycle()
+        self._rebuild()
 
         self.assertEqual(self._stats(10).total_duration_seconds, 1800)
 
@@ -125,23 +112,23 @@ class RebuildGenreStatsTests(TestCase):
         streamer = self._make_streamer(1, "solo")
         self._make_stream(streamer, 1, duration=3600, genre_ids=[10], days_ago=40)
 
-        self._run_full_cycle()
+        self._rebuild()
 
         self.assertFalse(GenreStats.objects.filter(
             genre__host_genre_id=10
         ).exclude(streams_count=0).exists())
 
-    def test_distinct_streamers_sum_across_chunks(self):
+    def test_a_streamer_counts_once_per_genre(self):
         self._make_genre(10, "Action")
-        self._make_stream(self._make_streamer(1, "a"), 1, duration=3600, genre_ids=[10])
-        self._make_stream(self._make_streamer(2, "b"), 2, duration=3600, genre_ids=[10])
+        regular = self._make_streamer(1, "regular")
+        self._make_stream(regular, 1, duration=3600, genre_ids=[10])
+        self._make_stream(regular, 2, duration=3600, genre_ids=[10])
+        self._make_stream(self._make_streamer(2, "once"), 3, duration=3600, genre_ids=[10])
 
-        # chunk=1 forces each streamer into its own chunk; the per-chunk distinct
-        # counts must still sum to 2 since chunks partition the streamer set.
-        self._run_full_cycle(chunk=1)
+        self._rebuild()
 
         action = self._stats(10)
-        self.assertEqual((action.streams_count, action.streamers_count), (2, 2))
+        self.assertEqual((action.streams_count, action.streamers_count), (3, 2))
 
     def test_counts_split_by_language(self):
         self._make_genre(10, "Action")
@@ -154,7 +141,7 @@ class RebuildGenreStatsTests(TestCase):
         self._make_stream(fr, 3, duration=3600, genre_ids=[10], language="fr")
         self._make_stream(es, 4, duration=3600, genre_ids=[10], language="es")
 
-        self._run_full_cycle()
+        self._rebuild()
 
         self.assertEqual(self._stats(10, "en").streams_count, 2)
         self.assertEqual(self._stats(10, "en").streamers_count, 1)
@@ -167,7 +154,7 @@ class RebuildGenreStatsTests(TestCase):
         self._make_genre(10, "Action")
         self._make_stream(self._make_streamer(1, "ja_streamer"), 1, duration=3600, genre_ids=[10], language="ja")
 
-        self._run_full_cycle()
+        self._rebuild()
 
         self.assertEqual(self._stats(10, "ja").streams_count, 1)
 
@@ -177,7 +164,7 @@ class RebuildGenreStatsTests(TestCase):
         # Russian isn't a language the fetch collects, so it contributes no rows.
         self._make_stream(streamer, 1, duration=3600, genre_ids=[10], language="ru")
 
-        self._run_full_cycle()
+        self._rebuild()
 
         self.assertFalse(
             GenreStats.objects.filter(genre__host_genre_id=10)
@@ -185,47 +172,33 @@ class RebuildGenreStatsTests(TestCase):
             .exists()
         )
 
-    def test_published_only_after_cycle_completes(self):
+    def test_a_rebuild_replaces_the_previous_numbers(self):
         self._make_genre(10, "Action")
-        for host_id in (1, 2, 3):
-            self._make_stream(
-                self._make_streamer(host_id, f"s{host_id}"),
-                host_id, duration=3600, genre_ids=[10],
-            )
+        self._make_genre(20, "Puzzle")
+        streamer = self._make_streamer(1, "solo")
+        stream = self._make_stream(streamer, 1, duration=3600, genre_ids=[10])
+        self._rebuild()
+        self.assertEqual(self._stats(10).streams_count, 1)
+        self.assertIsNotNone(self._stats(10).computed_at)
 
-        # A full chunk means more profiles may follow, so this run accumulates into
-        # the draft but must not touch published values.
-        call_command("rebuild_genre_stats", reset=True, chunk=2)
-        mid = self._stats(10)
-        self.assertEqual(mid.streams_count, 0)
-        self.assertEqual(mid.draft_streams_count, 2)
+        # The Action stream leaves the window; a Puzzle one comes in.
+        stream.finished_at = timezone.now() - timedelta(days=40)
+        stream.save(update_fields=["finished_at"])
+        self._make_stream(streamer, 2, duration=3600, genre_ids=[20])
+        self._rebuild()
 
-        # The short chunk reaches the tail, so this run publishes and zeroes the draft.
-        call_command("rebuild_genre_stats", chunk=2)
-        done = self._stats(10)
-        self.assertEqual(done.streams_count, 3)
-        self.assertEqual(done.draft_streams_count, 0)
-        self.assertEqual(self._cursor(), 0)
-        self.assertIsNotNone(done.computed_at)
+        self.assertFalse(GenreStats.objects.filter(genre__host_genre_id=10).exists())
+        self.assertEqual(self._stats(20).streams_count, 1)
 
-    def test_cycle_completes_while_new_profiles_keep_arriving(self):
-        # Regression: the wrap used to require a run that found *nothing* past the
-        # cursor. fetch_twitch_streams inserts profiles continuously, so that run never
-        # came - the cursor pinned itself to the top of the id range and the draft was
-        # never published. Reaching the tail must end the cycle even when the set grew.
-        self._make_genre(10, "Action")
-        for host_id in (1, 2):
-            self._make_stream(
-                self._make_streamer(host_id, f"s{host_id}"),
-                host_id, duration=3600, genre_ids=[10],
-            )
+    def test_a_snapshot_on_a_game_of_two_genres_counts_for_both(self):
+        action = self._make_genre(10, "Action")
+        puzzle = self._make_genre(20, "Puzzle")
+        self._make_game(host_game_id=100, genres=[action, puzzle])
+        self._make_stream(
+            self._make_streamer(1, "solo"), 1, duration=3600, genre_ids=[10, 20],
+            snapshots=[{"g": 100}, {"g": 100}, {"g": 100}],
+        )
 
-        call_command("rebuild_genre_stats", reset=True, chunk=2)
-        self.assertNotEqual(self._cursor(), 0)  # full chunk -> cycle still open
+        self._rebuild()
 
-        # A new streamer lands above the cursor, as the fetch cron would create it.
-        self._make_stream(self._make_streamer(3, "s3"), 3, duration=3600, genre_ids=[10])
-
-        call_command("rebuild_genre_stats", chunk=2)
-        self.assertEqual(self._cursor(), 0)
-        self.assertEqual(self._stats(10).streams_count, 3)
+        self.assertEqual((self._stats(10).total_duration_seconds, self._stats(20).total_duration_seconds), (3600, 3600))

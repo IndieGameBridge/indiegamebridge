@@ -34,15 +34,14 @@ JOBS = (
         ("not_found", "Games IGDB has no record of"),
         ("streams_updated", "Streams given new genres"),
     )),
-    Job("rebuild_search_stats", timedelta(hours=1), (
-        ("profiles", "Streamers processed"),
-        ("rows", "Search rows written"),
-        ("passes", "Passes completed"),
+    Job("rebuild_search_stats", timedelta(hours=6), (
+        ("rows", "Search rows"),
+        ("written", "Search rows new or changed"),
+        ("deleted", "Search rows deleted, no stream left"),
     )),
-    Job("rebuild_genre_stats", timedelta(hours=1), (
-        ("profiles", "Streamers processed"),
-        ("streams", "Streams counted"),
-        ("passes", "Passes published"),
+    # Daily, before update_cached_pages rebuilds the Genre Trends page.
+    Job("rebuild_genre_stats", timedelta(days=1), (
+        ("rows", "Genre and language rows"),
     )),
     Job("update_cached_pages", timedelta(days=1), (
         ("pages", "Pages rebuilt"),

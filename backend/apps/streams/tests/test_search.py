@@ -7,6 +7,7 @@ Two layers:
 """
 
 from datetime import datetime, timedelta, timezone as dt_timezone
+from io import StringIO
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -15,7 +16,6 @@ from django.utils import timezone
 from apps.streams.languages import PAGE_LANGUAGES
 from apps.streams.models import (
     GameGenre,
-    SearchStatsRebuildState,
     Stream,
     StreamerProfile,
     StreamerSearchStats,
@@ -74,9 +74,7 @@ class RebuildAndSearchTests(TestCase):
         )
 
     def _rebuild(self):
-        # reset so each call processes the whole set regardless of where the
-        # rolling cursor left off (keeps tests independent of chunk cadence).
-        call_command("rebuild_search_stats", reset=True)
+        call_command("rebuild_search_stats", stdout=StringIO())
 
     def _search(self, **overrides):
         """A search with only the filters under test applied (see NO_FILTERS)."""
@@ -347,27 +345,32 @@ class RebuildAndSearchTests(TestCase):
         self.assertEqual(stats[mostly_french.id]["peak_viewers"], 90)
         self.assertEqual(stats[tied.id]["language"], "Spanish")
 
-    def test_pass_completes_while_new_profiles_keep_arriving(self):
-        # Regression: the cursor used to wrap only on a run that found *nothing* past
-        # it. fetch_twitch_streams inserts profiles continuously, so that run never
-        # came - the cursor pinned itself to the top of the id range and every row
-        # below it was never recomputed again (leaving the read-model months stale).
-        for host_id in (1, 2):
-            streamer = self._make_streamer(host_id, f"s{host_id}")
-            self._make_stream(streamer, host_id, max_viewers=50, avg_viewers=20, duration=3600)
+    def test_a_rebuild_writes_only_the_rows_that_changed(self):
+        steady = self._make_streamer(1, "steady")
+        busy = self._make_streamer(2, "busy")
+        self._make_stream(steady, 1, max_viewers=50, avg_viewers=20, duration=3600)
+        self._make_stream(busy, 2, max_viewers=50, avg_viewers=20, duration=3600)
+        self._rebuild()
+        long_ago = timezone.now() - timedelta(days=1)
+        StreamerSearchStats.objects.update(computed_at=long_ago)
 
-        call_command("rebuild_search_stats", reset=True, chunk=2)
-        self.assertNotEqual(self._cursor(), 0)  # full chunk -> pass still open
+        # busy streams again and renames; steady does nothing new.
+        self._make_stream(busy, 3, max_viewers=90, avg_viewers=40, duration=1800)
+        busy.host_login = "busier"
+        busy.save(update_fields=["host_login"])
+        self._rebuild()
 
-        # A new streamer lands above the cursor, as the fetch cron would create it.
-        newcomer = self._make_streamer(3, "s3")
-        self._make_stream(newcomer, 3, max_viewers=50, avg_viewers=20, duration=3600)
+        self.assertEqual(StreamerSearchStats.objects.get(streamer_profile=steady).computed_at, long_ago)
+        row = StreamerSearchStats.objects.get(streamer_profile=busy)
+        self.assertGreater(row.computed_at, long_ago)
+        self.assertEqual((row.host_login, row.peak_viewers, row.streams_count), ("busier", 90, 2))
 
-        call_command("rebuild_search_stats", chunk=2)
-        self.assertEqual(self._cursor(), 0)
-        self.assertEqual(StreamerSearchStats.objects.count(), 3)
+    def test_avg_viewers_round_half_to_even_as_before(self):
+        streamer = self._make_streamer(1, "solo")
+        self._make_stream(streamer, 1, max_viewers=50, avg_viewers=20, duration=3600)
+        self._make_stream(streamer, 2, max_viewers=50, avg_viewers=21, duration=3600)
 
-    @staticmethod
-    def _cursor():
-        state = SearchStatsRebuildState.objects.filter(pk=1).first()
-        return state.last_profile_id if state else 0
+        self._rebuild()
+
+        # 20.5 rounds to 20, as Python's round did when the rebuild ran in Python.
+        self.assertEqual(StreamerSearchStats.objects.get(streamer_profile=streamer).avg_viewers, 20)

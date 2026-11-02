@@ -31,8 +31,8 @@ The system has two halves: scheduled management commands that **collect and shap
 | `categorize_games` | hourly | Asks Helix `games` about categories new to the database. Those with an IGDB id become games, the rest (Just Chatting, say) non-games. |
 | `enrich_igdb_games` | hourly | Fills games in from IGDB, with genres, summary and link, then updates the genres of the streams that played them. |
 | `approve_streams` | hourly | Approves the ended streams that played a game and deletes those that didn't. A stream still waiting on an uncategorized game is left for the next run. |
-| `rebuild_search_stats` | hourly | Rebuilds the search table a chunk of streamers at a time, behind a saved cursor. |
-| `rebuild_genre_stats` | hourly | Adds up the Genre Trends numbers the same way, and publishes them when a pass completes. |
+| `rebuild_search_stats` | every 6 hours | Rebuilds the search table in one pass: one read of the streams table, then only the rows whose numbers changed are written. |
+| `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
 | `update_cached_pages` | daily | Pre-renders the pages' payloads. |
 | `delete_expired_personal_data` | daily | Deletes personal data older than 12 months. |
@@ -44,8 +44,8 @@ The system has two halves: scheduled management commands that **collect and shap
 
 Search never scans the streams table, which holds tens of millions of rows. A read model, `StreamerSearchStats`, has one row per streamer and language, summing up their last four weeks: peak and average viewers, hours, streams and the genres played. A search is an indexed filter and sort over that table.
 
-- Rebuilding it in chunks keeps each cron run small. Streamers with no recent streams drop out as their chunk comes round again.
-- Genre Trends reads `GenreStats`, built the same way. A stream's hours are split across the genres it actually played, by snapshot, so non-game time such as Just Chatting doesn't count.
+- It's rebuilt in one pass every 6 hours. A streamer's streams are spread all through the streams table, so reading it costs about the same for one streamer as for all of them, and one pass beats many smaller ones. Only the rows whose numbers changed are written, and streamers with no recent streams drop out.
+- Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the genres it actually played, by snapshot, so non-game time such as Just Chatting doesn't count.
 - Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a live demo search and headline counts read from the search table.
 - A streamer's profile is computed on its first view and cached for an hour.
 

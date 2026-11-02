@@ -1,143 +1,104 @@
-import logging
+"""Rebuild the StreamerSearchStats read model: every streamer's last 4 weeks, in one pass.
+
+One read of the streams table computes every (streamer, language) row into a temporary
+table. Then only the rows whose numbers changed are written, and those of streamers with
+no approved stream left in the window are deleted - in one transaction, so a search sees
+the old rows or the new ones, never a mix. Meant for cron every 6 hours.
+
+Reading the streams table costs the same for one streamer as for all of them: their
+streams are spread all through it. So a pass over everyone at once is far cheaper than
+one in chunks, which read the whole table for each chunk.
+"""
+
 from datetime import timedelta
 
-from django.contrib.postgres.aggregates import JSONBAgg
-from django.db import transaction
-from django.db.models import Avg, Count, Max, Sum
+from django.db import connection, transaction
 from django.utils import timezone
 
 from apps.jobs.recording import RecordedCommand
-from apps.streams.models import (
-    SearchStatsRebuildState,
-    Stream,
-    StreamerProfile,
-    StreamerSearchStats,
-)
-
-logger = logging.getLogger(__name__)
 
 # Fixed search window: stats summarise each streamer's last 4 weeks.
 WINDOW_DAYS = 28
 
-DEFAULT_CHUNK = 20000
+# Every (streamer, language) row the window's approved streams make. avg_viewers is
+# rounded as a float, half to even, as Python rounds; genre_ids is the union of the
+# streams' genres, sorted.
+FRESH_SQL = """
+    CREATE TEMP TABLE fresh_search_stats AS
+    WITH window_streams AS MATERIALIZED (
+        SELECT streamer_profile_id, language, max_viewers, avg_viewers, duration, genre_ids
+        FROM streams_stream
+        WHERE status = 'approved' AND finished_at >= %s
+    ),
+    stats AS (
+        SELECT streamer_profile_id, language, max(max_viewers) AS peak_viewers,
+               round(avg(avg_viewers)::float8)::int AS avg_viewers, sum(duration)::int AS total_duration_seconds,
+               count(*)::int AS streams_count
+        FROM window_streams
+        GROUP BY streamer_profile_id, language
+    ),
+    genres AS (
+        SELECT streamer_profile_id, language, array_agg(DISTINCT genre_id ORDER BY genre_id) AS genre_ids
+        FROM window_streams, unnest(genre_ids) AS genre_id
+        GROUP BY streamer_profile_id, language
+    )
+    SELECT stats.*, coalesce(genres.genre_ids, '{}') AS genre_ids, profile.host_login, profile.host_display_name
+    FROM stats
+    JOIN streams_streamerprofile AS profile ON profile.id = stats.streamer_profile_id
+    LEFT JOIN genres USING (streamer_profile_id, language)
+"""
+
+# New rows, and rows whose numbers or names changed; the rest stay as they are.
+UPSERT_SQL = """
+    INSERT INTO streams_streamersearchstats AS current (
+        streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
+        genre_ids, host_login, host_display_name, computed_at
+    )
+    SELECT streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
+           genre_ids, host_login, host_display_name, now()
+    FROM fresh_search_stats
+    ON CONFLICT (streamer_profile_id, language) DO UPDATE SET
+        peak_viewers = EXCLUDED.peak_viewers, avg_viewers = EXCLUDED.avg_viewers,
+        total_duration_seconds = EXCLUDED.total_duration_seconds, streams_count = EXCLUDED.streams_count,
+        genre_ids = EXCLUDED.genre_ids, host_login = EXCLUDED.host_login,
+        host_display_name = EXCLUDED.host_display_name, computed_at = EXCLUDED.computed_at
+    WHERE (current.peak_viewers, current.avg_viewers, current.total_duration_seconds, current.streams_count,
+           current.genre_ids, current.host_login, current.host_display_name)
+          IS DISTINCT FROM
+          (EXCLUDED.peak_viewers, EXCLUDED.avg_viewers, EXCLUDED.total_duration_seconds, EXCLUDED.streams_count,
+           EXCLUDED.genre_ids, EXCLUDED.host_login, EXCLUDED.host_display_name)
+"""
+
+# Streamers with no approved stream left in the window drop out of search.
+DELETE_SQL = """
+    DELETE FROM streams_streamersearchstats AS current
+    WHERE NOT EXISTS (
+        SELECT 1 FROM fresh_search_stats AS fresh
+        WHERE fresh.streamer_profile_id = current.streamer_profile_id AND fresh.language = current.language
+    )
+"""
 
 
 class Command(RecordedCommand):
     help = (
-        "Recompute the StreamerSearchStats read-model in rolling chunks. Walks"
-        " StreamerProfile ids behind a saved cursor so repeated cron runs cover"
-        " the whole set (~once/day, depending on --chunk and run frequency)."
+        "Recompute the StreamerSearchStats read model from every streamer's approved streams of"
+        f" the last {WINDOW_DAYS} days, in one pass, writing only the rows that changed."
     )
 
-    def add_arguments(self, parser):
-        parser.add_argument(
-            "--chunk",
-            type=int,
-            default=DEFAULT_CHUNK,
-            help=f"How many streamer profiles to process this run (default {DEFAULT_CHUNK}).",
-        )
-        parser.add_argument(
-            "--reset",
-            action="store_true",
-            help="Reset the cursor to 0 before running (start a fresh cycle).",
-        )
-
     def handle(self, *args, **options):
-        chunk = max(1, options["chunk"])
-        state, _ = SearchStatsRebuildState.objects.get_or_create(pk=1)
-        cursor = 0 if options["reset"] else state.last_profile_id
-
-        profile_ids = list(
-            StreamerProfile.objects
-            .filter(id__gt=cursor)
-            .order_by("id")
-            .values_list("id", flat=True)[:chunk]
-        )
-
-        if not profile_ids:
-            # Nothing above the cursor at all (empty table, or a reset that raced the
-            # fetch cron). Wrap so the next run starts a fresh pass.
-            state.last_profile_id = 0
-            state.save(update_fields=["last_profile_id", "updated_at"])
-            self.count(passes=1)
-            logger.info("rebuild_search_stats: nothing to process, cursor wrapped to 0.")
-            return
-
-        created = self._rebuild_chunk(profile_ids)
-
-        # A short chunk means this run reached the tail of the id range, so the pass is
-        # done: wrap now instead of waiting for a run that comes back empty. That empty
-        # run never happens in practice - fetch_twitch_streams inserts new profiles every
-        # poll, so there are essentially always ids above the cursor - which used to pin
-        # the cursor to the top of the range and freeze the whole read-model.
-        end_of_set = len(profile_ids) < chunk
-        state.last_profile_id = 0 if end_of_set else profile_ids[-1]
-        state.save(update_fields=["last_profile_id", "updated_at"])
-        self.count(profiles=len(profile_ids), rows=created, passes=int(end_of_set))
-        logger.info(
-            "rebuild_search_stats: processed %s profiles (ids %s..%s), wrote %s stat rows.%s",
-            len(profile_ids), profile_ids[0], profile_ids[-1], created,
-            " End of set reached, cursor wrapped to 0." if end_of_set else "",
-        )
-
-    @staticmethod
-    def _rebuild_chunk(profile_ids: list[int]) -> int:
         window_start = timezone.now() - timedelta(days=WINDOW_DAYS)
-
-        # One grouped aggregate over just this chunk's approved streams in the
-        # window, split by (streamer, language) - the stats table's key.
-        rows = list(
-            Stream.objects
-            .filter(
-                streamer_profile_id__in=profile_ids,
-                status=Stream.Status.APPROVED,
-                finished_at__gte=window_start,
-            )
-            .values("streamer_profile_id", "language")
-            .annotate(
-                peak_viewers=Max("max_viewers"),
-                avg_viewers=Avg("avg_viewers"),
-                total_duration_seconds=Sum("duration"),
-                streams_count=Count("id"),
-                # JSONBAgg of the per-stream genre_ids arrays; flattened + de-duped below.
-                genre_id_lists=JSONBAgg("genre_ids"),
-            )
+        with transaction.atomic(), connection.cursor() as cur:
+            cur.execute(FRESH_SQL, [window_start])
+            cur.execute("SELECT count(*) FROM fresh_search_stats")
+            rows = cur.fetchone()[0]
+            cur.execute(UPSERT_SQL)
+            written = cur.rowcount
+            cur.execute(DELETE_SQL)
+            deleted = cur.rowcount
+            # Gone with the transaction anyway if anything above failed; dropped here so a
+            # run inside a longer transaction, such as a test's, can run again.
+            cur.execute("DROP TABLE fresh_search_stats")
+        self.count(rows=rows, written=written, deleted=deleted)
+        self.stdout.write(
+            f"Rebuilt the search stats: {rows:,} rows, of which {written:,} new or changed; {deleted:,} deleted."
         )
-
-        profile_names = {
-            profile_id: (login, display_name)
-            for profile_id, login, display_name in (
-                StreamerProfile.objects
-                .filter(id__in={row["streamer_profile_id"] for row in rows})
-                .values_list("id", "host_login", "host_display_name")
-            )
-        }
-
-        stats = []
-        for row in rows:
-            genre_ids = sorted({
-                genre_id
-                for one_list in (row["genre_id_lists"] or [])
-                for genre_id in (one_list or [])
-            })
-            login, display_name = profile_names.get(row["streamer_profile_id"], ("", ""))
-            stats.append(StreamerSearchStats(
-                streamer_profile_id=row["streamer_profile_id"],
-                language=row["language"],
-                peak_viewers=row["peak_viewers"] or 0,
-                avg_viewers=int(round(row["avg_viewers"] or 0)),
-                total_duration_seconds=row["total_duration_seconds"] or 0,
-                streams_count=row["streams_count"],
-                genre_ids=genre_ids,
-                host_login=login,
-                host_display_name=display_name,
-            ))
-
-        with transaction.atomic():
-            # Replace the chunk's rows wholesale: deleting first drops streamers
-            # (and language rows) that no longer qualify in the window, so dormant
-            # entries are pruned over a full cycle.
-            StreamerSearchStats.objects.filter(streamer_profile_id__in=profile_ids).delete()
-            StreamerSearchStats.objects.bulk_create(stats)
-
-        return len(stats)

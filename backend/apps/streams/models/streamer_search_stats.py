@@ -9,9 +9,9 @@ class StreamerSearchStats(models.Model):
     """Precomputed per-streamer, per-language search row.
 
     Search reads this narrow table directly instead of scanning and aggregating
-    the wide streams table. One row per (streamer, language). Rebuilt in rolling
-    chunks by the rebuild_search_stats command, so values are roughly a day
-    stale - an accepted trade for fast, predictable search.
+    the wide streams table. One row per (streamer, language). Rebuilt in one pass
+    every 6 hours by the rebuild_search_stats command, so values are up to 6 hours
+    old - an accepted trade for fast, predictable search.
     """
 
     streamer_profile = models.ForeignKey(
@@ -55,7 +55,7 @@ class StreamerSearchStats(models.Model):
 
     computed_at = models.DateTimeField(
         auto_now=True,
-        help_text="When this row was last recomputed.",
+        help_text="When this row was last written: a rebuild leaves the rows whose numbers didn't change as they are.",
     )
 
     class Meta:
@@ -76,21 +76,3 @@ class StreamerSearchStats(models.Model):
 
     def __str__(self):
         return f"SearchStats: {self.host_login} [{self.language}] (computed {self.computed_at:%Y-%m-%d %H:%M})"
-
-
-class SearchStatsRebuildState(models.Model):
-    """Singleton cursor for the chunked search-stats rebuild.
-
-    Holds the last StreamerProfile.id processed so each cron run continues where
-    the previous left off, wrapping back to 0 once it runs past the end.
-    """
-
-    last_profile_id = models.BigIntegerField(
-        default=0,
-        help_text="Highest StreamerProfile.id processed by the last rebuild chunk.",
-    )
-
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"SearchStatsRebuildState(last_profile_id={self.last_profile_id})"

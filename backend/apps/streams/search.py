@@ -35,7 +35,7 @@ class StreamerSearch:
     Reads the precomputed StreamerSearchStats read-model (rebuilt out of band by
     the rebuild_search_stats command), so a search is just a filter + sort over a
     small per-(streamer, language) table - never a scan of the wide streams
-    table. The stats are roughly a day stale by design.
+    table. The stats are up to 6 hours old by design.
     """
 
     def __init__(self, filters: dict | None = None):
