@@ -2,11 +2,11 @@ import logging
 from datetime import timedelta
 
 from django.contrib.postgres.aggregates import JSONBAgg
-from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Sum
 from django.utils import timezone
 
+from apps.jobs.recording import RecordedCommand
 from apps.streams.models import (
     SearchStatsRebuildState,
     Stream,
@@ -22,7 +22,7 @@ WINDOW_DAYS = 28
 DEFAULT_CHUNK = 20000
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Recompute the StreamerSearchStats read-model in rolling chunks. Walks"
         " StreamerProfile ids behind a saved cursor so repeated cron runs cover"
@@ -59,6 +59,7 @@ class Command(BaseCommand):
             # fetch cron). Wrap so the next run starts a fresh pass.
             state.last_profile_id = 0
             state.save(update_fields=["last_profile_id", "updated_at"])
+            self.count(passes=1)
             logger.info("rebuild_search_stats: nothing to process, cursor wrapped to 0.")
             return
 
@@ -72,6 +73,7 @@ class Command(BaseCommand):
         end_of_set = len(profile_ids) < chunk
         state.last_profile_id = 0 if end_of_set else profile_ids[-1]
         state.save(update_fields=["last_profile_id", "updated_at"])
+        self.count(profiles=len(profile_ids), rows=created, passes=int(end_of_set))
         logger.info(
             "rebuild_search_stats: processed %s profiles (ids %s..%s), wrote %s stat rows.%s",
             len(profile_ids), profile_ids[0], profile_ids[-1], created,

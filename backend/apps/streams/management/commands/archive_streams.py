@@ -16,10 +16,11 @@ from datetime import date, timedelta
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.jobs.recording import RecordedCommand
 from apps.streams.archive import (
     KEEP_FULL_MONTHS,
     archive_lock,
@@ -107,7 +108,7 @@ class _MonthFile:
         self.partial_path.unlink(missing_ok=True)
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Write streams that finished before the retention window - the current month and"
         f" the {KEEP_FULL_MONTHS} full months before it - to one Parquet file per month in"
@@ -230,6 +231,7 @@ class Command(BaseCommand):
             file_size=month_file.path.stat().st_size,
             sha256=sha256,
         )
+        self.count(months=1, streams=archived_month.streams_count)
         self.stdout.write(
             f"Archived {archived_month.month:%Y-%m}: {archived_month.streams_count:,} streams"
             f" (ids {archived_month.first_stream_id}-{archived_month.last_stream_id}),"

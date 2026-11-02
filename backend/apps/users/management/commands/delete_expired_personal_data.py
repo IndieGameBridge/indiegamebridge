@@ -7,24 +7,25 @@ Meant for a daily cron: a run with nothing to delete is three small DELETEs.
 
 from datetime import timedelta
 
-from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from apps.contact.models import ContactMessage
 from apps.exports.models import Export
+from apps.jobs.recording import RecordedCommand
 from apps.users.models import LoginSnapshot
 
 # The period the privacy policy states; change the two together.
 RETENTION = timedelta(days=365)
 
+# (model, label, the key its run counts it by)
 EXPIRING = (
-    (LoginSnapshot, "sign-in records"),
-    (ContactMessage, "contact messages"),
-    (Export, "export records"),
+    (LoginSnapshot, "sign-in records", "sign_ins"),
+    (ContactMessage, "contact messages", "contact_messages"),
+    (Export, "export records", "exports"),
 )
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = "Delete sign-in records, contact messages and export records older than 12 months."
 
     def add_arguments(self, parser):
@@ -37,9 +38,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         cutoff = timezone.now() - RETENTION
         counts = []
-        for model, label in EXPIRING:
+        for model, label, key in EXPIRING:
             expired = model.objects.filter(created_at__lt=cutoff)
             count = expired.count() if options["dry_run"] else expired.delete()[0]
+            self.count(**{key: count})
             counts.append(f"{count:,} {label}")
 
         verb = "Would delete" if options["dry_run"] else "Deleted"

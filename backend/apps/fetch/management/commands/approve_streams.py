@@ -1,9 +1,9 @@
 import logging
 
-from django.core.management.base import BaseCommand
 from django.db import connection
 from django.db.models import BigIntegerField, Exists, Lookup, OuterRef
 
+from apps.jobs.recording import RecordedCommand
 from apps.streams.models import Game, Stream
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class _MemberOf(Lookup):
         return f"{lhs_sql} = ANY({rhs_sql})", (*lhs_params, *rhs_params)
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Sweeps OFFLINE streams against the current Game categorization:\n"
         "  - approve: at least one host_game_id is `isgame`\n"
@@ -101,6 +101,7 @@ class Command(BaseCommand):
         )
         self._fill_genre_ids(approve_ids)
         deleted_count, _ = to_delete.delete()
+        self.count(approved=approved_count, deleted=deleted_count)
 
         self.stdout.write(self.style.SUCCESS(
             f"Approved {approved_count} streams, deleted {deleted_count} streams."

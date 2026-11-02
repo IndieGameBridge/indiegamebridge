@@ -1,9 +1,10 @@
 import logging
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import connection, transaction
 
 from core.utils.igdb_api_client import IgdbApiClient
+from apps.jobs.recording import RecordedCommand
 from apps.streams.models import Game, GameGenre
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 _IGDB_BATCH_SIZE = 500
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Enriches `isgame` Game rows with IGDB metadata (summary, url, genres)."
         " A Game is treated as unenriched if its `genres` M2M is empty AND it"
@@ -106,6 +107,7 @@ class Command(BaseCommand):
                 if genre is not None:
                     through_links.append(through_model(game_id=game.id, gamegenre_id=genre.id))
 
+        streams_updated = 0
         with transaction.atomic():
             if games_to_update:
                 Game.objects.bulk_update(
@@ -123,14 +125,19 @@ class Command(BaseCommand):
                 # whose host_game_ids reference one of these games. Recompute the
                 # denormalized Stream.genre_ids for that affected slice so the home
                 # page (and future search) can filter by genre_ids directly.
-                self._refresh_stream_genre_ids(
+                streams_updated = self._refresh_stream_genre_ids(
                     [g.host_game_id for g in games_to_update]
                 )
+        self.count(
+            enriched=len(games_to_update),
+            not_found=len(chunk) - len(games_to_update),
+            streams_updated=streams_updated,
+        )
 
     @staticmethod
     def _refresh_stream_genre_ids(enriched_host_game_ids):
         """Recomputes Stream.genre_ids for approved streams whose host_game_ids
-        overlap the just-enriched games.
+        overlap the just-enriched games, and returns how many streams it changed.
 
         Expressed as a single UPDATE ... FROM (SELECT ... GROUP BY) so Postgres
         does the per-stream aggregation server-side. The WHERE clause uses the
@@ -138,7 +145,7 @@ class Command(BaseCommand):
         the Game / GameGenre tables.
         """
         if not enriched_host_game_ids:
-            return
+            return 0
         with connection.cursor() as cur:
             cur.execute(
                 """
@@ -160,6 +167,7 @@ class Command(BaseCommand):
                 """,
                 [list(enriched_host_game_ids)],
             )
+            return cur.rowcount
 
     def _refresh_genres(self, client, genres_by_host_id):
         """Pulls the full genre list from IGDB and inserts any new rows.

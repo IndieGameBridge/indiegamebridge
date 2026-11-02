@@ -10,20 +10,20 @@
     {% if plot.title %}<h3 class="viz-plot-title">{{ plot.title }}</h3>{% endif %}
     {% include "admin/charts/plot.html" %}
   {% endfor %}
-  <div class="viz-tooltip" aria-hidden="true" hidden></div>
+  {% if figure.plots %}<div class="viz-tooltip" aria-hidden="true" hidden></div>{% endif %}
   {% if figure.table_rows %}
-    <details class="viz-table">
-      <summary>Numbers by day</summary>
+    {% if figure.plots %}<details class="viz-table">
+      <summary>Numbers by day</summary>{% else %}<div class="viz-table">{% endif %}
       <table>
         <thead>
-          <tr>{% for header in figure.table_headers %}<th scope="col"{% if not forloop.first %} class="viz-number"{% endif %}>{{ header }}</th>{% endfor %}</tr>
+          <tr>{% for header in figure.table_headers %}<th scope="col"{% if not forloop.first and header.number %} class="viz-number"{% endif %}>{{ header.text }}</th>{% endfor %}</tr>
         </thead>
         <tbody>
           {% for row in figure.table_rows %}
-            <tr>{% for cell in row %}{% if forloop.first %}<th scope="row">{{ cell }}</th>{% else %}<td class="viz-number">{{ cell }}</td>{% endif %}{% endfor %}</tr>
+            <tr>{% for cell in row %}{% if forloop.first %}<th scope="row">{% else %}<td{% if cell.number %} class="viz-number"{% endif %}>{% endif %}{% if cell.marker %}{% include "admin/charts/key.html" with shape=cell.marker %}{% endif %}{% if cell.url %}<a href="{{ cell.url }}">{{ cell.text }}</a>{% else %}{{ cell.text }}{% endif %}{% if forloop.first %}</th>{% else %}</td>{% endif %}{% endfor %}</tr>
           {% endfor %}
         </tbody>
       </table>
-    </details>
+    {% if figure.plots %}</details>{% else %}</div>{% endif %}
   {% endif %}
 </section>

@@ -17,10 +17,11 @@ from datetime import timedelta
 
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db.models import Min
 from django.utils import timezone
 
+from apps.jobs.recording import RecordedCommand
 from apps.streams.archive import archive_lock, file_problem, files_dir, month_range, parse_month
 from apps.streams.models import ArchivedMonth, Stream
 
@@ -32,7 +33,7 @@ BATCH_IDS = 50000
 PAUSE_SECONDS = 0.5
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Delete from Postgres the streams of months archive_streams has written to files,"
         " oldest month first, after checking each file against its record and each batch"
@@ -115,6 +116,7 @@ class Command(BaseCommand):
                     )
                 count, _ = Stream.objects.filter(id__in=ids).delete()
                 deleted += count
+                self.count(streams=count)
                 if budget is not None and deleted >= budget:
                     self.stdout.write(
                         f"{label}: deleted {deleted:,} streams, then stopped at --max-streams;"
@@ -125,6 +127,7 @@ class Command(BaseCommand):
 
         archived_month.rows_deleted_at = timezone.now()
         archived_month.save(update_fields=["rows_deleted_at"])
+        self.count(months=1)
         self.stdout.write(f"Deleted {label}: {deleted:,} streams this run; the month is out of Postgres.")
         return deleted, True
 

@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     "apps.pages",
     "apps.contact",
     "apps.exports",
+    "apps.jobs",
 ]
 
 SITE_ID = 1
@@ -397,6 +398,13 @@ LOGGING = {
         },
         "apps.pages": {
             "handlers": ["console"] if _RUNNING_TESTS else ["console", "pages_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # The other apps: the scheduled commands among them log their progress to
+        # stderr, which cron appends to its log with what they print.
+        "apps": {
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
         },

@@ -112,6 +112,15 @@ class Stream(models.Model):
                 name="stream_live_finished_at_idx",
                 condition=models.Q(status="live"),
             ),
+            # For approve_streams, which sweeps the streams that ended and aren't
+            # approved yet: a few thousand at a time. Without it, each run read the
+            # whole table twice to find them. A live stream's rewrite adds nothing to
+            # it, being outside its condition.
+            models.Index(
+                fields=["id"],
+                name="stream_offline_idx",
+                condition=models.Q(status="offline"),
+            ),
         ]
 
     def __str__(self):

@@ -18,15 +18,16 @@ from datetime import timedelta
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.utils import timezone
 
+from apps.jobs.recording import RecordedCommand
 from apps.streams.archive import archive_lock, file_problem, files_dir, sha256_of
 from apps.streams.models import ArchivedMonth
 from apps.users.models import TwitchExclusion
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Remove the streams of streamers who opted out from the archived months' files,"
         " rewriting only the files that hold any, and update each rewritten month's record."
@@ -72,6 +73,7 @@ class Command(BaseCommand):
             if problem:
                 raise CommandError(f"{label}: {problem}; left as it is.")
             self._rewrite(archived_month, path, opted_out)
+            self.count(months=1, streams=removing)
             self.stdout.write(
                 f"Rewrote {label}: removed {removing:,} streams of {streamers:,} opted-out streamers;"
                 f" {archived_month.streams_count:,} left, {archived_month.file_size / 1024 ** 2:,.1f} MB."

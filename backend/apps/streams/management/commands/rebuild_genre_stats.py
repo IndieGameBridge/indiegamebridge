@@ -2,11 +2,11 @@ import logging
 from collections import defaultdict
 from datetime import timedelta
 
-from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
+from apps.jobs.recording import RecordedCommand
 from apps.streams.distribution import LANGUAGES
 from apps.streams.models import (
     Game,
@@ -25,7 +25,7 @@ WINDOW_DAYS = 28
 DEFAULT_CHUNK = 20000
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Recompute per-genre stats for the Genre Trends page in rolling chunks."
         " Walks StreamerProfile ids behind a saved cursor, adding each chunk's"
@@ -70,10 +70,11 @@ class Command(BaseCommand):
             self._publish_draft()
             state.last_profile_id = 0
             state.save(update_fields=["last_profile_id", "updated_at"])
+            self.count(passes=1)
             logger.info("rebuild_genre_stats: nothing to process, draft published, cursor wrapped to 0.")
             return
 
-        self._accumulate_chunk(profile_ids)
+        streams_counted = self._accumulate_chunk(profile_ids)
 
         # A short chunk means this run reached the tail of the id range, so the cycle is
         # done: publish and wrap now instead of waiting for a run that comes back empty.
@@ -85,6 +86,7 @@ class Command(BaseCommand):
             self._publish_draft()
         state.last_profile_id = 0 if end_of_set else profile_ids[-1]
         state.save(update_fields=["last_profile_id", "updated_at"])
+        self.count(profiles=len(profile_ids), streams=streams_counted, passes=int(end_of_set))
         logger.info(
             "rebuild_genre_stats: processed %s profiles (ids %s..%s).%s",
             len(profile_ids), profile_ids[0], profile_ids[-1],
@@ -104,7 +106,8 @@ class Command(BaseCommand):
             mapping[host_game_id].append(genre_host_id)
         return mapping
 
-    def _accumulate_chunk(self, profile_ids: list[int]) -> None:
+    def _accumulate_chunk(self, profile_ids: list[int]) -> int:
+        """Add the chunk's streams in the window to the draft; returns how many it read."""
         window_start = timezone.now() - timedelta(days=WINDOW_DAYS)
         game_genres = self._game_genre_map()
 
@@ -127,7 +130,9 @@ class Command(BaseCommand):
             .iterator(chunk_size=2000)
         )
 
+        streams_read = 0
         for profile_id, language, genre_ids, duration, snapshots in streams:
+            streams_read += 1
             # #1 streams and #2 streamers: use the stream's distinct genre list.
             for genre_id in genre_ids or ():
                 streams_per_key[(genre_id, language)] += 1
@@ -146,6 +151,7 @@ class Command(BaseCommand):
                     seconds_per_key[(genre_id, language)] += per_snapshot
 
         self._add_to_draft(streams_per_key, streamers_per_key, seconds_per_key)
+        return streams_read
 
     @staticmethod
     def _add_to_draft(streams_per_key, streamers_per_key, seconds_per_key) -> None:

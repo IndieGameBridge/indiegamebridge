@@ -380,10 +380,22 @@ class LegendItem(NamedTuple):
     shape: str  # line, rect, critical or warning
 
 
+class Cell(NamedTuple):
+    """A table cell, or a column's header: its text, a link and a status marker when it
+    has them, and whether it holds a number, which lines up on the right."""
+
+    text: str
+    url: str = ""
+    marker: str = ""  # critical or warning
+    number: bool = True
+
+
 @dataclass
 class Figure:
     """A chart: its heading, what it shows, a legend, one plot or several small ones,
-    and the table that holds the same numbers."""
+    and the table that holds the same numbers. A figure of just a table shows it open;
+    one with plots folds it away under "Numbers by day". The table's headers and cells
+    may be texts or Cells."""
 
     key: str
     title: str
@@ -392,6 +404,14 @@ class Figure:
     legend: list = field(default_factory=list)
     table_headers: list = field(default_factory=list)
     table_rows: list = field(default_factory=list)
+
+    def __post_init__(self):
+        self.table_headers = [_cell(header) for header in self.table_headers]
+        self.table_rows = [[_cell(cell) for cell in row] for row in self.table_rows]
+
+
+def _cell(cell):
+    return cell if isinstance(cell, Cell) else Cell(cell)
 
 
 class Tile(NamedTuple):

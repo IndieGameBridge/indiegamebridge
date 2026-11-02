@@ -1,7 +1,8 @@
 import logging
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 
+from apps.jobs.recording import RecordedCommand
 from apps.pages.cached_pages import (
     AccountPageBuilder,
     ContactPageBuilder,
@@ -20,7 +21,7 @@ from apps.pages.cached_pages import (
 logger = logging.getLogger(__name__)
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = "Recomputes pre-rendered page payloads stored in the CachedPage table."
 
     builders = [
@@ -66,4 +67,5 @@ class Command(BaseCommand):
         logger.info("Updating cached pages: %s", ", ".join(b.key for b in selected))
         for builder_cls in selected:
             builder_cls().run()
+            self.count(pages=1)
         logger.info("Cached pages update finished.")

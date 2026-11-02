@@ -1,9 +1,10 @@
 import logging
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 from django.db import transaction
 
 from core.utils.twitch_api_client import TwitchApiClient
+from apps.jobs.recording import RecordedCommand
 from apps.streams.models import Game
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 _HELIX_BATCH_SIZE = 100
 
 
-class Command(BaseCommand):
+class Command(RecordedCommand):
     help = (
         "Categorizes placeholder Game rows by calling Helix `/games`."
         " Sets each row's `category` to either ISGAME (when Helix returns a"
@@ -102,3 +103,8 @@ class Command(BaseCommand):
                     ["category", "igdb_game_id", "host_name"],
                     batch_size=500,
                 )
+        self.count(
+            games=sum(game.category == Game.Category.ISGAME for game in to_update),
+            non_games=sum(game.category == Game.Category.ISNONGAME for game in to_update),
+            unknown=len(chunk) - len(to_update),
+        )
