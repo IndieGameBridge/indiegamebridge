@@ -1,6 +1,7 @@
 import logging
 from functools import cache
 
+from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES
 from apps.streams.models import GameGenre, StreamerSearchStats
 
 logger = logging.getLogger(__name__)
@@ -126,12 +127,9 @@ class StreamerSearch:
 
     @classmethod
     def language_label(cls, language: str) -> str:
-        """A language code the way the search form names it: "en" is "English"."""
-        filters_config, _ = cls.get_filters_config()
-        language_options = next(
-            one_config["values"] for one_config in filters_config if one_config["name"] == "lang"
-        )
-        return cls._option_label(language_options, language) or language
+        """A language code's name, "en" being "English", for every language collected:
+        the form offers only some of them yet, and stats exist for all."""
+        return LANGUAGE_NAMES.get(language, language)
 
     def total(self) -> int:
         # Capped to MAX_RESULTS to match the pageable result set.
@@ -367,12 +365,7 @@ class StreamerSearch:
                 ui_control="dropdown",
                 name="lang",
                 label="Language",
-                values=[
-                    {"v": "en", "l": "English"},
-                    {"v": "fr", "l": "French"},
-                    {"v": "de", "l": "German"},
-                    {"v": "es", "l": "Spanish"}
-                ],
+                values=[{"v": code, "l": LANGUAGE_NAMES[code]} for code in PAGE_LANGUAGES],
                 default="en",
             ),
         ], [

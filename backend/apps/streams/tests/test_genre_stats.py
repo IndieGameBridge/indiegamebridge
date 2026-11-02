@@ -163,10 +163,18 @@ class RebuildGenreStatsTests(TestCase):
         self.assertEqual(self._stats(10, "es").streams_count, 1)
         self.assertEqual(self._stats(10, "es").streamers_count, 1)
 
+    def test_a_language_collected_before_the_page_shows_it_is_counted(self):
+        self._make_genre(10, "Action")
+        self._make_stream(self._make_streamer(1, "ja_streamer"), 1, duration=3600, genre_ids=[10], language="ja")
+
+        self._run_full_cycle()
+
+        self.assertEqual(self._stats(10, "ja").streams_count, 1)
+
     def test_unlisted_language_is_ignored(self):
         self._make_genre(10, "Action")
         streamer = self._make_streamer(1, "ru_streamer")
-        # en/fr/de/es are the surfaced set; Russian isn't, so it contributes no rows.
+        # Russian isn't a language the fetch collects, so it contributes no rows.
         self._make_stream(streamer, 1, duration=3600, genre_ids=[10], language="ru")
 
         self._run_full_cycle()

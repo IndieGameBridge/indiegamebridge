@@ -1,6 +1,7 @@
 from django.db.models import Sum
 
 from .base import BaseCachedPageBuilder
+from apps.streams.languages import PAGE_LANGUAGES
 from apps.streams.models import StreamerSearchStats
 from apps.streams.search import StreamerSearch
 
@@ -68,9 +69,10 @@ class HomePageBuilder(BaseCachedPageBuilder):
     def _search_window_counts() -> tuple[int, int]:
         # Streamers and streams over the search window, read from the precomputed
         # search table: the headline then describes exactly what a search can find,
-        # and nothing counts over the streams table. A streamer has a row per
-        # language, hence the distinct; a stream has one language, so it's in one row.
-        rows = StreamerSearchStats.objects
+        # and nothing counts over the streams table. So it counts only the languages
+        # the search form offers. A streamer has a row per language, hence the
+        # distinct; a stream has one language, so it's in one row.
+        rows = StreamerSearchStats.objects.filter(language__in=PAGE_LANGUAGES)
         streamers = rows.values("streamer_profile_id").distinct().count()
         streams = rows.aggregate(total=Sum("streams_count"))["total"] or 0
         return streamers, streams

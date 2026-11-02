@@ -7,7 +7,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.jobs.recording import RecordedCommand
-from apps.streams.distribution import LANGUAGES
+from apps.streams.languages import LANGUAGE_NAMES
 from apps.streams.models import (
     Game,
     GameGenre,
@@ -112,8 +112,8 @@ class Command(RecordedCommand):
         game_genres = self._game_genre_map()
 
         # Counters are keyed by (genre host id, language) so each genre's activity is
-        # tracked per broadcast language. Only the languages the page surfaces are
-        # accumulated; streams in other languages are skipped (mirrors search/distribution).
+        # tracked per broadcast language: every language collected, so one that joins
+        # the page later has its numbers ready. The page shows its own languages only.
         streams_per_key: dict[tuple[int, str], int] = defaultdict(int)
         streamers_per_key: dict[tuple[int, str], set[int]] = defaultdict(set)
         seconds_per_key: dict[tuple[int, str], float] = defaultdict(float)
@@ -124,7 +124,7 @@ class Command(RecordedCommand):
                 streamer_profile_id__in=profile_ids,
                 status=Stream.Status.APPROVED,
                 finished_at__gte=window_start,
-                language__in=LANGUAGES,
+                language__in=LANGUAGE_NAMES,
             )
             .values_list("streamer_profile_id", "language", "genre_ids", "duration", "snapshots")
             .iterator(chunk_size=2000)

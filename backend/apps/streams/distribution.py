@@ -1,5 +1,6 @@
 import logging
 
+from apps.streams.languages import PAGE_LANGUAGES
 from apps.streams.models import JsonCache, StreamerSearchStats
 
 logger = logging.getLogger(__name__)
@@ -13,11 +14,6 @@ DISTRIBUTION_CACHE_KEY = "streamers_distribution"
 # peak equals a threshold falls in that threshold's bucket. The last bucket catches
 # everything strictly above the final threshold.
 PEAK_BUCKET_THRESHOLDS = [5, 10, 15, 20, 30, 40, 50, 75, 100, 200]
-
-# Mirrors the language filter in StreamerSearch. Hardcoded in both places for now;
-# expected to move to admin-managed settings once the polling language list becomes
-# configurable.
-LANGUAGES = ["en", "fr", "de", "es"]
 
 # Effective floor for a stream's peak max_viewers: per HomePageBuilder's
 # methodology text, streams below this many viewers don't get approved.
@@ -55,14 +51,15 @@ class StreamersDistribution:
         # (streamer, language) peak over the last 4 weeks, so the distribution
         # matches search exactly and avoids re-aggregating the wide streams table.
         # A multi-language streamer has one row per language, as search surfaces them.
+        # The languages are the ones the search form offers.
         peaks_per_language = (
             StreamerSearchStats.objects
-            .filter(language__in=LANGUAGES)
+            .filter(language__in=PAGE_LANGUAGES)
             .values_list("language", "peak_viewers")
             .iterator(chunk_size=10000)
         )
 
-        counts_by_language = {lang: [0] * (len(PEAK_BUCKET_THRESHOLDS) + 1) for lang in LANGUAGES}
+        counts_by_language = {lang: [0] * (len(PEAK_BUCKET_THRESHOLDS) + 1) for lang in PAGE_LANGUAGES}
         for language, peak in peaks_per_language:
             bucket_counts = counts_by_language[language]
             for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS):
@@ -81,7 +78,7 @@ class StreamersDistribution:
                 f" different totals - the totals themselves are listed with the colours below the chart.",
             "buckets": {
                 language: cls._build_buckets(counts_by_language[language])
-                for language in LANGUAGES
+                for language in PAGE_LANGUAGES
             },
         }
 

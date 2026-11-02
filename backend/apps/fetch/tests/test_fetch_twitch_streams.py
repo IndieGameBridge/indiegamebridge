@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from apps.fetch.management.commands.fetch_twitch_streams import Command
 from apps.fetch.models import FetchRun, FetchRunLanguage
+from apps.streams.languages import LANGUAGE_NAMES
 from apps.streams.models import Game, Stream, StreamerProfile
 from core.utils.twitch_api_client import StreamTuple
 
@@ -632,13 +633,13 @@ class FetchRunRecordingTests(TestCase):
         self.assertEqual(run.status, FetchRun.Status.SUCCEEDED)
         self.assertIsNotNone(run.finished_at)
         self.assertGreaterEqual(run.duration_seconds, 0)
-        # 4 languages, each writing 3 of the 5 streams it fetched
-        self.assertEqual(run.streams_collected, 12)
+        # Each language writes 3 of the 5 streams it fetched.
+        self.assertEqual(run.streams_collected, 3 * len(LANGUAGE_NAMES))
         self.assertEqual((run.streams_finalized, run.streams_dropped), (1, 1))
         self.assertIsNotNone(run.finalize_seconds)
         self.assertFalse(run.time_limit_hit)
 
-        self.assertCountEqual(run.languages.values_list("language", flat=True), ["en", "de", "fr", "es"])
+        self.assertCountEqual(run.languages.values_list("language", flat=True), list(LANGUAGE_NAMES))
         en = run.languages.get(language="en")
         self.assertEqual(
             (en.rounds, en.requests, en.streams_written, en.streams_created, en.profiles_created),
@@ -663,7 +664,7 @@ class FetchRunRecordingTests(TestCase):
         self.assertEqual(de.error, "RuntimeError: Helix down")
         # What it wrote before raising still counts
         self.assertEqual(de.streams_written, 3)
-        self.assertEqual(run.streams_collected, 12)
+        self.assertEqual(run.streams_collected, 3 * len(LANGUAGE_NAMES))
         self.assertFalse(run.languages.exclude(language="de").exclude(error="").exists())
 
     def test_a_language_stopped_at_the_time_limit_marks_the_run(self):
@@ -686,4 +687,4 @@ class FetchRunRecordingTests(TestCase):
         self.assertEqual(run.status, FetchRun.Status.FAILED)
         self.assertEqual(run.error, "RuntimeError: database gone")
         self.assertIsNotNone(run.finished_at)
-        self.assertEqual(run.languages.count(), 4)
+        self.assertEqual(run.languages.count(), len(LANGUAGE_NAMES))

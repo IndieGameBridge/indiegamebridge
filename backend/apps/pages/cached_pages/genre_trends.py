@@ -1,10 +1,6 @@
 from .base import BaseCachedPageBuilder
-from apps.streams.distribution import LANGUAGES
+from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES
 from apps.streams.models import GameGenre, GenreStats
-
-# Human-readable labels for the languages the page breaks each genre down by. Keyed by
-# the same ISO 639-1 codes as distribution.LANGUAGES; drives the chart legend.
-LANGUAGE_LABELS = {"en": "English", "fr": "French", "de": "German", "es": "Spanish"}
 
 
 class GenreTrendsPageBuilder(BaseCachedPageBuilder):
@@ -29,7 +25,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
         rows = list(
             GenreStats.objects
             .select_related("genre")
-            .filter(language__in=LANGUAGES)
+            .filter(language__in=PAGE_LANGUAGES)
             .values_list(
                 "genre__host_name",
                 "language",
@@ -38,7 +34,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
                 "total_duration_seconds",
             )
         )
-        languages = [{"code": code, "label": LANGUAGE_LABELS[code]} for code in LANGUAGES]
+        languages = [{"code": code, "label": LANGUAGE_NAMES[code]} for code in PAGE_LANGUAGES]
 
         return {
             "title": "Genre Trends",
@@ -123,7 +119,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
         # One bar per genre, each carrying a per-language value map. Seed every defined
         # genre with zeros for all languages so genres with no activity still render
         # (and every bar has the full language set the legend expects).
-        by_genre = {name: {code: 0 for code in LANGUAGES} for name in genre_names}
+        by_genre = {name: {code: 0 for code in PAGE_LANGUAGES} for name in genre_names}
         for row in rows:
             name, language = row[0], row[1]
             if name not in by_genre or language not in by_genre[name]:

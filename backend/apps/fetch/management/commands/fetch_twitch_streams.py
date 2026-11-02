@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from core.utils.twitch_api_client import TwitchApiClient
 from apps.fetch.models import FetchRun, FetchRunLanguage
+from apps.streams.languages import LANGUAGE_NAMES
 from apps.streams.models import StreamerProfile, Stream, Game
 from apps.users.models import TwitchExclusion
 
@@ -43,7 +44,7 @@ class Command(BaseCommand):
 
     def _fetch_streams(self, run):
         # TODO LATER: use values from admin settings
-        languages = ["en", "de", "fr", "es"]
+        languages = list(LANGUAGE_NAMES)
 
         # Used to calculate limit of allowed requests per language
         # Initially all the languages are in the queue

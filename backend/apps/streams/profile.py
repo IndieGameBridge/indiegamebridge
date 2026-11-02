@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone as dt_timezone
 from django.db.models import Count, Sum
 from django.utils import timezone
 
+from apps.streams.languages import LANGUAGE_NAMES
 from apps.streams.models import Game, Stream, StreamerProfile, StreamerProfileCache
 
 logger = logging.getLogger(__name__)
@@ -15,13 +16,6 @@ STREAMER_PROFILE_RECENT_WINDOW = timedelta(weeks=4)
 # Number of calendar-day columns in the profile activity chart. Kept equal to the
 # recent window so the chart covers exactly the same 4 weeks as the stats above it.
 STREAMER_PROFILE_DAILY_DAYS = STREAMER_PROFILE_RECENT_WINDOW.days
-
-LANGUAGE_NAMES = {
-    "en": "English",
-    "fr": "French",
-    "de": "German",
-    "es": "Spanish",
-}
 
 
 class StreamerProfileStreams:

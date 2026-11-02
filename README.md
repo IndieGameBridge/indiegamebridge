@@ -6,7 +6,7 @@ Indie developers struggle to find the right small streamers to pitch their games
 
 ## Status
 
-Live in production. A single VPS polls Twitch around the clock in four languages (English, German, French and Spanish) and keeps millions of streamers' activity searchable. The web frontend runs on Cloudflare Workers.
+Live in production. A single VPS polls Twitch around the clock in eight languages and keeps millions of streamers' activity searchable. The pages offer English, French, German and Spanish so far; Portuguese, Japanese, Italian and Chinese are being collected and join them once there's data enough to show. The web frontend runs on Cloudflare Workers.
 
 Next up are AI-curated streamer lists, built on the personal lists feature: see [docs/ai-curated-lists.md](docs/ai-curated-lists.md).
 

@@ -35,5 +35,11 @@ class SearchWindowCountsTests(TestCase):
 
         self.assertEqual(HomePageBuilder._search_window_counts(), (2, 9))
 
+    def test_skips_languages_the_search_form_doesnt_offer_yet(self):
+        self._search_row(self._streamer(1), "en", 3)
+        self._search_row(self._streamer(2), "ja", 7)
+
+        self.assertEqual(HomePageBuilder._search_window_counts(), (1, 3))
+
     def test_an_empty_search_table_counts_zero(self):
         self.assertEqual(HomePageBuilder._search_window_counts(), (0, 0))

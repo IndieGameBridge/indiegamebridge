@@ -12,7 +12,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.streams.distribution import LANGUAGES
+from apps.streams.languages import PAGE_LANGUAGES
 from apps.streams.models import (
     GameGenre,
     SearchStatsRebuildState,
@@ -288,14 +288,19 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertEqual(self._logins(StreamerSearch().results()), ["regular"])
 
-    def test_language_filter_offers_every_tracked_language(self):
+    def test_language_filter_offers_the_page_languages(self):
         # This dropdown is the only whitelist ?lang= is validated against, so a
         # language surfaced elsewhere but missing here silently falls back to the
         # default one instead of erroring.
         filters_config, _ = StreamerSearch.get_filters_config()
         lang_filter = next(one for one in filters_config if one["name"] == "lang")
 
-        self.assertEqual([one["v"] for one in lang_filter["values"]], LANGUAGES)
+        self.assertEqual([one["v"] for one in lang_filter["values"]], list(PAGE_LANGUAGES))
+
+    def test_a_language_collected_but_not_offered_yet_falls_back_to_the_default(self):
+        self.assertEqual(StreamerSearch({"lang": "ja"}).filters["lang"], "en")
+        # Its name is known all the same, for the stats that mention it.
+        self.assertEqual(StreamerSearch.language_label("ja"), "Japanese")
 
     def test_explicit_filters_rerun_as_the_same_search(self):
         # Lists store their search to re-run it. `filters` drops what's set to
