@@ -1,5 +1,7 @@
 """Tests for the home page's headline counts, read from the search table."""
 
+from unittest import mock
+
 from django.test import TestCase
 
 from apps.pages.cached_pages.home import HomePageBuilder
@@ -35,6 +37,9 @@ class SearchWindowCountsTests(TestCase):
 
         self.assertEqual(HomePageBuilder._search_window_counts(), (2, 9))
 
+    # Every collected language is offered now, so the pages' list goes back to the
+    # first four for a language collected but not offered yet.
+    @mock.patch("apps.pages.cached_pages.home.PAGE_LANGUAGES", ("en", "fr", "de", "es"))
     def test_skips_languages_the_search_form_doesnt_offer_yet(self):
         self._search_row(self._streamer(1), "en", 3)
         self._search_row(self._streamer(2), "ja", 7)

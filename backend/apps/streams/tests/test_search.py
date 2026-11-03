@@ -8,6 +8,7 @@ Two layers:
 
 from datetime import datetime, timedelta, timezone as dt_timezone
 from io import StringIO
+from unittest import mock
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -295,6 +296,9 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertEqual([one["v"] for one in lang_filter["values"]], list(PAGE_LANGUAGES))
 
+    # Every collected language is offered now, so the pages' list goes back to the
+    # first four for a language collected but not offered yet.
+    @mock.patch("apps.streams.search.PAGE_LANGUAGES", ("en", "fr", "de", "es"))
     def test_a_language_collected_but_not_offered_yet_falls_back_to_the_default(self):
         self.assertEqual(StreamerSearch({"lang": "ja"}).filters["lang"], "en")
         # Its name is known all the same, for the stats that mention it.

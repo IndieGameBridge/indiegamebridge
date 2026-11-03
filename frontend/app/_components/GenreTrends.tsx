@@ -1,45 +1,88 @@
+import Link from "next/link";
+
 type LanguageMeta = { code: string; label: string };
 type GenreBar = { x: string; values: Record<string, number> };
 
 export type GenreDiagram = {
     title: string;
     description: string;
+    // Shown only where the languages are added up.
+    overview_note?: string;
     y_label: string;
     languages: LanguageMeta[];
     bars: GenreBar[];
 };
 
-// Per-language bar colours. These are from the Okabe-Ito colour-blind-safe palette:
-// blue, bluish-green, amber and reddish-purple. Amber replaces a pure yellow because
-// yellow has poor contrast on a white background, and reddish-purple is preferred over
-// the palette's vermillion because vermillion sits too close to amber; the four stay
-// distinguishable for the common forms of colour blindness. Keyed by ISO 639-1 code
-// (matches the backend legend codes).
-export const LANGUAGE_COLORS: Record<string, string> = {
-    en: "#0072B2", // blue
-    fr: "#00cb29", // bluish green
-    de: "#00dbe6", // amber
-    es: "#ce0c78", // reddish purple
-};
-export const FALLBACK_COLOR = "#6b7280";
+export type GenreLanguageLink = { slug: string; label: string };
 
-export function GenreTrends({ diagrams }: { diagrams: GenreDiagram[] }) {
+// One series per chart, in the blue the site's other charts give their first series.
+const BAR_COLOR = "#0072B2";
+
+/**
+ * The Genre Trends diagrams for one page: one language's numbers, or with no language,
+ * every language's added up. Each diagram ranks the genres by that page's own numbers.
+ */
+export function GenreTrends({ diagrams, language }: { diagrams: GenreDiagram[]; language: LanguageMeta | null }) {
     return (
         <div className="grid grid-cols-1 gap-24">
             {diagrams.map((diagram) => (
-                <GenreDiagramChart key={diagram.title} diagram={diagram} />
+                <GenreDiagramChart key={diagram.title} diagram={diagram} language={language} />
             ))}
         </div>
     );
 }
 
-
-function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
-    const { title, description, y_label, languages, bars } = diagram;
-    const maxY = Math.max(
-        ...bars.flatMap((bar) => languages.map((lang) => bar.values[lang.code] ?? 0)),
-        1,
+/**
+ * Links to the overview and to each language's page, the current one marked. Plain
+ * links rather than a toggle, so search engines follow them to every language's page.
+ */
+export function GenreLanguageSwitch({ pages, current }: { pages: GenreLanguageLink[]; current: string | null }) {
+    const items = [
+        { key: "all", href: "/genre-trends", label: "All languages", active: current === null },
+        ...pages.map((page) => ({
+            key: page.slug,
+            href: `/genre-trends/${page.slug}`,
+            label: page.label,
+            active: current === page.slug,
+        })),
+    ];
+    return (
+        <nav aria-label="Broadcast language" className="flex flex-row flex-wrap gap-2 mb-16 text-sm">
+            {items.map((item) => item.active ? (
+                <span
+                    key={item.key}
+                    aria-current="page"
+                    className="py-1 px-3 rounded border border-brand-blue bg-brand-blue text-white"
+                >
+                    {item.label}
+                </span>
+            ) : (
+                // scroll={false}: switching keeps the reader where the charts are.
+                <Link
+                    key={item.key}
+                    href={item.href}
+                    scroll={false}
+                    className="py-1 px-3 rounded border border-gray-300 hover:border-brand-blue"
+                >
+                    {item.label}
+                </Link>
+            ))}
+        </nav>
     );
+}
+
+
+function GenreDiagramChart({ diagram, language }: { diagram: GenreDiagram; language: LanguageMeta | null }) {
+    const { title, description, overview_note, y_label, languages, bars } = diagram;
+    const total = (bar: GenreBar) =>
+        languages.reduce((sum, lang) => sum + (bar.values[lang.code] ?? 0), 0);
+    // Highest first. The sort is stable, so ties keep the payload's order, which is by
+    // every language's total.
+    const rows = bars
+        .map((bar) => ({ bar, value: language ? bar.values[language.code] ?? 0 : total(bar) }))
+        .sort((a, b) => b.value - a.value);
+    const maxY = Math.max(...rows.map((row) => row.value), 1);
+    const scope = language ? `${language.label}-language streams` : "all languages added up";
 
     // Fixed coordinate system; the SVG keeps a readable pixel size and scrolls
     // horizontally on narrow screens (see the overflow-x-auto wrapper) rather than
@@ -51,18 +94,12 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
     const chartLeft = labelWidth;
     const chartWidth = width - labelWidth - valueWidth;
 
-    // Each genre is a group of one thin bar per language, stacked with a small gap,
-    // then a larger gap before the next genre.
-    const subBarHeight = 12;
-    const subBarGap = 3;
-    const groupGap = 16;
-    const paddingTop = 6;
-    const groupHeight =
-        languages.length * subBarHeight + Math.max(0, languages.length - 1) * subBarGap;
-    const rowHeight = groupHeight + groupGap;
-
-    // The trailing group gap doubles as the chart's bottom padding.
-    const height = paddingTop + bars.length * rowHeight;
+    const barHeight = 14;
+    const rowGap = 8;
+    const paddingTop = 4;
+    const rowHeight = barHeight + rowGap;
+    // The trailing row gap doubles as the chart's bottom padding.
+    const height = paddingTop + rows.length * rowHeight;
 
     return (
         <div className="col-span-1">
@@ -74,21 +111,23 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                 height={height}
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
-                aria-label={title}
+                aria-label={`${title}, ${scope}`}
             >
-                <title>{title}</title>
-                <desc>{`Horizontal bar chart of ${y_label.toLowerCase()} per genre over the last 4 weeks, split by broadcast language.`}</desc>
+                <title>{`${title}, ${scope}`}</title>
+                <desc>{`Horizontal bar chart of ${y_label.toLowerCase()} per genre over the last 4 weeks, ${scope}, highest first.`}</desc>
 
-                {bars.map((bar, i) => {
-                    const groupTop = paddingTop + i * rowHeight;
-                    const groupCenterY = groupTop + groupHeight / 2;
+                {rows.map(({ bar, value }, i) => {
+                    const barY = paddingTop + i * rowHeight;
+                    const centerY = barY + barHeight / 2;
+                    // Give any non-zero value at least a 1px sliver so a small genre
+                    // still shows next to a dominant one.
+                    const barW = value > 0 ? Math.max(1, (value / maxY) * chartWidth) : 0;
                     return (
                         <g key={bar.x}>
-                            {/* Genre name, right-aligned against the bars and centred
-                                vertically across the group's language bars. */}
+                            {/* Genre name, right-aligned against the bar. */}
                             <text
                                 x={labelWidth - 10}
-                                y={groupCenterY}
+                                y={centerY}
                                 textAnchor="end"
                                 dominantBaseline="central"
                                 fontSize="13"
@@ -96,89 +135,89 @@ function GenreDiagramChart({ diagram }: { diagram: GenreDiagram }) {
                             >
                                 {bar.x}
                             </text>
-
-                            {languages.map((lang, j) => {
-                                const value = bar.values[lang.code] ?? 0;
-                                const barY = groupTop + j * (subBarHeight + subBarGap);
-                                const barW = (value / maxY) * chartWidth;
-                                const centerY = barY + subBarHeight / 2;
-                                const color = LANGUAGE_COLORS[lang.code] ?? FALLBACK_COLOR;
-                                return (
-                                    <g key={lang.code}>
-                                        <rect
-                                            x={chartLeft}
-                                            y={barY}
-                                            width={barW}
-                                            height={subBarHeight}
-                                            fill={color}
-                                        >
-                                            <title>{`${lang.label}: ${value.toLocaleString()}`}</title>
-                                        </rect>
-                                        {/* Value, just past the bar's end. */}
-                                        <text
-                                            x={chartLeft + barW + 6}
-                                            y={centerY}
-                                            textAnchor="start"
-                                            dominantBaseline="central"
-                                            fontSize="11"
-                                            className="fill-current selection:fill-white"
-                                        >
-                                            {value.toLocaleString()}
-                                        </text>
-                                    </g>
-                                );
-                            })}
+                            <rect x={chartLeft} y={barY} width={barW} height={barHeight} fill={BAR_COLOR}>
+                                <title>{`${bar.x}: ${value.toLocaleString()}`}</title>
+                            </rect>
+                            {/* Value, just past the bar's end. */}
+                            <text
+                                x={chartLeft + barW + 6}
+                                y={centerY}
+                                textAnchor="start"
+                                dominantBaseline="central"
+                                fontSize="11"
+                                className="fill-current selection:fill-white"
+                            >
+                                {value.toLocaleString()}
+                            </text>
                         </g>
                     );
                 })}
             </svg>
             </div>
 
-            {/* Legend: a colour swatch + language name per series. Kept in HTML outside
-                the scroller so it stays put and folds onto more lines on narrow screens. */}
-            <div className="flex flex-row flex-wrap gap-x-8 gap-y-2 mt-3 text-sm">
-                {languages.map((lang) => (
-                    <div key={`legend-${lang.code}`} className="flex flex-row items-center gap-2">
-                        <span
-                            className="inline-block w-[13] h-[13] shrink-0"
-                            style={{ backgroundColor: LANGUAGE_COLORS[lang.code] ?? FALLBACK_COLOR }}
-                        />
-                        <span>{lang.label}</span>
-                    </div>
-                ))}
-            </div>
+            <p className="mt-4 text-sm">
+                {description}
+                {!language && overview_note && ` ${overview_note}`}
+            </p>
 
-            {/* Screen-reader + SEO-friendly table mirroring the chart. */}
-            {/* sr-only sits on a wrapper, not on the table: a table box can't shrink
-                below its min-content width, so sr-only's width:1px is ignored there and
-                the hidden table still widens the page. */}
-            <div className="sr-only">
-            <table>
-                <caption>{title}</caption>
-                <thead>
-                    <tr>
-                        <th>Genre</th>
-                        {languages.map((lang) => (
-                            <th key={lang.code}>{lang.label}</th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {bars.map((bar) => (
-                        <tr key={bar.x}>
-                            <td>{bar.x}</td>
-                            {languages.map((lang) => (
-                                <td key={lang.code}>
-                                    {(bar.values[lang.code] ?? 0).toLocaleString()}
-                                </td>
-                            ))}
+            {language ? (
+                // Screen-reader + SEO-friendly table mirroring the chart. sr-only sits on
+                // a wrapper, not on the table: a table box can't shrink below its
+                // min-content width, so sr-only's width:1px is ignored there and the
+                // hidden table still widens the page.
+                <div className="sr-only">
+                <table>
+                    <caption>{`${title}, ${scope}`}</caption>
+                    <thead>
+                        <tr>
+                            <th>Genre</th>
+                            <th>{y_label}</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-            </div>
-
-            <p className="mt-4 text-sm">{description}</p>
+                    </thead>
+                    <tbody>
+                        {rows.map(({ bar, value }) => (
+                            <tr key={bar.x}>
+                                <td>{bar.x}</td>
+                                <td>{value.toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                </div>
+            ) : (
+                // The overview's chart adds the languages up; the table under it, closed
+                // by default, keeps each language's numbers side by side.
+                <details className="mt-4 text-sm">
+                    <summary className="cursor-pointer">Numbers by language</summary>
+                    <div className="overflow-x-auto mt-3">
+                    <table className="border-collapse">
+                        <caption className="sr-only">{`${title}, by language`}</caption>
+                        <thead>
+                            <tr>
+                                <th className="text-left font-semibold pr-4 py-1">Genre</th>
+                                {languages.map((lang) => (
+                                    <th key={lang.code} className="text-right font-semibold px-3 py-1">{lang.label}</th>
+                                ))}
+                                <th className="text-right font-semibold pl-3 py-1">All</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map(({ bar, value }) => (
+                                <tr key={bar.x} className="border-t border-gray-200">
+                                    <td className="text-left pr-4 py-1 whitespace-nowrap">{bar.x}</td>
+                                    {languages.map((lang) => (
+                                        <td key={lang.code} className="text-right px-3 py-1 tabular-nums">
+                                            {(bar.values[lang.code] ?? 0).toLocaleString()}
+                                        </td>
+                                    ))}
+                                    <td className="text-right pl-3 py-1 tabular-nums">{value.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    </div>
+                </details>
+            )}
         </div>
     );
 }

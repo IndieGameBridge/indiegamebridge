@@ -13,6 +13,11 @@ export function NavLink({ href, className, children }: { href: string; className
     if (pathname === href) {
         return <span className={`${base} underline`}>{children}</span>;
     }
+    // A page under this one, such as a language's Genre Trends: marked the same, but
+    // still a link back.
+    if (href !== "/" && pathname.startsWith(`${href}/`)) {
+        return <Link href={href} className={`${base} underline`}>{children}</Link>;
+    }
     return <Link href={href} className={`${base} hover:underline`}>{children}</Link>;
 }
 

@@ -10,34 +10,44 @@ const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
 // build time.
 export const revalidate = 3600;
 
-// Real last-refresh time of a cached page (the CachedPage.updated_at the API
-// exposes), used as the sitemap <lastmod>. Returns undefined on any failure so
-// the entry simply omits <lastmod> rather than breaking the whole sitemap.
-async function pageLastModified(key: string): Promise<Date | undefined> {
+// What the sitemap reads from a cached page: its real last-refresh time (the
+// CachedPage.updated_at the API exposes) and, for Genre Trends, its language pages.
+type CachedPageContent = {
+    updated_at?: string;
+    language_pages?: { slug: string }[];
+};
+
+// Returns undefined on any failure, so the entries simply omit <lastmod> rather
+// than breaking the whole sitemap.
+async function pageContent(key: string): Promise<CachedPageContent | undefined> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     try {
         const response = await serverFetch(`${apiBase}/pages/${key}/`);
         if (!response.ok) return undefined;
-        const data = await response.json();
-        return data.updated_at ? new Date(data.updated_at) : undefined;
+        return await response.json();
     } catch {
         return undefined;
     }
 }
 
+function lastModified(content: CachedPageContent | undefined): Date | undefined {
+    return content?.updated_at ? new Date(content.updated_at) : undefined;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Only the indexable public routes. Login, opt-out, and contact are marked
     // noindex (see each page's robots metadata), so they're left out.
-    const [homeModified, genreTrendsModified, privacyModified] = await Promise.all([
-        pageLastModified("home"),
-        pageLastModified("genre_trends"),
-        pageLastModified("privacy"),
+    const [home, genreTrends, privacy] = await Promise.all([
+        pageContent("home"),
+        pageContent("genre_trends"),
+        pageContent("privacy"),
     ]);
+    const genreTrendsModified = lastModified(genreTrends);
 
     return [
         {
             url: baseUrl,
-            lastModified: homeModified,
+            lastModified: lastModified(home),
             changeFrequency: "daily",
             priority: 1,
         },
@@ -47,9 +57,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: "daily",
             priority: 0.8,
         },
+        // Each language's own Genre Trends page, rebuilt with the overview.
+        ...(genreTrends?.language_pages ?? []).map((page) => ({
+            url: `${baseUrl}/genre-trends/${page.slug}`,
+            lastModified: genreTrendsModified,
+            changeFrequency: "daily" as const,
+            priority: 0.7,
+        })),
         {
             url: `${baseUrl}/privacy`,
-            lastModified: privacyModified,
+            lastModified: lastModified(privacy),
             changeFrequency: "yearly",
             priority: 0.5,
         },

@@ -1,6 +1,9 @@
 import logging
 
-from apps.streams.languages import PAGE_LANGUAGES
+from django.utils import timezone
+
+from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES, collected_since, day_month_year
+from apps.streams.management.commands.rebuild_search_stats import WINDOW_DAYS
 from apps.streams.models import JsonCache, StreamerSearchStats
 
 logger = logging.getLogger(__name__)
@@ -69,17 +72,30 @@ class StreamersDistribution:
             else:
                 bucket_counts[-1] += 1
 
+        today = timezone.now().date()
         return {
             "title": "Streamer Peak-Viewer Distribution",
-            "description": f"Streamers grouped by their peak viewer count over the last 4 weeks."
-                f" Use it as a hint when choosing the 'Max Viewers' range in the search form."
-                f" Horizontal axis shows range of peak viewers. Each column represents the share of that"
-                f" language's streamers falling in the group, so the languages stay comparable despite very"
-                f" different totals - the totals themselves are listed with the colours below the chart.",
+            "description": "Streamers grouped by their peak viewer count over the last 4 weeks, one row per"
+                " broadcast language. Each column is the share of that language's streamers whose peak falls in"
+                " the range, so the languages compare despite very different totals; each row names its total."
+                " Use it as a hint when choosing the 'Max Viewers' range in the search form.",
+            # The rows in page order, with their names: the buckets' keys don't keep an
+            # order, since JSONB sorts them.
+            "languages": [cls._language(language, today) for language in PAGE_LANGUAGES],
             "buckets": {
                 language: cls._build_buckets(counts_by_language[language])
                 for language in PAGE_LANGUAGES
             },
+        }
+
+    @staticmethod
+    def _language(language: str, today) -> dict:
+        since = collected_since(language, today, WINDOW_DAYS)
+        return {
+            "code": language,
+            "label": LANGUAGE_NAMES[language],
+            # A row whose 4 weeks haven't filled yet says so.
+            "note": f"Collected since {day_month_year(since)}" if since else None,
         }
 
     @staticmethod

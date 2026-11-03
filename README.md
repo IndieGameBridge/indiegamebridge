@@ -6,7 +6,7 @@ Indie developers struggle to find the right small streamers to pitch their games
 
 ## Status
 
-Live in production. A single VPS polls Twitch around the clock in eight languages and keeps millions of streamers' activity searchable. The pages offer English, French, German and Spanish so far; Portuguese, Japanese, Italian and Chinese are being collected and join them once there's data enough to show. The web frontend runs on Cloudflare Workers.
+Live in production. A single VPS polls Twitch around the clock in eight languages (English, French, German, Spanish, Portuguese, Japanese, Italian and Chinese) and keeps millions of streamers' activity searchable. The web frontend runs on Cloudflare Workers.
 
 Next up are AI-curated streamer lists, built on the personal lists feature: see [docs/ai-curated-lists.md](docs/ai-curated-lists.md).
 
@@ -16,7 +16,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 - **Streamer profiles:** the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file.
-- **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, per language, as a market reference for developers.
+- **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own.
 - **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Sign-in records, contact messages and export records are deleted after 12 months.
 
 ## How it works
@@ -73,7 +73,7 @@ The pipeline's jobs also ping Healthchecks.io when they succeed.
 
 Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Its middleware passes `/api/`, `/auth/` and `/accounts/` through to Django, so the auth cookies stay first-party, and renews an expired access token on the way.
 
-The pages are home, Genre Trends, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags, `robots` and a `sitemap`.
+The pages are home, Genre Trends, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags, `robots` and a `sitemap`. The Genre Trends pages also carry schema.org `Dataset` structured data, and the overview its FAQ.
 
 ### Auth and security
 
