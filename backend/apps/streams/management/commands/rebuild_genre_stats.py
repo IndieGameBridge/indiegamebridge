@@ -3,8 +3,9 @@
 Two queries over the last 4 weeks' approved streams, each one read of the streams table:
   - streams and distinct streamers per genre and language, from each stream's genre_ids;
   - hours per genre and language: each stream's duration is split evenly over its
-    snapshots, and each snapshot's share goes to the genres of the game it saw, so time
-    in a category with no genres, such as Just Chatting, counts for none.
+    snapshots, each snapshot's share is summed for the game it saw, and each game's sum
+    goes to its genres, so time in a category with no genres, such as Just Chatting,
+    counts for none.
 Then the table's rows are replaced in one transaction. Meant for cron once a day, before
 update_cached_pages rebuilds the page, which is all that reads them.
 """
@@ -30,21 +31,32 @@ STREAMS_SQL = """
 
 # Snapshots keep the game as "g", a number; it's matched as text, so an odd value
 # matches no game rather than failing the cast.
+#
+# OFFSET 0 keeps the inner query apart, so the sum per game is handed each stream's
+# language, duration, snapshot count and game ids, not the whole row with its snapshots.
+# Over whole rows, the 4 weeks' tens of millions of snapshots spilled tens of gigabytes to
+# temp files, which filled the VPS's disk (the 2026-11-03 run). Summed per game first,
+# what's left to spread over genres is a few tens of thousands of rows.
 HOURS_SQL = """
-    WITH genre_of_game AS (
-        SELECT game.host_game_id::text AS game_id, genre.host_genre_id AS genre_id
-        FROM streams_game AS game
-        JOIN streams_game_genres AS link ON link.game_id = game.id
-        JOIN streams_gamegenre AS genre ON genre.id = link.gamegenre_id
+    WITH game_seconds AS (
+        SELECT game_id, stream.language, sum(stream.duration::float8 / stream.snapshot_count) AS seconds
+        FROM (
+            SELECT language, duration, jsonb_array_length(snapshots) AS snapshot_count,
+                   jsonb_path_query_array(snapshots, '$[*].g') AS game_ids
+            FROM streams_stream
+            WHERE status = 'approved' AND finished_at >= %s AND language = ANY(%s)
+              AND jsonb_typeof(snapshots) = 'array' AND duration > 0
+            OFFSET 0
+        ) AS stream
+        CROSS JOIN LATERAL jsonb_array_elements_text(stream.game_ids) AS game_id
+        GROUP BY game_id, stream.language
     )
-    SELECT genre_of_game.genre_id, stream.language,
-           sum(stream.duration::float8 / jsonb_array_length(stream.snapshots))
-    FROM streams_stream AS stream
-    CROSS JOIN LATERAL jsonb_array_elements(stream.snapshots) AS snapshot
-    JOIN genre_of_game ON genre_of_game.game_id = snapshot ->> 'g'
-    WHERE stream.status = 'approved' AND stream.finished_at >= %s AND stream.language = ANY(%s)
-      AND jsonb_typeof(stream.snapshots) = 'array' AND stream.duration > 0
-    GROUP BY genre_of_game.genre_id, stream.language
+    SELECT genre.host_genre_id, game_seconds.language, sum(game_seconds.seconds)
+    FROM game_seconds
+    JOIN streams_game AS game ON game.host_game_id::text = game_seconds.game_id
+    JOIN streams_game_genres AS link ON link.game_id = game.id
+    JOIN streams_gamegenre AS genre ON genre.id = link.gamegenre_id
+    GROUP BY genre.host_genre_id, game_seconds.language
 """
 
 

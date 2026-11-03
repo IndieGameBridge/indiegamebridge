@@ -104,12 +104,15 @@ class Stream(models.Model):
             # For enrich_igdb_games, which refreshes genre_ids on streams that
             # played newly enriched games.
             GinIndex(fields=["host_game_ids"], name="stream_host_game_ids_gin"),
-            # Targets _finalize_offline_streams: filter(status=LIVE, finished_at__lt=...).
-            # LIVE is a tiny fraction of total rows, so the partial index stays small
-            # and the planner can walk it directly instead of seq-scanning the table.
+            # For _finalize_offline_streams: filter(status=LIVE, finished_at__lt=...).
+            # LIVE is a tiny fraction of total rows, so the partial index stays small.
+            # Keyed on id, not finished_at: a poll's rewrite that changes no indexed
+            # column can be a HOT update, made in place without touching any index.
+            # The table's fillfactor of 90 (migration 0021) leaves the rewrite room
+            # on its page.
             models.Index(
-                fields=["finished_at"],
-                name="stream_live_finished_at_idx",
+                fields=["id"],
+                name="stream_live_idx",
                 condition=models.Q(status="live"),
             ),
             # For approve_streams, which sweeps the streams that ended and aren't
