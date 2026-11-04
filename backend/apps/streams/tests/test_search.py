@@ -23,14 +23,14 @@ from apps.streams.models import (
 )
 from apps.streams.search import StreamerSearch
 
-# StreamerSearch applies the search form's defaults to every call (peak/avg 5-200,
-# >= 4 streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
+# StreamerSearch applies the search form's defaults to every call (peak 51-200, avg
+# 5-200, >= 4 streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
 # not "no filters". The tests below probe one filter at a time against deliberately
 # tiny fixtures, so they neutralise the rest explicitly: "any" is the config's
 # no-filter sentinel, and streamsmin has no "any" option so it takes its lowest
 # value instead. test_default_filters_apply covers the defaults themselves.
 NO_FILTERS = {
-    "peakmin": "any", "peakmax": "any",
+    "peak": "any",
     "avgmin": "any", "avgmax": "any",
     "streamsmin": 1, "streamsmax": "any",
     "hoursmin": "any", "hoursmax": "any",
@@ -144,9 +144,20 @@ class RebuildAndSearchTests(TestCase):
         self._make_stream(high, 2, max_viewers=150, avg_viewers=5, duration=3600)
         self._rebuild()
 
-        results = self._search(peakmin="100").results()
+        results = self._search(peak="51-200").results()
 
         self.assertEqual(self._logins(results), ["high"])
+
+    def test_search_size_groups_include_their_edges(self):
+        for host_user_id, peak in enumerate((10, 11, 20, 21, 200, 201), 1):
+            streamer = self._make_streamer(host_user_id, f"peak{peak}")
+            self._make_stream(streamer, host_user_id, max_viewers=peak, avg_viewers=5, duration=3600)
+        self._rebuild()
+
+        self.assertEqual(self._logins(self._search(peak="3-10").results()), ["peak10"])
+        self.assertEqual(self._logins(self._search(peak="11-20").results()), ["peak20", "peak11"])
+        self.assertEqual(self._logins(self._search(peak="51-200").results()), ["peak200"])
+        self.assertEqual(self._logins(self._search(peak="201+").results()), ["peak201"])
 
     def test_search_streams_count_filter(self):
         rare = self._make_streamer(1, "rare")
@@ -280,9 +291,9 @@ class RebuildAndSearchTests(TestCase):
         # every other search test here asserting an empty result set.
         casual = self._make_streamer(1, "casual")
         regular = self._make_streamer(2, "regular")
-        self._make_stream(casual, 1, max_viewers=50, avg_viewers=20, duration=3600)
+        self._make_stream(casual, 1, max_viewers=60, avg_viewers=20, duration=3600)
         for i in range(4):
-            self._make_stream(regular, 10 + i, max_viewers=50, avg_viewers=20, duration=3 * 3600)
+            self._make_stream(regular, 10 + i, max_viewers=60, avg_viewers=20, duration=3 * 3600)
         self._rebuild()
 
         self.assertEqual(self._logins(StreamerSearch().results()), ["regular"])
@@ -320,10 +331,10 @@ class RebuildAndSearchTests(TestCase):
 
     def test_describe_lists_the_filters_that_narrow_the_search(self):
         self._make_genres()
-        search = self._search(lang="fr", peakmin=50, peakmax=200, avgmax=100, hoursmin=8, genres=20)
+        search = self._search(lang="fr", peak="51-200", avgmax=100, hoursmin=8, genres=20)
 
         self.assertEqual(search.describe(), [
-            {"label": "Max Viewers", "value": "50–200"},
+            {"label": "Max Viewers", "value": "51-200"},
             {"label": "Avg Viewers", "value": "up to 100"},
             {"label": "Streams", "value": "1+"},
             {"label": "Hours", "value": "8+"},

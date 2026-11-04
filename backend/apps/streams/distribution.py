@@ -5,23 +5,12 @@ from django.utils import timezone
 from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES, collected_since, day_month_year
 from apps.streams.management.commands.rebuild_search_stats import WINDOW_DAYS
 from apps.streams.models import JsonCache, StreamerSearchStats
+from apps.streams.size_groups import SIZE_GROUPS, size_group_index
 
 logger = logging.getLogger(__name__)
 
 
 DISTRIBUTION_CACHE_KEY = "streamers_distribution"
-
-# Mirrors StreamerSearch._get_viewers_filter_values() so each bar maps 1:1 to a
-# selectable "max viewers" value in the search form. Each threshold is an inclusive
-# upper bound (matching the search filter's max_viewers__lte), so a streamer whose
-# peak equals a threshold falls in that threshold's bucket. The last bucket catches
-# everything strictly above the final threshold.
-PEAK_BUCKET_THRESHOLDS = [5, 10, 15, 20, 30, 40, 50, 75, 100, 200]
-
-# Effective floor for a stream's peak max_viewers: per HomePageBuilder's
-# methodology text, streams below this many viewers don't get approved.
-# Used purely for labeling the first bucket as e.g. "3-5" rather than "<5".
-MIN_PEAK = 3
 
 
 class StreamersDistribution:
@@ -62,15 +51,9 @@ class StreamersDistribution:
             .iterator(chunk_size=10000)
         )
 
-        counts_by_language = {lang: [0] * (len(PEAK_BUCKET_THRESHOLDS) + 1) for lang in PAGE_LANGUAGES}
+        counts_by_language = {lang: [0] * len(SIZE_GROUPS) for lang in PAGE_LANGUAGES}
         for language, peak in peaks_per_language:
-            bucket_counts = counts_by_language[language]
-            for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS):
-                if peak <= threshold:
-                    bucket_counts[index] += 1
-                    break
-            else:
-                bucket_counts[-1] += 1
+            counts_by_language[language][size_group_index(peak)] += 1
 
         today = timezone.now().date()
         return {
@@ -78,7 +61,7 @@ class StreamersDistribution:
             "description": "Streamers grouped by their peak viewer count over the last 4 weeks, one row per"
                 " broadcast language. Each column is the share of that language's streamers whose peak falls in"
                 " the range, so the languages compare despite very different totals; each row names its total."
-                " Use it as a hint when choosing the 'Max Viewers' range in the search form.",
+                " Use it as a hint when choosing 'Max Viewers' in the search form.",
             # The rows in page order, with their names: the buckets' keys don't keep an
             # order, since JSONB sorts them.
             "languages": [cls._language(language, today) for language in PAGE_LANGUAGES],
@@ -100,9 +83,4 @@ class StreamersDistribution:
 
     @staticmethod
     def _build_buckets(bucket_counts: list[int]) -> list[dict]:
-        buckets = []
-        for index, threshold in enumerate(PEAK_BUCKET_THRESHOLDS):
-            lower = MIN_PEAK if index == 0 else PEAK_BUCKET_THRESHOLDS[index - 1] + 1
-            buckets.append({"x": f"{lower}-{threshold}", "y": bucket_counts[index]})
-        buckets.append({"x": f"{PEAK_BUCKET_THRESHOLDS[-1] + 1}+", "y": bucket_counts[-1]})
-        return buckets
+        return [{"x": group.label, "y": count} for group, count in zip(SIZE_GROUPS, bucket_counts)]

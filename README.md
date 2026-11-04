@@ -17,6 +17,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file.
 - **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own.
+- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own.
 - **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Sign-in records, contact messages and export records are deleted after 12 months.
 
 ## How it works
@@ -32,6 +33,7 @@ The system has two halves: scheduled management commands that **collect and shap
 | `enrich_igdb_games` | hourly | Fills games in from IGDB, with genres, summary and link, then updates the genres of the streams that played them. |
 | `approve_streams` | hourly | Approves the ended streams that played a game and deletes those that didn't. A stream still waiting on an uncategorized game is left for the next run. |
 | `rebuild_search_stats` | every 6 hours | Rebuilds the search table in one pass: one read of the streams table, then only the rows whose numbers changed are written. |
+| `rebuild_game_stats` | every 6 hours | Counts the streams live in each hour of the last 4 weeks, per game, language and streamer size, and sorts each list once, for the Games page. |
 | `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
 | `update_cached_pages` | daily | Pre-renders the pages' payloads. |
@@ -46,6 +48,8 @@ Search never scans the streams table, which holds tens of millions of rows. A re
 
 - It's rebuilt in one pass every 6 hours. A streamer's streams are spread all through the streams table, so reading it costs about the same for one streamer as for all of them, and one pass beats many smaller ones. Only the rows whose numbers changed are written, and streamers with no recent streams drop out.
 - Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the genres it actually played, by snapshot, so non-game time such as Just Chatting doesn't count.
+- The Games pages read `GameStats`, rebuilt in one pass every 6 hours: one row per game, language and streamer size group, holding that line's hours and its place in its list. The newest hour decides the order and an older hour only breaks a tie, so a search reads a stored position instead of comparing 4 weeks of hours.
+- Streamer sizes are one set of groups by peak viewers (`apps/streams/size_groups.py`), shared by the home page's chart, the streamer search and the Games pages.
 - Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a live demo search and headline counts read from the search table.
 - A streamer's profile is computed on its first view and cached for an hour.
 
@@ -73,12 +77,12 @@ The pipeline's jobs also ping Healthchecks.io when they succeed.
 
 Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Its middleware passes `/api/`, `/auth/` and `/accounts/` through to Django, so the auth cookies stay first-party, and renews an expired access token on the way.
 
-The pages are home, Genre Trends, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags, `robots` and a `sitemap`. The Genre Trends pages also carry schema.org `Dataset` structured data, and the overview its FAQ.
+The pages are home, Genre Trends, Games, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags, `robots` and a `sitemap`. The Genre Trends pages also carry schema.org `Dataset` structured data, and the overview its FAQ.
 
 ### Auth and security
 
 - Sign-in is with Twitch, through django-allauth. Sessions are JWTs (SimpleJWT) in HttpOnly cookies, and signing out blacklists the refresh token.
-- Search, profiles, lists and exports need a signed-in user. The home page and Genre Trends are public.
+- Search, profiles, lists and exports need a signed-in user. The home page, Genre Trends and Games are public.
 - Cookie-authenticated writes are CSRF-protected.
 - DRF throttles limit request rates, counted in Redis so every Gunicorn worker shares them:
   - 120 requests a minute per visitor;
@@ -100,7 +104,7 @@ The pages are home, Genre Trends, streamer search (`/streamers`) and profiles, t
 backend/
   core/              settings, URLs, the admin's chart engine, the Twitch and IGDB clients
   apps/fetch/        the Twitch polling pipeline and its run records
-  apps/streams/      streams, streamers and games, the search and Genre Trends read models, the archive
+  apps/streams/      streams, streamers and games, the search, Games and Genre Trends read models, the archive
   apps/userlists/    personal lists
   apps/exports/      Excel, CSV and JSON exports
   apps/users/        accounts, sign-in, opt-out and account settings

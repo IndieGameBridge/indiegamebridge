@@ -11,7 +11,8 @@ const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
 export const revalidate = 3600;
 
 // What the sitemap reads from a cached page: its real last-refresh time (the
-// CachedPage.updated_at the API exposes) and, for Genre Trends, its language pages.
+// CachedPage.updated_at the API exposes) and, for Genre Trends and Games, their language
+// pages.
 type CachedPageContent = {
     updated_at?: string;
     language_pages?: { slug: string }[];
@@ -37,9 +38,10 @@ function lastModified(content: CachedPageContent | undefined): Date | undefined 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Only the indexable public routes. Login, opt-out, and contact are marked
     // noindex (see each page's robots metadata), so they're left out.
-    const [home, genreTrends, privacy] = await Promise.all([
+    const [home, genreTrends, games, privacy] = await Promise.all([
         pageContent("home"),
         pageContent("genre_trends"),
+        pageContent("games"),
         pageContent("privacy"),
     ]);
     const genreTrendsModified = lastModified(genreTrends);
@@ -62,6 +64,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             url: `${baseUrl}/genre-trends/${page.slug}`,
             lastModified: genreTrendsModified,
             changeFrequency: "daily" as const,
+            priority: 0.7,
+        })),
+        // The games' numbers change every 6 hours, whatever the page's text does, so no
+        // <lastmod> from it: it would say the page last changed with its text.
+        {
+            url: `${baseUrl}/games`,
+            changeFrequency: "hourly",
+            priority: 0.8,
+        },
+        ...(games?.language_pages ?? []).map((page) => ({
+            url: `${baseUrl}/games/${page.slug}`,
+            changeFrequency: "hourly" as const,
             priority: 0.7,
         })),
         {

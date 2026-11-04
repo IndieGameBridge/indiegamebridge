@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 type LanguageMeta = { code: string; label: string };
 type GenreBar = { x: string; values: Record<string, number> };
 
@@ -12,8 +10,6 @@ export type GenreDiagram = {
     languages: LanguageMeta[];
     bars: GenreBar[];
 };
-
-export type GenreLanguageLink = { slug: string; label: string };
 
 // One series per chart, in the blue the site's other charts give their first series.
 const BAR_COLOR = "#0072B2";
@@ -29,45 +25,6 @@ export function GenreTrends({ diagrams, language }: { diagrams: GenreDiagram[]; 
                 <GenreDiagramChart key={diagram.title} diagram={diagram} language={language} />
             ))}
         </div>
-    );
-}
-
-/**
- * Links to the overview and to each language's page, the current one marked. Plain
- * links rather than a toggle, so search engines follow them to every language's page.
- */
-export function GenreLanguageSwitch({ pages, current }: { pages: GenreLanguageLink[]; current: string | null }) {
-    const items = [
-        { key: "all", href: "/genre-trends", label: "All languages", active: current === null },
-        ...pages.map((page) => ({
-            key: page.slug,
-            href: `/genre-trends/${page.slug}`,
-            label: page.label,
-            active: current === page.slug,
-        })),
-    ];
-    return (
-        <nav aria-label="Broadcast language" className="flex flex-row flex-wrap gap-2 mb-16 text-sm">
-            {items.map((item) => item.active ? (
-                <span
-                    key={item.key}
-                    aria-current="page"
-                    className="py-1 px-3 rounded border border-brand-blue bg-brand-blue text-white"
-                >
-                    {item.label}
-                </span>
-            ) : (
-                // scroll={false}: switching keeps the reader where the charts are.
-                <Link
-                    key={item.key}
-                    href={item.href}
-                    scroll={false}
-                    className="py-1 px-3 rounded border border-gray-300 hover:border-brand-blue"
-                >
-                    {item.label}
-                </Link>
-            ))}
-        </nav>
     );
 }
 

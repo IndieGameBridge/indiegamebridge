@@ -67,11 +67,12 @@ class SearchExportTests(TestCase):
         self.assertEqual((streamers[0]["language"], streamers[0]["max_viewers"]), ("English", 150))
 
     def test_exports_only_what_the_filters_let_through(self):
-        self._make_streamer(4, "french", 100, language="fr")
+        self._make_streamer(4, "french", 30, language="fr")
+        self._make_streamer(5, "tiny", 30)
 
-        streamers = json.loads(self._export("peakmax=75").content)["streamers"]
+        streamers = json.loads(self._export("peak=21-50").content)["streamers"]
 
-        self.assertEqual([streamer["twitch_login"] for streamer in streamers], ["small"])
+        self.assertEqual([streamer["twitch_login"] for streamer in streamers], ["tiny"])
 
     def test_has_no_list_columns(self):
         header = next(csv.reader(io.StringIO(self._export(file_format="csv").content.decode("utf-8-sig"))))
@@ -80,13 +81,13 @@ class SearchExportTests(TestCase):
         self.assertNotIn("Note", header)
 
     def test_links_back_to_the_same_search_with_every_filter_spelled_out(self):
-        data = json.loads(self._export("peakmax=any").content)
+        data = json.loads(self._export("peak=any").content)
 
         url = urlsplit(data["url"])
         self.assertEqual(f"{url.scheme}://{url.netloc}{url.path}", "https://indiegamebridge.test/streamers")
         query = parse_qs(url.query)
         # "any" is kept, or the link would come back capped at the form's default.
-        self.assertEqual((query["lang"], query["peakmax"], query["peakmin"]), (["en"], ["any"], ["5"]))
+        self.assertEqual((query["lang"], query["peak"], query["avgmin"]), (["en"], ["any"], ["5"]))
         self.assertIn({"label": "Language", "value": "English"}, data["search"])
         self.assertIsNone(data["title"])
 
@@ -99,12 +100,12 @@ class SearchExportTests(TestCase):
         )
 
     def test_records_the_search_it_exported(self):
-        self._export("peakmax=any", file_format="xlsx")
+        self._export("peak=any", file_format="xlsx")
 
         export = Export.objects.get()
         self.assertEqual((export.source, export.file_format, export.rows), ("search", "xlsx", 3))
         self.assertIsNone(export.list_of_streamers)
-        self.assertEqual(export.search_filters, StreamerSearch({"peakmax": "any"}).explicit_filters())
+        self.assertEqual(export.search_filters, StreamerSearch({"peak": "any"}).explicit_filters())
 
     def test_requires_authentication(self):
         self.assertIn(self._export(user=False).status_code, (401, 403))

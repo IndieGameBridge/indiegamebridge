@@ -53,6 +53,12 @@ class Game(models.Model):
         help_text="Source URL to the dedicated page of the game - defined by host. Empty until enriched from IGDB."
     )
 
+    release_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="First release date - defined by IGDB. Empty until enriched, and for a game IGDB has no date for.",
+    )
+
     category = models.CharField(
         max_length=16,
         default=Category.NEW,

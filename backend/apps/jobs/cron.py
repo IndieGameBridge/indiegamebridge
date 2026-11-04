@@ -39,6 +39,9 @@ JOBS = (
         ("written", "Search rows new or changed"),
         ("deleted", "Search rows deleted, no stream left"),
     )),
+    Job("rebuild_game_stats", timedelta(hours=6), (
+        ("rows", "Game, language and size rows"),
+    )),
     # Daily, before update_cached_pages rebuilds the Genre Trends page.
     Job("rebuild_genre_stats", timedelta(days=1), (
         ("rows", "Genre and language rows"),

@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
+from apps.streams.game_search import PAGE_SIZE as GAME_PAGE_SIZE, GameSearch
 from apps.streams.models import StreamerProfile
 from apps.streams.profile import StreamerProfileStreams
 from apps.streams.search import PAGE_SIZE as SEARCH_PAGE_SIZE, StreamerSearch
@@ -81,6 +82,35 @@ class StreamerSearchView(APIView):
             "results": search.results(offset=offset, limit=SEARCH_PAGE_SIZE),
             "total": search.total(),
         })
+
+
+class GameSearchView(APIView):
+    """Run a search of the Games page.
+
+    Query params mirror the form field names; p is the page. Public, and cheap: a list's
+    order is stored, so this walks down one list.
+    """
+
+    def get(self, request):
+        try:
+            page = max(1, int(request.GET.get("p", "1")))
+        except ValueError:
+            page = 1
+
+        search = GameSearch.from_query_params(request.GET)
+        return Response({
+            "filters": search.filters,
+            "results": search.results(offset=(page - 1) * GAME_PAGE_SIZE, limit=GAME_PAGE_SIZE),
+            "total": search.total(),
+            "newest_hour": search.newest_hour(),
+        })
+
+
+class GameHoursView(APIView):
+    """One game's chart: its streams in each hour, per language, for one streamer size."""
+
+    def get(self, request, game_id):
+        return Response(GameSearch.hours_of_game(game_id, request.GET.get("peak")))
 
 
 class StreamersDistributionView(APIView):

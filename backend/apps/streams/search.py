@@ -3,6 +3,7 @@ from functools import cache
 
 from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES
 from apps.streams.models import GameGenre, StreamerSearchStats
+from apps.streams.size_groups import SIZE_FILTER_VALUES, SIZE_GROUPS_BY_LABEL
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,10 @@ logger = logging.getLogger(__name__)
 # pages of PAGE_SIZE.
 MAX_RESULTS = 5000
 PAGE_SIZE = 50
+
+# Where the Max Viewers dropdown opens. Results run from the highest peak down and stop at
+# MAX_RESULTS, so this group shows the same streamers the old default range of 5 to 200 did.
+DEFAULT_SIZE_GROUP = "51-200"
 
 # The genre dropdowns, in form order. These double as query-param names; the first
 # keeps the original "genres" so single-genre links made before the split still work.
@@ -175,10 +180,12 @@ class StreamerSearch:
             return self._queryset
 
         qs = StreamerSearchStats.objects.filter(language=self.filters["lang"])
-        if self.filters.get("peakmin") is not None:
-            qs = qs.filter(peak_viewers__gte=self.filters["peakmin"])
-        if self.filters.get("peakmax") is not None:
-            qs = qs.filter(peak_viewers__lte=self.filters["peakmax"])
+        size_group = SIZE_GROUPS_BY_LABEL.get(self.filters.get("peak"))
+        if size_group is not None:
+            if size_group.low is not None:
+                qs = qs.filter(peak_viewers__gte=size_group.low)
+            if size_group.high is not None:
+                qs = qs.filter(peak_viewers__lte=size_group.high)
         if self.filters.get("avgmin") is not None:
             qs = qs.filter(avg_viewers__gte=self.filters["avgmin"])
         if self.filters.get("avgmax") is not None:
@@ -321,13 +328,11 @@ class StreamerSearch:
         game_genres = list(GameGenre.objects.values_list("host_genre_id", "host_name"))
         return [
             __class__._filter_defaults(
-                ui_control="range",
+                ui_control="dropdown",
                 name="peak",
                 label="Max Viewers",
-                min_values=[{"v": "any", "l": "Min"}] + __class__._get_viewers_filter_values(),
-                min_default=5,
-                max_values=__class__._get_viewers_filter_values() + [{"v": "any", "l": "Max"}],
-                max_default=200,
+                values=SIZE_FILTER_VALUES,
+                default=DEFAULT_SIZE_GROUP,
             ),
             __class__._filter_defaults(
                 ui_control="range",
@@ -370,7 +375,7 @@ class StreamerSearch:
             ),
         ], [
             "lang",
-            "peakmin", "peakmax",
+            "peak",
             "avgmin", "avgmax",
             "streamsmin", "streamsmax",
             "hoursmin", "hoursmax",

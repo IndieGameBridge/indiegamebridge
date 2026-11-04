@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 
 import {
     GenreDiagram,
-    GenreLanguageSwitch,
     GenreTrends,
+    LanguageSwitch,
     PageHeader,
     PageFooter,
     PageFooterContent,
@@ -173,7 +173,7 @@ export function GenreTrendsView({ content, page, user }: {
                             <p className="mb-8 text-sm border-l-4 border-gray-300 pl-4">{copy.note}</p>
                         )}
                         {content.language_pages && (
-                            <GenreLanguageSwitch pages={content.language_pages} current={page?.slug ?? null} />
+                            <LanguageSwitch base="/genre-trends" pages={content.language_pages} current={page?.slug ?? null} />
                         )}
                         <GenreTrends
                             diagrams={content.diagrams}

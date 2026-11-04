@@ -31,7 +31,7 @@ class ListExportTests(TestCase):
         self.factory = APIRequestFactory()
         self.user = User.objects.create_user(username="dev")
         self.other = User.objects.create_user(username="other")
-        self.list = self._make_list(self.user, search={"lang": "en", "peakmax": "any"})
+        self.list = self._make_list(self.user, search={"lang": "en", "peak": "any"})
 
     def _make_list(self, owner, search=None):
         return UserListOfStreamers.objects.create(

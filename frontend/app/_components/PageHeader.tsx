@@ -45,6 +45,7 @@ export function PageHeader(
                             </div>
                             <NavLink href="/streamers">Streamers</NavLink>
                             <NavLink href="/genre-trends">Genre Trends</NavLink>
+                            <NavLink href="/games">Games</NavLink>
                         </div>
                         <AuthStatus user={user} />
                     </div>

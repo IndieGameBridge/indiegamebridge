@@ -22,7 +22,7 @@ class ListDetailTests(TestCase):
         self.factory = APIRequestFactory()
         self.user = User.objects.create_user(username="dev")
         self.other = User.objects.create_user(username="other")
-        self.list = self._make_list(self.user, search={"lang": "en", "peakmax": "any"})
+        self.list = self._make_list(self.user, search={"lang": "en", "avgmax": "any"})
 
     def _make_list(self, owner, search=None):
         return UserListOfStreamers.objects.create(
@@ -166,7 +166,7 @@ class ListDetailTests(TestCase):
         self.assertTrue(data["from_search"])
         self.assertIn({"label": "Language", "value": "English"}, data["search"])
         # No max was set, so the summary shows an open-ended range.
-        self.assertIn({"label": "Max Viewers", "value": "5+"}, data["search"])
+        self.assertIn({"label": "Avg Viewers", "value": "5+"}, data["search"])
 
     def test_a_list_made_by_hand_shows_each_streamer_in_their_main_language(self):
         by_hand = self._make_list(self.user)

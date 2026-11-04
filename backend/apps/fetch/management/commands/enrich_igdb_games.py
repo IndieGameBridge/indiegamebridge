@@ -3,7 +3,7 @@ import logging
 from django.core.management.base import CommandError
 from django.db import connection, transaction
 
-from core.utils.igdb_api_client import IgdbApiClient
+from core.utils.igdb_api_client import IgdbApiClient, release_date_of
 from apps.jobs.recording import RecordedCommand
 from apps.streams.models import Game, GameGenre
 
@@ -15,7 +15,7 @@ _IGDB_BATCH_SIZE = 500
 
 class Command(RecordedCommand):
     help = (
-        "Enriches `isgame` Game rows with IGDB metadata (summary, url, genres)."
+        "Enriches `isgame` Game rows with IGDB metadata (summary, url, release date, genres)."
         " A Game is treated as unenriched if its `genres` M2M is empty AND it"
         " has been categorized as `isgame` by the categorize_games command."
         " IGDB lookup uses the `igdb_game_id` field, which Helix populated"
@@ -97,9 +97,12 @@ class Command(RecordedCommand):
                 # IGDB has no record for this id; row stays unenriched and will be
                 # retried on the next run. Acceptable for now.
                 continue
-            game.host_name = (payload.get("name") or "")[:255]
+            # Twitch's name stays: it tells apart what one IGDB entry can't, like
+            # "Pokemon X/Y" or "God Of War (2005)". IGDB only fills a missing one.
+            game.host_name = game.host_name or (payload.get("name") or "")[:255]
             game.host_summary = payload.get("summary") or ""
             game.host_url = (payload.get("url") or "")[:1024]
+            game.release_date = release_date_of(payload)
             games_to_update.append(game)
 
             for gid in payload.get("genres") or []:
@@ -112,7 +115,7 @@ class Command(RecordedCommand):
             if games_to_update:
                 Game.objects.bulk_update(
                     games_to_update,
-                    ["host_name", "host_summary", "host_url"],
+                    ["host_name", "host_summary", "host_url", "release_date"],
                     batch_size=500,
                 )
             if through_links:

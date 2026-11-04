@@ -77,7 +77,7 @@ class CreateListTests(TestCase):
     def test_creates_a_list_from_the_search(self):
         self._make_streamer(1, "top", peak=150)
         self._make_streamer(2, "middle", peak=100)
-        self._make_streamer(3, "small", peak=50)
+        self._make_streamer(3, "small", peak=60)
 
         response = self._post(description="for the shooter pitch")
 
@@ -97,7 +97,7 @@ class CreateListTests(TestCase):
         self._make_streamer(1, "big", peak=150)
         self._make_streamer(2, "tiny", peak=20)
 
-        response = self._post(search="lang=en&peakmin=100")
+        response = self._post(search="lang=en&peak=51-200")
 
         self.assertEqual(response.status_code, 201)
         saved = UserListOfStreamers.objects.get(id=response.data["id"])
@@ -107,12 +107,12 @@ class CreateListTests(TestCase):
         )
 
     def test_stores_the_search_it_was_saved_from(self):
-        response = self._post(search="lang=en&peakmin=100&peakmax=any")
+        response = self._post(search="lang=en&peak=any&avgmin=10")
 
         saved = UserListOfStreamers.objects.get(id=response.data["id"])
         # Spelled out, "any" included, so a refresh can re-run it as it was.
-        self.assertEqual(saved.search_filters["peakmin"], 100)
-        self.assertEqual(saved.search_filters["peakmax"], "any")
+        self.assertEqual(saved.search_filters["avgmin"], 10)
+        self.assertEqual(saved.search_filters["peak"], "any")
         self.assertEqual(saved.search_filters["lang"], "en")
 
     def test_a_search_matching_nothing_still_saves_an_empty_list(self):

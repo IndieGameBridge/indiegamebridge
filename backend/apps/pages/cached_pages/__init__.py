@@ -2,6 +2,7 @@ from .account import AccountPageBuilder
 from .base import BaseCachedPageBuilder
 from .contact import ContactPageBuilder
 from .dashboard import DashboardPageBuilder
+from .games import GamesPageBuilder
 from .genre_trends import GenreTrendsPageBuilder
 from .home import HomePageBuilder
 from .list_of_streamers import ListOfStreamersPageBuilder
@@ -18,6 +19,7 @@ __all__ = [
     "BaseCachedPageBuilder",
     "ContactPageBuilder",
     "DashboardPageBuilder",
+    "GamesPageBuilder",
     "GenreTrendsPageBuilder",
     "HomePageBuilder",
     "ListOfStreamersPageBuilder",

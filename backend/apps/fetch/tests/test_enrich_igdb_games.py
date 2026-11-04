@@ -1,20 +1,21 @@
 """Tests for the enrich_igdb_games management command (IGDB enrichment).
 
 The command pulls Game rows that are categorized as `isgame` AND have no
-genres linked yet, queries IGDB by `igdb_game_id`, and fills in name/summary/
-url plus M2M genres. Games with other categories (`new`, `isnongame`) must
+genres linked yet, queries IGDB by `igdb_game_id`, and fills in summary/url,
+a missing name, plus M2M genres. Games with other categories (`new`, `isnongame`) must
 not be touched by this command.
 
 Covers:
 - Filter is "category=isgame AND genres empty" — other categories skipped.
 - Game returned by IGDB gets fields filled and genre links created.
+- A name Twitch already gave stays, whatever IGDB calls the game.
 - Game NOT returned by IGDB stays unenriched and remains a candidate next run.
 - Unknown genre id in the IGDB response triggers a single genre-table refresh,
   and the new genre is then linked to the game.
 - --limit caps how many games are processed in a run.
 """
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from unittest import mock
 
 from django.core.management import call_command
@@ -131,6 +132,54 @@ class EnrichIgdbGamesTests(TestCase):
             list(game.genres.values_list("host_genre_id", flat=True)),
             [32],
         )
+
+    def test_twitch_name_stays_when_igdb_calls_the_game_something_else(self):
+        """Twitch's name can say more than the IGDB entry's, like a year or both
+        games of a pair, so enrichment keeps it and only fills a missing one."""
+        _make_genre(host_genre_id=32)
+        game = Game.objects.create(
+            host_game_id=100,
+            igdb_game_id=12345,
+            host_name="Pokemon X/Y",
+            category=Game.Category.ISGAME,
+        )
+
+        response = [{
+            "id": 12345,
+            "name": "Pokemon X",
+            "summary": "",
+            "url": "",
+            "genres": [32],
+        }]
+        patcher, _ = _patch_igdb_client(get_games_by_ids_response=response)
+        try:
+            call_command("enrich_igdb_games", stdout=mock.Mock())
+        finally:
+            patcher.stop()
+
+        game.refresh_from_db()
+        self.assertEqual(game.host_name, "Pokemon X/Y")
+
+    def test_stores_the_first_release_date(self):
+        _make_genre(host_genre_id=32)
+        game = _make_isgame(host_game_id=100, igdb_game_id=12345)
+
+        response = [{
+            "id": 12345,
+            "name": "G",
+            "summary": "",
+            "url": "",
+            "first_release_date": 1767225600,
+            "genres": [32],
+        }]
+        patcher, _ = _patch_igdb_client(get_games_by_ids_response=response)
+        try:
+            call_command("enrich_igdb_games", stdout=mock.Mock())
+        finally:
+            patcher.stop()
+
+        game.refresh_from_db()
+        self.assertEqual(game.release_date, date(2026, 1, 1))
 
     def test_igdb_lookup_uses_igdb_game_id_not_host_game_id(self):
         """Regression guard: the chunk ids sent to IGDB must be the

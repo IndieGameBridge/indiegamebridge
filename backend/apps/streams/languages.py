@@ -23,6 +23,9 @@ LANGUAGE_NAMES = {
 # built, but no page lists it.
 PAGE_LANGUAGES = ("en", "fr", "de", "es", "pt", "ja", "it", "zh")
 
+# Stands for the page languages added up, where a language is expected.
+ALL_LANGUAGES = "all"
+
 # When collecting began, for the languages added after the first four. Until a
 # language's 4-week window has filled, the pages showing it say so.
 COLLECTED_SINCE = {

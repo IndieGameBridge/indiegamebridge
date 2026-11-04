@@ -103,11 +103,11 @@ class ListEntriesTests(TestCase):
         self.assertFalse(self.list.entries.exists())
 
     def test_adds_a_searchs_results_after_the_entries_skipping_the_ones_already_in(self):
-        self._add(self._make_streamer(1, "added_by_hand", peak=20))
+        self._add(self._make_streamer(1, "added_by_hand", peak=55))
         middle = self._make_streamer(2, "middle", peak=100)
         self._add(middle)
         self._make_streamer(3, "top", peak=150)
-        self._make_streamer(4, "small", peak=50)
+        self._make_streamer(4, "small", peak=60)
 
         response = self._post({"search": "lang=en"})
 
@@ -122,7 +122,7 @@ class ListEntriesTests(TestCase):
         self._make_streamer(1, "big", peak=150)
         self._make_streamer(2, "tiny", peak=20)
 
-        response = self._post({"search": "lang=en&peakmin=100"})
+        response = self._post({"search": "lang=en&peak=51-200"})
 
         self.assertEqual(response.data["added"], 1)
         self.assertEqual(self._logins(), ["big"])

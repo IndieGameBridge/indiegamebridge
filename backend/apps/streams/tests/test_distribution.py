@@ -50,7 +50,7 @@ class DistributionPayloadTests(TestCase):
         self._search_row(2, "en", peak_viewers=250)
 
         buckets = self._payload(date(2026, 11, 3))["buckets"]
-        self.assertEqual(buckets["ja"][0], {"x": "3-5", "y": 1})
+        self.assertEqual(buckets["ja"][0], {"x": "3-10", "y": 1})
         self.assertEqual(buckets["en"][-1], {"x": "201+", "y": 1})
         self.assertEqual(sum(bucket["y"] for bucket in buckets["fr"]), 0)
 
