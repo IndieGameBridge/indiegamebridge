@@ -68,6 +68,11 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
                 "computed_at": computed_at.isoformat(),
             } if computed_at else None,
             "language_pages": [self._language_page(code, today) for code in PAGE_LANGUAGES],
+            # Grants nothing, on purpose: Twitch's developer agreement forbids licensing data built
+            # from its API without its written permission. The pages' structured data points here.
+            "data_use": "The numbers on this page are for reading here. They come from Twitch's API and IGDB, so"
+                " IndieGameBridge can't license them for reuse, and no license is given. Linking to this page is"
+                " welcome.",
             "faq": {
                 "title": "Frequently asked questions",
                 "items": [

@@ -46,6 +46,8 @@ export type GenreTrendsContent = PageCopy & {
     // Missing from a payload cached before the language pages existed, until
     // update_cached_pages rebuilds it: the overview then shows without the switch.
     language_pages?: GenreLanguagePage[];
+    // What readers may do with the numbers; the structured data's license points at it.
+    data_use: string;
     diagrams: GenreDiagram[];
     footer_content: PageFooterContent;
 };
@@ -119,6 +121,13 @@ export function GenreTrendsView({ content, page, user }: {
                 url: siteUrl,
             },
             isAccessibleForFree: true,
+            // A notice that grants nothing, not an open license: Twitch's developer agreement
+            // forbids licensing data built from its API.
+            license: {
+                "@type": "CreativeWork",
+                name: "Data use notice",
+                url: `${siteUrl}${pathOf(page)}#data-use`,
+            },
             temporalCoverage: `${content.window.start}/${content.window.end}`,
             dateModified: content.window.computed_at,
             variableMeasured: content.diagrams.map((diagram) => diagram.title),
@@ -179,6 +188,7 @@ export function GenreTrendsView({ content, page, user }: {
                             diagrams={content.diagrams}
                             language={page ? { code: page.code, label: page.label } : null}
                         />
+                        <p id="data-use" className="mt-16 text-sm text-gray-600">{content.data_use}</p>
                         {faq && (
                             <section className="mt-24">
                                 <h2 className="text-2xl font-bold mb-8">{faq.title}</h2>

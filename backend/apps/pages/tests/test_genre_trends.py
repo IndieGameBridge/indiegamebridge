@@ -86,6 +86,9 @@ class GenreTrendsPageTests(TestCase):
         self.assertIsNone(content["note"])
         self.assertTrue(all(page["note"] is None for page in content["language_pages"]))
 
+    def test_the_data_use_notice_grants_no_license(self):
+        self.assertIn("no license is given", self._content(date(2026, 11, 3))["data_use"])
+
     def test_the_window_ends_when_the_stats_were_computed(self):
         self.assertEqual(
             self._content(date(2026, 11, 3))["window"],

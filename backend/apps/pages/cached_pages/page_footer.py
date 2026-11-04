@@ -7,7 +7,8 @@ class PageFooterBuilder(BaseCachedPageBuilder):
 
     def build_content(self) -> dict:
         return {
-            "data_source": f"Data sourced from public Twitch streams. Streamers can %opt_out_link% at any time.",
+            "data_source": f"Data sourced from public Twitch streams. Streamers can %opt_out_link% at any time."
+                " IndieGameBridge is not affiliated with or endorsed by Twitch.",
             "opt_out_text": "opt out",
             "footer_links": [
                 {
