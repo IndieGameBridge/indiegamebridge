@@ -283,7 +283,8 @@ export function SearchStreamerForm({
                             <span> {search_form.demo_note}</span>
                         </div>
                         <div className="text-center mt-4">
-                            <Link href="/login" className="underline text-blue-700 hover:text-blue-500 ml-2">{search_form.cta_link_text}</Link>
+                            <Link href={`/login?next=${encodeURIComponent("/streamers")}`} rel="nofollow" prefetch={false}
+                                className="underline text-blue-700 hover:text-blue-500 ml-2">{search_form.cta_link_text}</Link>
                         </div>
                     </div>
                     : null

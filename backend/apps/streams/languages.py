@@ -44,6 +44,13 @@ def collected_since(code: str, today: date, window_days: int) -> date | None:
     return since if since is not None and (today - since).days < window_days else None
 
 
+def names_of(codes) -> str:
+    """Languages as a sentence writes them: "Japanese", "Japanese and Italian",
+    "Portuguese, Japanese and Italian"."""
+    names = [LANGUAGE_NAMES[code] for code in codes]
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def day_month_year(day: date) -> str:
     """A date as pages write it: "2 November 2026"."""
     return f"{day.day} {day:%B %Y}"

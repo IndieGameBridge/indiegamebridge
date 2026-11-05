@@ -10,13 +10,14 @@ export default function robots(): MetadataRoute.Robots {
             allow: "/",
             // Everything we keep out of the index: the secondary pages we don't
             // want crawled, the auth-gated app pages, and the Django proxy
-            // prefixes from next.config.ts. Home and /privacy stay crawlable.
+            // prefixes from next.config.ts. Home and /privacy stay crawlable, and so
+            // does /streamers itself, public now: the slash keeps only the profiles out.
             disallow: [
                 "/login",
                 "/optout",
                 "/contact",
                 "/account",
-                "/streamers",
+                "/streamers/",
                 "/accounts/",
                 "/auth/",
                 "/api/",

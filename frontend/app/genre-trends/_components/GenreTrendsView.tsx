@@ -2,6 +2,8 @@ import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
 
 import {
+    FaqContent,
+    FaqSection,
     GenreDiagram,
     GenreTrends,
     LanguageSwitch,
@@ -10,12 +12,8 @@ import {
     PageFooterContent,
 } from "../../_components";
 import type { CurrentUser } from "../../_lib/auth";
+import { jsonLd } from "../../_lib/json-ld";
 import { serverFetch } from "../../_lib/server-fetch";
-
-type FaqItem = {
-    question: string;
-    answer: string;
-};
 
 // A page's own copy: the overview's sits at the top of the payload, each language's
 // in language_pages.
@@ -37,10 +35,7 @@ export type GenreLanguagePage = PageCopy & {
 };
 
 export type GenreTrendsContent = PageCopy & {
-    faq?: {
-        title: string;
-        items: FaqItem[];
-    };
+    faq?: FaqContent;
     // The 4 weeks the numbers cover; null until the stats have first been built.
     window?: { start: string; end: string; computed_at: string } | null;
     // Missing from a payload cached before the language pages existed, until
@@ -88,12 +83,6 @@ export function genreTrendsMetadata(content: GenreTrendsContent, page: GenreLang
     };
 }
 
-// JSON for a <script type="application/ld+json">, with "<" escaped so no text in it
-// can close the script tag.
-function jsonLd(data: object): string {
-    return JSON.stringify(data).replace(/</g, "\\u003c");
-}
-
 /**
  * A Genre Trends page: the overview, which adds every language up, when `page` is
  * null, or one language's own page.
@@ -137,20 +126,6 @@ export function GenreTrendsView({ content, page, user }: {
     // The FAQ is the overview's: Google wants one marked-up instance of an FAQ per
     // site, not one per page that repeats it.
     const faq = !page && content.faq && content.faq.items.length > 0 ? content.faq : null;
-    const faqJsonLd = faq
-        ? {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: faq.items.map((item) => ({
-                "@type": "Question",
-                name: item.question,
-                acceptedAnswer: {
-                    "@type": "Answer",
-                    text: item.answer,
-                },
-            })),
-        }
-        : null;
 
     return (
         <Fragment>
@@ -158,12 +133,6 @@ export function GenreTrendsView({ content, page, user }: {
                 <script
                     type="application/ld+json"
                     dangerouslySetInnerHTML={{ __html: jsonLd(datasetJsonLd) }}
-                />
-            )}
-            {faqJsonLd && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: jsonLd(faqJsonLd) }}
                 />
             )}
             <PageHeader
@@ -189,19 +158,7 @@ export function GenreTrendsView({ content, page, user }: {
                             language={page ? { code: page.code, label: page.label } : null}
                         />
                         <p id="data-use" className="mt-16 text-sm text-gray-600">{content.data_use}</p>
-                        {faq && (
-                            <section className="mt-24">
-                                <h2 className="text-2xl font-bold mb-8">{faq.title}</h2>
-                                <dl className="grid grid-cols-1 gap-8">
-                                    {faq.items.map((item) => (
-                                        <div key={item.question}>
-                                            <dt className="font-semibold mb-2">{item.question}</dt>
-                                            <dd>{item.answer}</dd>
-                                        </div>
-                                    ))}
-                                </dl>
-                            </section>
-                        )}
+                        {faq && <FaqSection faq={faq} />}
                     </div>
                 </section>
             </main>

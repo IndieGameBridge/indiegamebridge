@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import Link from "next/link";
 
+import { CurrentUser } from "../_lib/auth";
 import { loadStreamersPage } from "../streamers/actions";
 import { AddToList, AddToListLabels } from "./AddToList";
 import { StreamerStats } from "./StreamerStats";
@@ -22,12 +23,16 @@ export type ResultsListLabels = {
     found_count?: string;
     found_count_one?: string;
     view_profile: string;
+    login_to_view_profile: string;
     show_more: string;
     loading: string;
 };
 
+const PROFILE_LINK_CLASSES = "text-sm align-baseline inline-block p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700";
+
 type Props = {
     search_results: StreamerData[];
+    user: CurrentUser | null;
     labels: ResultsListLabels;
     total?: number;
     can_load_more?: boolean;
@@ -35,12 +40,13 @@ type Props = {
     // Shown beside the result count, e.g. the streamers page's "Save to list".
     count_actions?: React.ReactNode;
     // Puts an "Add to list" menu on every row. Only for signed-in pages: the
-    // home page's demo leaves it out.
+    // public page's demo leaves it out.
     add_to_list?: AddToListLabels;
 };
 
 export function SearchStreamerResultsList({
     search_results,
+    user,
     labels,
     total,
     can_load_more = false,
@@ -94,8 +100,15 @@ export function SearchStreamerResultsList({
                         <div className="font-bold text-lg"><span className="text-gray-500 font-normal mr-1">#{index + 1} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
                             {add_to_list && <AddToList profileId={one_result.profile_id} labels={add_to_list} />}
-                            <Link className="text-sm align-baseline inline-block p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700"
-                                href={`/streamers/${one_result.login}`} rel="nofollow" target="_blank" title="View streamer profile">{labels.view_profile}</Link>
+                            {user
+                                ? <Link className={PROFILE_LINK_CLASSES} href={`/streamers/${one_result.login}`}
+                                    rel="nofollow" target="_blank" title="View streamer profile">{labels.view_profile}</Link>
+                                // Profiles need a login, so a logged-out visitor's link says so and goes
+                                // to the login page, which brings them back to the profile.
+                                : <Link className={PROFILE_LINK_CLASSES}
+                                    href={`/login?next=${encodeURIComponent(`/streamers/${one_result.login}`)}`}
+                                    rel="nofollow" prefetch={false}>{labels.login_to_view_profile}</Link>
+                            }
                         </div>
                     </div>
 
@@ -126,6 +139,8 @@ export function SearchStreamerResultsList({
                 <div className="text-center">
                     <Link
                         href={more_href}
+                        rel="nofollow"
+                        prefetch={false}
                         className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer"
                     >
                         {labels.show_more}

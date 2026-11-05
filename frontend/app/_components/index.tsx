@@ -7,6 +7,8 @@ export * from "./ListForm";
 export * from "./AddToList";
 export * from "./StreamersDistribution";
 export * from "./GenreTrends";
+export * from "./FaqSection";
+export * from "./HomeShowcase";
 export * from "./LanguageSwitch";
 export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";

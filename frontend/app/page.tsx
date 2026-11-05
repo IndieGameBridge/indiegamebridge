@@ -1,11 +1,9 @@
 import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
 import {
-    SearchStreamerForm,
-    SearchStreamerResultsList,
-    SearchFormData,
-    StreamerData,
-    ResultsListLabels,
+    HomeHeaderButtons,
+    HomeShowcase,
+    HomeShowcaseContent,
     StreamersDistribution,
     PageHeader,
     PageFooter,
@@ -30,11 +28,9 @@ type HomePageContent = {
     seo_description?: string;
     info: string;
     project_goal: Section;
-    search_form: SearchFormData;
-    search_results: StreamerData[];
-    search_total: number;
-    methodology: Section;
-    results_labels: ResultsListLabels;
+    // Absent until the page's cached text is rebuilt with it.
+    showcase?: HomeShowcaseContent;
+    methodology: Section & { note?: string };
     footer_content: PageFooterContent;
 };
 
@@ -120,6 +116,7 @@ export default async function Home() {
                 title={content.title}
                 description={content.description}
                 info={content.info}
+                buttons={content.showcase && <HomeHeaderButtons labels={content.showcase.header_buttons} />}
             />
 
             {/* Main */}
@@ -127,36 +124,26 @@ export default async function Home() {
 
                 {/* Project Goal */}
                 <section className="px-6">
-                    <div className="max-w-[1000] mx-auto pt-24 pb-12">
-                        <h2 className="text-2xl font-bold mb-8">{content.project_goal.title}</h2>
+                    <div className="max-w-[1000] mx-auto pt-18 pb-14">
+                        <h2 className="text-2xl font-bold mb-6">{content.project_goal.title}</h2>
                         <p>{content.project_goal.description}</p>
+                    </div>
+                </section>
+
+                {/* A block per feature */}
+                {content.showcase && <HomeShowcase content={content.showcase} user={user} />}
+
+                {/* Methodology */}
+                <section className="border-t border-gray-400 px-6">
+                    <div className="max-w-[1000] mx-auto pt-18 pb-4">
+                        <h2 className="text-2xl font-bold mb-6">{content.methodology.title}</h2>
+                        <p>{content.methodology.description}</p>
+                        {content.methodology.note && <p className="mt-4">{content.methodology.note}</p>}
                     </div>
                 </section>
 
                 {/* Streamer Peak-Viewer Distribution */}
                 <StreamersDistribution />
-
-                {/* Demo Search */}
-                <section className="border-t border-gray-400 px-6">
-                    <div className="max-w-[1000] mx-auto pt-24 pb-24">
-                        <h2 className="text-2xl font-bold mb-8">{content.search_form.title}</h2>
-                        <SearchStreamerForm search_form={content.search_form} user={user}></SearchStreamerForm>
-                        <SearchStreamerResultsList
-                            search_results={content.search_results}
-                            labels={content.results_labels}
-                            total={content.search_total}
-                            more_href={user ? "/streamers" : `/login?next=${encodeURIComponent("/streamers")}`}
-                        ></SearchStreamerResultsList>
-                    </div>
-                </section>
-
-                {/* Methodology */}
-                <section className="border-t border-gray-400 px-6">
-                    <div className="max-w-[1000] mx-auto pt-24 pb-24">
-                        <h2 className="text-2xl font-bold mb-8">{content.methodology.title}</h2>
-                        <p>{content.methodology.description}</p>
-                    </div>
-                </section>
             </main>
 
             <PageFooter content={content.footer_content} />

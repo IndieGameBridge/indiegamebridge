@@ -12,7 +12,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 
 ## What it offers
 
-- **Streamer search** (signed in): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other. Up to 5,000 results, 50 to a page.
+- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other. Up to 5,000 results, 50 to a page.
 - **Streamer profiles:** the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file.
@@ -50,7 +50,7 @@ Search never scans the streams table, which holds tens of millions of rows. A re
 - Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the genres it actually played, by snapshot, so non-game time such as Just Chatting doesn't count.
 - The Games pages read `GameStats`, rebuilt in one pass every 6 hours: one row per game, language and streamer size group, holding that line's hours and its place in its list. The newest hour decides the order and an older hour only breaks a tie, so a search reads a stored position instead of comparing 4 weeks of hours.
 - Streamer sizes are one set of groups by peak viewers (`apps/streams/size_groups.py`), shared by the home page's chart, the streamer search and the Games pages.
-- Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a live demo search and headline counts read from the search table.
+- Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a block per feature, each with a small sample of real data, and headline counts read from the search table. Its games sample is read on each request, since the game numbers change more often than the page is rebuilt.
 - A streamer's profile is computed on its first view and cached for an hour.
 
 ### Stream archive
@@ -82,7 +82,7 @@ The pages are home, Genre Trends, Games, streamer search (`/streamers`) and prof
 ### Auth and security
 
 - Sign-in is with Twitch, through django-allauth. Sessions are JWTs (SimpleJWT) in HttpOnly cookies, and signing out blacklists the refresh token.
-- Search, profiles, lists and exports need a signed-in user. The home page, Genre Trends and Games are public.
+- Search, profiles, lists and exports need a signed-in user. The home page, Genre Trends and Games are public, and so is `/streamers` itself: a logged-out visitor gets a page about the search, with a sample of real results.
 - Cookie-authenticated writes are CSRF-protected.
 - DRF throttles limit request rates, counted in Redis so every Gunicorn worker shares them:
   - 120 requests a minute per visitor;

@@ -4,7 +4,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from .base import BaseCachedPageBuilder
-from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES, collected_since, day_month_year
+from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES, collected_since, day_month_year, names_of
 from apps.streams.management.commands.rebuild_genre_stats import WINDOW_DAYS
 from apps.streams.models import GameGenre, GenreStats
 
@@ -43,7 +43,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
         computed_at = GenreStats.objects.aggregate(latest=Max("computed_at"))["latest"]
         today = timezone.now().date()
         languages = [{"code": code, "label": LANGUAGE_NAMES[code]} for code in PAGE_LANGUAGES]
-        all_names = _names(PAGE_LANGUAGES)
+        all_names = names_of(PAGE_LANGUAGES)
 
         return {
             "title": "Genre Trends",
@@ -174,7 +174,7 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
             if since is not None:
                 partial.setdefault(since, []).append(code)
         sentences = [
-            f"{_names(codes)} streams have been collected since {day_month_year(since)}, so their part of"
+            f"{names_of(codes)} streams have been collected since {day_month_year(since)}, so their part of"
             f" these numbers covers {_days(today - since)} so far, not 4 weeks."
             for since, codes in sorted(partial.items())
         ]
@@ -198,12 +198,6 @@ class GenreTrendsPageBuilder(BaseCachedPageBuilder):
         bars = [{"x": name, "values": values} for name, values in by_genre.items()]
         bars.sort(key=lambda bar: sum(bar["values"].values()), reverse=True)
         return bars
-
-
-def _names(codes) -> str:
-    # "Japanese", "Japanese and Italian", "Portuguese, Japanese and Italian".
-    names = [LANGUAGE_NAMES[code] for code in codes]
-    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def _days(span: timedelta) -> str:

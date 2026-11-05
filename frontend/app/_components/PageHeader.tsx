@@ -22,7 +22,7 @@ export function NavLink({ href, className, children }: { href: string; className
 }
 
 export function PageHeader(
-    { user, title, description, info, link_to_twitch, actions }: {
+    { user, title, description, info, link_to_twitch, actions, buttons }: {
         user: CurrentUser | null;
         title?: string;
         description?: string;
@@ -31,6 +31,8 @@ export function PageHeader(
         // Shown beside the title, before the Twitch link, e.g. the profile
         // page's "Add to list".
         actions?: React.ReactNode;
+        // Shown under the text, e.g. the home page's links to its main features.
+        buttons?: React.ReactNode;
     }
 ) {
     return (
@@ -70,6 +72,12 @@ export function PageHeader(
                     </div>
                     {description && <p className="mt-6 text-lg">{description}</p>}
                     {info && <p className="mt-6 opacity-70">{info}</p>}
+                    {buttons && (
+                        <div className="mt-8 flex flex-row flex-wrap gap-4">
+                            {/* A Fragment's only child, for the reason given for actions. */}
+                            <Fragment>{buttons}</Fragment>
+                        </div>
+                    )}
                 </div>
             </section>
         </header>

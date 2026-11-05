@@ -142,38 +142,35 @@ function GenreDiagramChart({ diagram, language }: { diagram: GenreDiagram; langu
                 </table>
                 </div>
             ) : (
-                // The overview's chart adds the languages up; the table under it, closed
-                // by default, keeps each language's numbers side by side.
-                <details className="mt-4 text-sm">
-                    <summary className="cursor-pointer">Numbers by language</summary>
-                    <div className="overflow-x-auto mt-3">
-                    <table className="border-collapse">
-                        <caption className="sr-only">{`${title}, by language`}</caption>
-                        <thead>
-                            <tr>
-                                <th className="text-left font-semibold pr-4 py-1">Genre</th>
-                                {languages.map((lang) => (
-                                    <th key={lang.code} className="text-right font-semibold px-3 py-1">{lang.label}</th>
-                                ))}
-                                <th className="text-right font-semibold pl-3 py-1">All</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map(({ bar, value }) => (
-                                <tr key={bar.x} className="border-t border-gray-200">
-                                    <td className="text-left pr-4 py-1 whitespace-nowrap">{bar.x}</td>
-                                    {languages.map((lang) => (
-                                        <td key={lang.code} className="text-right px-3 py-1 tabular-nums">
-                                            {(bar.values[lang.code] ?? 0).toLocaleString()}
-                                        </td>
-                                    ))}
-                                    <td className="text-right pl-3 py-1 tabular-nums">{value.toLocaleString()}</td>
-                                </tr>
+                // The overview's chart adds the languages up; the table under it keeps each
+                // language's numbers side by side.
+                <div className="overflow-x-auto mt-8 text-sm">
+                <table className="border-collapse">
+                    <caption className="text-left font-semibold pb-2">{`${title}, by language`}</caption>
+                    <thead>
+                        <tr>
+                            <th className="text-left font-semibold pr-4 py-1">Genre</th>
+                            {languages.map((lang) => (
+                                <th key={lang.code} className="text-right font-semibold px-2 py-1">{lang.label}</th>
                             ))}
-                        </tbody>
-                    </table>
-                    </div>
-                </details>
+                            <th className="text-right font-semibold pl-2 py-1">All</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map(({ bar, value }) => (
+                            <tr key={bar.x} className="border-t border-gray-200">
+                                <td className="text-left pr-4 py-1 whitespace-nowrap">{bar.x}</td>
+                                {languages.map((lang) => (
+                                    <td key={lang.code} className="text-right px-2 py-1 tabular-nums">
+                                        {(bar.values[lang.code] ?? 0).toLocaleString()}
+                                    </td>
+                                ))}
+                                <td className="text-right pl-2 py-1 tabular-nums">{value.toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                </div>
             )}
         </div>
     );
