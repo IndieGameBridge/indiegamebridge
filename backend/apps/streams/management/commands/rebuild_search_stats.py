@@ -22,18 +22,20 @@ WINDOW_DAYS = 28
 
 # Every (streamer, language) row the window's approved streams make. avg_viewers is
 # rounded as a float, half to even, as Python rounds; genre_ids is the union of the
-# streams' genres, sorted.
+# streams' genres, sorted; active_days the UTC days they started on, as a profile's chart
+# counts them, sorted.
 FRESH_SQL = """
     CREATE TEMP TABLE fresh_search_stats AS
     WITH window_streams AS MATERIALIZED (
-        SELECT streamer_profile_id, language, max_viewers, avg_viewers, duration, genre_ids
+        SELECT streamer_profile_id, language, max_viewers, avg_viewers, duration, genre_ids,
+               (started_at AT TIME ZONE 'UTC')::date - DATE '1970-01-01' AS day
         FROM streams_stream
         WHERE status = 'approved' AND finished_at >= %s
     ),
     stats AS (
         SELECT streamer_profile_id, language, max(max_viewers) AS peak_viewers,
                round(avg(avg_viewers)::float8)::int AS avg_viewers, sum(duration)::int AS total_duration_seconds,
-               count(*)::int AS streams_count
+               count(*)::int AS streams_count, array_agg(DISTINCT day ORDER BY day) AS active_days
         FROM window_streams
         GROUP BY streamer_profile_id, language
     ),
@@ -52,21 +54,21 @@ FRESH_SQL = """
 UPSERT_SQL = """
     INSERT INTO streams_streamersearchstats AS current (
         streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
-        genre_ids, host_login, host_display_name, computed_at
+        genre_ids, active_days, host_login, host_display_name, computed_at
     )
     SELECT streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
-           genre_ids, host_login, host_display_name, now()
+           genre_ids, active_days, host_login, host_display_name, now()
     FROM fresh_search_stats
     ON CONFLICT (streamer_profile_id, language) DO UPDATE SET
         peak_viewers = EXCLUDED.peak_viewers, avg_viewers = EXCLUDED.avg_viewers,
         total_duration_seconds = EXCLUDED.total_duration_seconds, streams_count = EXCLUDED.streams_count,
-        genre_ids = EXCLUDED.genre_ids, host_login = EXCLUDED.host_login,
+        genre_ids = EXCLUDED.genre_ids, active_days = EXCLUDED.active_days, host_login = EXCLUDED.host_login,
         host_display_name = EXCLUDED.host_display_name, computed_at = EXCLUDED.computed_at
     WHERE (current.peak_viewers, current.avg_viewers, current.total_duration_seconds, current.streams_count,
-           current.genre_ids, current.host_login, current.host_display_name)
+           current.genre_ids, current.active_days, current.host_login, current.host_display_name)
           IS DISTINCT FROM
           (EXCLUDED.peak_viewers, EXCLUDED.avg_viewers, EXCLUDED.total_duration_seconds, EXCLUDED.streams_count,
-           EXCLUDED.genre_ids, EXCLUDED.host_login, EXCLUDED.host_display_name)
+           EXCLUDED.genre_ids, EXCLUDED.active_days, EXCLUDED.host_login, EXCLUDED.host_display_name)
 """
 
 # Streamers with no approved stream left in the window drop out of search.

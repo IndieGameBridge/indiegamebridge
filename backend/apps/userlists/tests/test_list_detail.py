@@ -94,7 +94,7 @@ class ListDetailTests(TestCase):
         self.assertEqual(entries[0]["description"], "note on top")
         self.assertEqual(
             entries[0]["streamer"]["stats"],
-            {"peak_viewers": 100, "avg_viewers": 50, "streams_count": 8, "hours_streamed": 10, "genres": []},
+            {"peak_viewers": 100, "avg_viewers": 50, "streams_count": 8, "hours_streamed": 10, "genres": [], "days_ago": []},
         )
 
     def test_stats_come_from_the_lists_language(self):

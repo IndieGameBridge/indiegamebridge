@@ -48,6 +48,14 @@ class StreamerSearchStats(models.Model):
         help_text="Distinct GameGenre.host_genre_id values played in the window; filtered by overlap.",
     )
 
+    active_days = ArrayField(
+        models.IntegerField(),
+        default=list,
+        blank=True,
+        help_text="The UTC days these streams started on, sorted, as days since the Unix epoch: real days"
+            " rather than days ago, so a row only changes when its streams do.",
+    )
+
     # Denormalized from StreamerProfile so search renders without a join. May lag
     # a rename until the next rebuild of this row.
     host_login = models.CharField(max_length=64)

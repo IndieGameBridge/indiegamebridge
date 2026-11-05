@@ -59,13 +59,13 @@ class RebuildAndSearchTests(TestCase):
         )
 
     def _make_stream(self, profile, host_stream_id, max_viewers, avg_viewers,
-                     duration, language="en", genre_ids=None, days_ago=1):
+                     duration, language="en", genre_ids=None, days_ago=1, started_at=None):
         return Stream.objects.create(
             streamer_profile=profile,
             host_stream_id=host_stream_id,
             status=Stream.Status.APPROVED,
             language=language,
-            started_at=datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
+            started_at=started_at or datetime(2025, 1, 1, tzinfo=dt_timezone.utc),
             finished_at=timezone.now() - timedelta(days=days_ago),
             snapshots=[],
             max_viewers=max_viewers,
@@ -97,6 +97,73 @@ class RebuildAndSearchTests(TestCase):
         self.assertEqual(stats.total_duration_seconds, 10800)
         self.assertEqual(stats.streams_count, 2)
         self.assertEqual(stats.genre_ids, [10, 20, 30])  # union, de-duped, sorted
+
+    def _started(self, profile, host_stream_id, started_at):
+        # An approved stream that started then, and ended two hours later.
+        stream = self._make_stream(profile, host_stream_id, 100, 50, 7200, started_at=started_at)
+        stream.finished_at = started_at + timedelta(hours=2)
+        stream.save(update_fields=["finished_at"])
+
+    @staticmethod
+    def _day(year, month, day):
+        return int(datetime(year, month, day, tzinfo=dt_timezone.utc).timestamp()) // 86400
+
+    @staticmethod
+    def _clock(*moment):
+        return mock.patch.object(timezone, "now", return_value=datetime(*moment, tzinfo=dt_timezone.utc))
+
+    def test_active_days_are_the_utc_days_streams_started_on(self):
+        streamer = self._make_streamer(1, "solo")
+        # Two on one day, and one running past midnight, which counts on the day it started.
+        self._started(streamer, 1, datetime(2026, 11, 3, 8, tzinfo=dt_timezone.utc))
+        self._started(streamer, 2, datetime(2026, 11, 3, 20, tzinfo=dt_timezone.utc))
+        self._started(streamer, 3, datetime(2026, 11, 1, 23, 30, tzinfo=dt_timezone.utc))
+
+        with self._clock(2026, 11, 5, 12):
+            self._rebuild()
+
+        stats = StreamerSearchStats.objects.get(streamer_profile=streamer)
+        self.assertEqual(stats.active_days, [self._day(2026, 11, 1), self._day(2026, 11, 3)])
+        self.assertEqual(stats.streams_count, 3)
+
+    def test_a_result_gives_its_days_as_days_ago_from_today(self):
+        streamer = self._make_streamer(1, "solo")
+        self._started(streamer, 1, datetime(2026, 11, 5, 8, tzinfo=dt_timezone.utc))
+        self._started(streamer, 2, datetime(2026, 11, 2, 8, tzinfo=dt_timezone.utc))
+        # Started before the strip's 28 days, but ended inside the rebuild's window.
+        self._started(streamer, 3, datetime(2026, 10, 8, 23, tzinfo=dt_timezone.utc))
+
+        with self._clock(2026, 11, 5, 12):
+            self._rebuild()
+            [today_row] = self._search().results()
+        with self._clock(2026, 11, 6, 1):
+            [next_day_row] = self._search().results()
+
+        self.assertEqual(today_row["days_ago"], [0, 3])
+        self.assertEqual(next_day_row["days_ago"], [1, 4])
+        self.assertNotIn("active_days", today_row)
+
+    def test_days_growing_older_doesnt_rewrite_a_row(self):
+        streamer = self._make_streamer(1, "solo")
+        self._started(streamer, 1, datetime(2026, 11, 3, 8, tzinfo=dt_timezone.utc))
+        with self._clock(2026, 11, 5, 12):
+            self._rebuild()
+
+        output = StringIO()
+        with self._clock(2026, 11, 6, 12):
+            call_command("rebuild_search_stats", stdout=output)
+
+        self.assertIn("of which 0 new or changed", output.getvalue())
+
+    def test_a_row_from_before_the_days_were_stored_gets_them(self):
+        streamer = self._make_streamer(1, "solo")
+        self._started(streamer, 1, datetime(2026, 11, 3, 8, tzinfo=dt_timezone.utc))
+        with self._clock(2026, 11, 5, 12):
+            self._rebuild()
+            StreamerSearchStats.objects.update(active_days=[])
+            self._rebuild()
+
+        self.assertEqual(StreamerSearchStats.objects.get().active_days, [self._day(2026, 11, 3)])
 
     def test_separate_rows_per_language(self):
         bob = self._make_streamer(1, "bob")

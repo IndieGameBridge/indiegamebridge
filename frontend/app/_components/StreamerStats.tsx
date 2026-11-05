@@ -6,7 +6,38 @@ export type StreamerStatsData = {
     genres: string[];
     // Only on lists made by hand, which mix languages: the one these stats are in.
     language?: string;
+    // The days of the last 28 with a stream, as days ago: 0 is today. Absent from a
+    // cached page until its text is rebuilt with it.
+    days_ago?: number[];
 };
+
+// As on a profile's chart: today and the 27 days before it, newest first.
+const STRIP_DAYS = 28;
+// The site's charts' first blue, on the grey of an empty day.
+const STREAMED_COLOR = "#0072B2";
+const EMPTY_COLOR = "#e5e7eb";
+
+// Fills the width it's given, with a wider gap between the weeks, so a weekly rhythm reads
+// without counting.
+function DayStrip({ days_ago }: { days_ago: number[] }) {
+    const streamed = new Set(days_ago);
+
+    return (
+        <div
+            role="img"
+            aria-label={`Streamed on ${days_ago.length} of the last ${STRIP_DAYS} days`}
+            className="flex gap-0.5 mt-1"
+        >
+            {Array.from({ length: STRIP_DAYS }, (_, day) => (
+                <span
+                    key={day}
+                    className={`flex-1 h-4 rounded-[1px] ${day > 0 && day % 7 === 0 ? "ml-1" : ""}`}
+                    style={{ backgroundColor: streamed.has(day) ? STREAMED_COLOR : EMPTY_COLOR }}
+                />
+            ))}
+        </div>
+    );
+}
 
 // A streamer's last-4-week numbers and genres. Shared by search results and
 // saved lists, so a list shows its streamers the way the search did.
@@ -31,6 +62,13 @@ export function StreamerStats({ stats }: { stats: StreamerStatsData }) {
                         <div className="text-nowrap py-1">
                             <span className="text-brand-blue uppercase">Language: </span>
                             <span>{stats.language}</span>
+                        </div>
+                    )}
+                    {stats.days_ago && (
+                        <div className="py-1 md:pr-4">
+                            <span className="text-brand-blue uppercase">Days streamed: </span>
+                            <span>{stats.days_ago.length} of the last {STRIP_DAYS}</span>
+                            <DayStrip days_ago={stats.days_ago} />
                         </div>
                     )}
                 </div>

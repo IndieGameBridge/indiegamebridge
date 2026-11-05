@@ -1,6 +1,8 @@
 import logging
 from functools import cache
 
+from django.utils import timezone
+
 from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES
 from apps.streams.models import GameGenre, StreamerSearchStats
 from apps.streams.size_groups import SIZE_FILTER_VALUES, SIZE_GROUPS_BY_LABEL
@@ -31,7 +33,10 @@ PAGING_PARAMS = ("p",)
 
 # The stored stats behind a result row; _format_stats turns them into the values
 # the frontend shows.
-STATS_FIELDS = ("peak_viewers", "avg_viewers", "total_duration_seconds", "streams_count", "genre_ids")
+STATS_FIELDS = ("peak_viewers", "avg_viewers", "total_duration_seconds", "streams_count", "genre_ids", "active_days")
+
+# The days a result's strip shows, as on a profile's chart: today and the 27 before it.
+STRIP_DAYS = 28
 
 
 class StreamerSearch:
@@ -244,6 +249,10 @@ class StreamerSearch:
         row["genres"] = sorted(
             genre_names.get(genre_id, "N/A") for genre_id in (row.pop("genre_ids") or [])
         )
+        # Stored as real days so a row needn't change as they age; "days ago" is worked out
+        # here. An older day can still be stored: its stream ended inside the window.
+        today = int(timezone.now().timestamp()) // 86400
+        row["days_ago"] = sorted(today - day for day in row.pop("active_days") if today - day < STRIP_DAYS)
         return row
 
     @staticmethod

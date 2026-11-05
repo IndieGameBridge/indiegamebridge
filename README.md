@@ -12,7 +12,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 
 ## What it offers
 
-- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other. Up to 5,000 results, 50 to a page.
+- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other. Up to 5,000 results, 50 to a page. Each result shows a strip of the last 28 days, so regular streamers stand out from those who stopped.
 - **Streamer profiles:** the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file.
