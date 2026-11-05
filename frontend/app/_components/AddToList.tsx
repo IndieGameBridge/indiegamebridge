@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 
 import { messageFrom } from "./ListForm";
 import { useDropdown } from "./useDropdown";

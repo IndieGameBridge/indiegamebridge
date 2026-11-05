@@ -1,6 +1,6 @@
 import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { ProgressLink as Link } from "../_components/ProgressLink";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 

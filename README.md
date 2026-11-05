@@ -36,7 +36,7 @@ The system has two halves: scheduled management commands that **collect and shap
 | `rebuild_game_stats` | every 6 hours | Counts the streams live in each hour of the last 4 weeks, per game, language and streamer size, and sorts each list once, for the Games page. |
 | `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
-| `update_cached_pages` | daily | Pre-renders the pages' payloads. |
+| `update_cached_pages` | daily, and hourly for Home and Streamers | Pre-renders the pages' payloads. Those two hold real streamers and games, so the hourly run keeps their numbers fresh and takes an opted-out streamer off them within the hour. |
 | `delete_expired_personal_data` | daily | Deletes personal data older than 12 months. |
 | `remove_opted_out_from_archive` | weekly | Rewrites the archive files that still hold streamers who opted out. |
 | `archive_streams` | monthly | Writes the month that left the retention window to a Parquet file. |
@@ -50,7 +50,7 @@ Search never scans the streams table, which holds tens of millions of rows. A re
 - Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the genres it actually played, by snapshot, so non-game time such as Just Chatting doesn't count.
 - The Games pages read `GameStats`, rebuilt in one pass every 6 hours: one row per game, language and streamer size group, holding that line's hours and its place in its list. The newest hour decides the order and an older hour only breaks a tie, so a search reads a stored position instead of comparing 4 weeks of hours.
 - Streamer sizes are one set of groups by peak viewers (`apps/streams/size_groups.py`), shared by the home page's chart, the streamer search and the Games pages.
-- Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a block per feature, each with a small sample of real data, and headline counts read from the search table. Its games sample is read on each request, since the game numbers change more often than the page is rebuilt.
+- Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a block per feature, each with a small sample of real data, and headline counts read from the search table.
 - A streamer's profile is computed on its first view and cached for an hour.
 
 ### Stream archive

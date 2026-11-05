@@ -84,10 +84,10 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     " each language. The quiet hours are when a stream of it meets the fewest competitors.",
                 "btn": "Explore games",
                 "sample_title": f"Indie games released in {games_year}, all languages",
-                # The rows themselves are read on each request: the game numbers change every
-                # 6 hours, and this page is rebuilt once a day.
-                "sample_query": f"{GENRE_FILTER_NAMES[0]}={INDIE_GENRE_ID}&year={games_year}",
                 "columns": {"name": "Game", "hours": ["Newest hour", "1 h before", "2 h before"]},
+                # Stored here, not read on each request: the search's total costs about half a
+                # second on the VPS, and an hourly rebuild keeps up with the 6-hourly numbers.
+                "rows": GameSearch({GENRE_FILTER_NAMES[0]: INDIE_GENRE_ID, "year": games_year}).results(limit=SAMPLE_ROWS),
             },
             "genres": {
                 "title": "Compare genres before you pitch",

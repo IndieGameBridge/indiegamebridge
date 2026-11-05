@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 import { useRouter, usePathname } from "next/navigation";
 import { Fragment } from "react/jsx-runtime";
 import { NavLink } from "./PageHeader";

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import Link from "next/link";
+import { ProgressLink as Link } from "../../_components/ProgressLink";
 
 import { messageFrom } from "../../_components/ListForm";
 

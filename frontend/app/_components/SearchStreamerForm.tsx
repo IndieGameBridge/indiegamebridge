@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
 import { CurrentUser } from "../_lib/auth";

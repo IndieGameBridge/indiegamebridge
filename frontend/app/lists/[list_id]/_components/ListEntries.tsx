@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { ProgressLink as Link } from "../../../_components/ProgressLink";
 import { useRouter } from "next/navigation";
 
 import type { ListLabel } from "../../../_components/LabelChip";

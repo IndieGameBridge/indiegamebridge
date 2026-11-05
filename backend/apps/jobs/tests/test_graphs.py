@@ -73,10 +73,10 @@ class AllJobsTests(TestCase):
         self.assertEqual(rows["fetch_twitch_streams"][7].text, "Succeeded, 3m 00s")
         # One that never ran is late once its first run is: from when recording began.
         self.assertEqual(rows["categorize_games"][6].text, "None yet, overdue")
-        self.assertEqual(rows["update_cached_pages"][6].text, "None yet")
+        self.assertEqual(rows["rebuild_genre_stats"][6].text, "None yet")
         tiles = {tile.label: tile for tile in context["tiles"]}
         # approve_streams, and the hourly jobs that never ran: too many to name in the tile.
-        self.assertEqual((tiles["Overdue jobs"].value, tiles["Overdue jobs"].note), ("3", ""))
+        self.assertEqual((tiles["Overdue jobs"].value, tiles["Overdue jobs"].note), ("4", ""))
 
     def test_names_the_overdue_jobs_when_few(self):
         _fetch_run(NOW - timedelta(minutes=10))
@@ -165,10 +165,10 @@ class OneJobTests(TestCase):
         self.assertEqual(tiles["Streams approved"].value, "70")
 
     def test_a_daily_job_gets_a_column_for_each_day(self):
-        _run("update_cached_pages", NOW - timedelta(days=1, hours=3), duration=90, counts={"pages": 12})
-        _run("update_cached_pages", NOW - timedelta(days=1, hours=1), duration=30, counts={"pages": 1}, arguments="home")
+        _run("rebuild_genre_stats", NOW - timedelta(days=1, hours=3), duration=90, counts={"rows": 12})
+        _run("rebuild_genre_stats", NOW - timedelta(days=1, hours=1), duration=30, counts={"rows": 1}, arguments="again")
 
-        context = job_graphs(14, job="update_cached_pages", now=NOW)
+        context = job_graphs(14, job="rebuild_genre_stats", now=NOW)
 
         [days] = context["hover_sources"]
         self.assertEqual(days.rows[-2]["values"], ["2m 00s", "2 runs", None, "13"])

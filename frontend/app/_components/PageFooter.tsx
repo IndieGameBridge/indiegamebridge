@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react/jsx-runtime";
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 import { usePathname } from "next/navigation";
 
 type FooterLink = {

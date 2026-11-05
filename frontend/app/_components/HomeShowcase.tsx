@@ -1,8 +1,7 @@
 import { Fragment } from "react/jsx-runtime";
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 
 import type { CurrentUser } from "../_lib/auth";
-import { serverFetch } from "../_lib/server-fetch";
 import type { StreamerData } from "./SearchStreamerResultsList";
 
 type FeatureText = {
@@ -36,9 +35,9 @@ export type HomeShowcaseContent = {
     games: FeatureText & {
         btn: string;
         sample_title: string;
-        // The Games search that gives the sample's rows.
-        sample_query: string;
         columns: { name: string; hours: string[] };
+        // Absent until the page's cached text is rebuilt with it.
+        rows?: GameRow[];
     };
     genres: FeatureText & {
         btn: string;
@@ -46,9 +45,6 @@ export type HomeShowcaseContent = {
         rows: GenreRow[];
     };
 };
-
-// The top of the Games search's first page, which holds more.
-const GAME_ROWS = 5;
 
 // The blue the site's charts give their first series, and the orange that goes with it.
 const BAR_COLOR = "#0072B2";
@@ -111,31 +107,24 @@ function StreamersSample({ content }: { content: HomeShowcaseContent["streamers"
     );
 }
 
-async function GamesSample({ content }: { content: HomeShowcaseContent["games"] }) {
-    const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const response = await serverFetch(`${apiBase}/games/?${content.sample_query}`);
-
-    // The block reads fine without its sample, so a refused read leaves only that out.
-    if (!response.ok) return null;
-
-    const { results }: { results: GameRow[] } = await response.json();
-    if (results.length === 0) return null;
-
+function GamesSample({ content }: { content: HomeShowcaseContent["games"] }) {
+    const { columns, rows = [], sample_title } = content;
+    if (rows.length === 0) return null;
     return (
         <Fragment>
-            <SampleTitle>{content.sample_title}</SampleTitle>
+            <SampleTitle>{sample_title}</SampleTitle>
             <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
                 <thead>
                     <tr>
-                        <th scope="col" className={NAME_HEADING}>{content.columns.name}</th>
-                        {content.columns.hours.map((label) => (
+                        <th scope="col" className={NAME_HEADING}>{columns.name}</th>
+                        {columns.hours.map((label) => (
                             <th key={label} scope="col" className={NUMBER_HEADING}>{label}</th>
                         ))}
                     </tr>
                 </thead>
                 <tbody>
-                    {results.slice(0, GAME_ROWS).map((game) => (
+                    {rows.map((game) => (
                         <tr key={game.id} className="border-t border-gray-300">
                             <td className={NAME_CELL}>{game.name}</td>
                             {game.recent_streams.map((streams, age) => (

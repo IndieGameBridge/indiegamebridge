@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 
 import { CurrentUser } from "../_lib/auth";
 import { loadStreamersPage } from "../streamers/actions";

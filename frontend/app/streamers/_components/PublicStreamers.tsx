@@ -1,5 +1,5 @@
 import { Fragment } from "react/jsx-runtime";
-import Link from "next/link";
+import { ProgressLink as Link } from "../../_components/ProgressLink";
 
 import {
     PageFooter,

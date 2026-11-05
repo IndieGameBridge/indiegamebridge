@@ -46,7 +46,8 @@ JOBS = (
     Job("rebuild_genre_stats", timedelta(days=1), (
         ("rows", "Genre and language rows"),
     )),
-    Job("update_cached_pages", timedelta(days=1), (
+    # Hourly for the pages that hold real rows, plus every page once a day.
+    Job("update_cached_pages", timedelta(hours=1), (
         ("pages", "Pages rebuilt"),
     )),
     Job("refresh_distribution", timedelta(days=1)),

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ProgressLink as Link } from "../../_components/ProgressLink";
 
 import { formatDate } from "../../_lib/format";
 import { LabelChip, ListLabel } from "../../_components";

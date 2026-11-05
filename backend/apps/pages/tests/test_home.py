@@ -148,9 +148,12 @@ class ShowcaseTests(TestCase):
         indie = self._genre(INDIE_GENRE_ID, "Indie")
         self._indie_games(indie, 2026, SAMPLE_ROWS)
 
+        self._indie_games(indie, 2025, 1)
+
         games = self._showcase()["games"]
 
-        self.assertEqual(games["sample_query"], f"genres={INDIE_GENRE_ID}&year=2026")
+        self.assertEqual(len(games["rows"]), SAMPLE_ROWS)
+        self.assertEqual({row["release_year"] for row in games["rows"]}, {2026})
         self.assertIn("released in 2026", games["sample_title"])
 
     def test_a_new_years_short_list_gives_way_to_last_years(self):
@@ -158,7 +161,10 @@ class ShowcaseTests(TestCase):
         self._indie_games(indie, 2026, SAMPLE_ROWS)
         self._indie_games(indie, 2027, SAMPLE_ROWS - 1)
 
-        self.assertIn("released in 2026", self._showcase(2027, 1)["games"]["sample_title"])
+        games = self._showcase(2027, 1)["games"]
+
+        self.assertIn("released in 2026", games["sample_title"])
+        self.assertEqual({row["release_year"] for row in games["rows"]}, {2026})
 
     def test_a_year_with_no_games_at_all_gives_way_to_last_years(self):
         self._indie_games(self._genre(INDIE_GENRE_ID, "Indie"), 2026, SAMPLE_ROWS)

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 import { usePathname } from "next/navigation";
 import { CurrentUser } from "../_lib/auth";
 import { AuthStatus } from "./AuthStatus";

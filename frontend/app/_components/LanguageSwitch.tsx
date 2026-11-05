@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ProgressLink as Link } from "./ProgressLink";
 
 export type LanguageLink = { slug: string; label: string };
 
