@@ -91,8 +91,8 @@ def _range_text(first_day, last_day, tracked_from, recorded):
     return text
 
 
-def _jobs():
-    """The jobs the page knows: cron.JOBS, then any other job with runs recorded."""
+def known_jobs():
+    """The jobs the pages know: cron.JOBS, then any other job with runs recorded."""
     recorded = set(JobRun.objects.order_by().values_list("job", flat=True).distinct())
     return [*JOBS, *(Job(name, None) for name in sorted(recorded - set(JOBS_BY_NAME)))]
 
@@ -101,9 +101,10 @@ def job_graphs(days, job="", now=None):
     """The Job runs > Graphs page's context, for the last `days` days: the table of all
     the jobs, or the graphs of `job`."""
     now = now or timezone.now()
-    jobs = _jobs()
+    jobs = known_jobs()
     chosen = next((one for one in jobs if one.name == job), None)
     context = {
+        "page_links": [{"label": "Busy time", "href": reverse("admin:jobs_jobrun_busy_time")}],
         "select": {
             "name": "job",
             "label": "Job",

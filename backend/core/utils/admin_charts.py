@@ -10,6 +10,9 @@ it. Lines and areas are SVG stretched across the plot; labels, markers and colum
 laid over it in HTML, so they keep their size, and the y-axis and end labels sit in
 columns beside it, so they stay in view. The page's script adds the hover tooltip and
 scrolls the plots together. GraphsAdminMixin puts such a page beside a ModelAdmin's list.
+
+A MinuteTimeline stands in a Figure's plots where a few hours matter rather than days:
+a row of minutes for each thing shown.
 """
 
 import json
@@ -48,6 +51,16 @@ MIN_END_LABEL_GAP = 14
 
 # The gap between the stacked parts of a column.
 STACK_GAP = 2
+
+# A minute timeline: a minute's least width, the height of a row and of the bar in it.
+MINUTE_WIDTH = 4
+TIMELINE_ROW = 22
+TIMELINE_BAR = 14
+
+# Its gridlines and time labels, every so many minutes, the labels no nearer its ends than
+# this many minutes: half a label's width at the least.
+TIMELINE_STEP = 15
+TIMELINE_LABEL_MARGIN = 4
 
 
 def window_days(raw):
@@ -257,6 +270,7 @@ class Plot:
     paths on its own y scale, which runs from 0 to a round number past max_value.
     """
 
+    template = "admin/charts/plot.html"
     top = TOP
 
     def __init__(self, axis, *, label, height, max_value, title="", tick_text=compact_text, integer=False):
@@ -352,6 +366,93 @@ class Plot:
             self.labels.append(Label(round(y, 1), text))
 
 
+class TimelineRow(NamedTuple):
+    label: str
+    middle: float
+    bottom: float
+
+
+class TimelineBar(NamedTuple):
+    x: float
+    y: float
+    width: float
+    color: str
+
+
+class MinuteTimeline:
+    """A row of minutes for each thing shown, over a short window that starts on a whole
+    minute: what templates/admin/charts/timeline.html draws. Rows go down in the order
+    they're added. Like a Plot it stretches on a wide screen and scrolls on a narrow one.
+    """
+
+    template = "admin/charts/timeline.html"
+    bar_height = TIMELINE_BAR
+
+    def __init__(self, start, minutes, label):
+        self.start = start
+        self.minutes = minutes
+        self.label = label
+        self.width = minutes * MINUTE_WIDTH
+        self.rows, self.bars = [], []
+        self.hover = ""
+        self.fields_json = "[]"
+
+    @property
+    def base(self):
+        return len(self.rows) * TIMELINE_ROW
+
+    @property
+    def x_label_top(self):
+        return self.base + 6
+
+    @property
+    def height(self):
+        return self.x_label_top + LABEL_ROW
+
+    def add_row(self, label, stretches):
+        """A row, filled for each (first minute, length, color) stretch."""
+        top = self.base
+        self.rows.append(TimelineRow(label, top + TIMELINE_ROW / 2, top + TIMELINE_ROW))
+        for first, length, color in stretches:
+            self.bars.append(TimelineBar(
+                first * MINUTE_WIDTH, top + (TIMELINE_ROW - TIMELINE_BAR) / 2, length * MINUTE_WIDTH, color,
+            ))
+
+    def minute_x(self, minute):
+        """The middle of a minute, where its tooltip's cursor stands."""
+        return (minute + 0.5) * MINUTE_WIDTH
+
+    def hover_on(self, source, fields):
+        """Give the timeline a tooltip, as Plot.hover_on does, with one row per minute."""
+        self.hover = source.key
+        self.fields_json = json.dumps(fields)
+
+    def _steps(self):
+        """Where the clock passes a step, as (minute of the window, the moment)."""
+        first = -self.start.minute % TIMELINE_STEP
+        return [(minute, self.start + timedelta(minutes=minute)) for minute in range(first, self.minutes, TIMELINE_STEP)]
+
+    @property
+    def gridlines(self):
+        return [minute * MINUTE_WIDTH for minute, moment in self._steps() if moment.minute]
+
+    @property
+    def hour_lines(self):
+        return [minute * MINUTE_WIDTH for minute, moment in self._steps() if not moment.minute]
+
+    @property
+    def x_labels(self):
+        return [
+            XLabel(
+                round(minute / self.minutes * 100, 3),
+                f"{moment:%a %H:%M}" if (moment.hour, moment.minute) == (0, 0) else f"{moment:%H:%M}",
+                "hour",
+            )
+            for minute, moment in self._steps()
+            if TIMELINE_LABEL_MARGIN <= minute <= self.minutes - TIMELINE_LABEL_MARGIN
+        ]
+
+
 @dataclass
 class HoverSource:
     """The rows a page's tooltips read, one per x position: a title, the values as
@@ -394,7 +495,7 @@ class Cell(NamedTuple):
 class Figure:
     """A chart: its heading, what it shows, a legend, one plot or several small ones,
     and the table that holds the same numbers. A figure of just a table shows it open;
-    one with plots folds it away under "Numbers by day". The table's headers and cells
+    one with plots folds it away under its table_title. The table's headers and cells
     may be texts or Cells."""
 
     key: str
@@ -404,6 +505,7 @@ class Figure:
     legend: list = field(default_factory=list)
     table_headers: list = field(default_factory=list)
     table_rows: list = field(default_factory=list)
+    table_title: str = "Numbers by day"
 
     def __post_init__(self):
         self.table_headers = [_cell(header) for header in self.table_headers]
@@ -428,7 +530,8 @@ class GraphsAdminMixin:
     graphs_context(request, days) builds the page's context: range_text, tiles, figures
     and hover_sources, or just empty_text while there's nothing to show. It may add a
     select, a dict of name, label and options (each a value, label and selected), shown
-    beside the time ranges and kept as they change.
+    beside the time ranges and kept as they change, and page_links, each a label and an
+    href, to a ModelAdmin's other chart pages, which chart_page draws the same way.
     """
 
     change_list_template = "admin/charts/change_list.html"
@@ -442,6 +545,14 @@ class GraphsAdminMixin:
         # Ahead of the ModelAdmin's own, whose <object_id>/ would take graphs/ for an id.
         return [path("graphs/", self.admin_site.admin_view(self.graphs_view), name=name), *super().get_urls()]
 
+    def chart_page(self, request, title, context):
+        return TemplateResponse(request, "admin/charts/page.html", {
+            **self.admin_site.each_context(request),
+            "opts": self.opts,
+            "title": title,
+            **context,
+        })
+
     def graphs_view(self, request):
         if not self.has_view_permission(request):
             raise PermissionDenied
@@ -451,10 +562,7 @@ class GraphsAdminMixin:
             params = request.GET.copy()
             params["days"] = one
             windows.append({"label": f"Last {one} days", "href": f"?{params.urlencode()}", "selected": one == days})
-        return TemplateResponse(request, "admin/charts/page.html", {
-            **self.admin_site.each_context(request),
-            "opts": self.opts,
-            "title": self.graphs_title,
+        return self.chart_page(request, self.graphs_title, {
             "days": days,
             "windows": windows,
             **self.graphs_context(request, days),

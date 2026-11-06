@@ -8,12 +8,12 @@
   {% endif %}
   {% for plot in figure.plots %}
     {% if plot.title %}<h3 class="viz-plot-title">{{ plot.title }}</h3>{% endif %}
-    {% include "admin/charts/plot.html" %}
+    {% include plot.template %}
   {% endfor %}
   {% if figure.plots %}<div class="viz-tooltip" aria-hidden="true" hidden></div>{% endif %}
   {% if figure.table_rows %}
     {% if figure.plots %}<details class="viz-table">
-      <summary>Numbers by day</summary>{% else %}<div class="viz-table">{% endif %}
+      <summary>{{ figure.table_title }}</summary>{% else %}<div class="viz-table">{% endif %}
       <table>
         <thead>
           <tr>{% for header in figure.table_headers %}<th scope="col"{% if not forloop.first and header.number %} class="viz-number"{% endif %}>{{ header.text }}</th>{% endfor %}</tr>

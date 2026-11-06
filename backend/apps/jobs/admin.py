@@ -1,8 +1,11 @@
 from datetime import timedelta
 
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
+from django.urls import path
 from django.utils.html import format_html
 
+from apps.jobs.busy_time import busy_time
 from apps.jobs.cron import JOBS_BY_NAME
 from apps.jobs.graphs import job_graphs
 from apps.jobs.models import JobRun
@@ -11,9 +14,10 @@ from core.utils.admin_charts import GraphsAdminMixin
 
 @admin.register(JobRun)
 class JobRunAdmin(GraphsAdminMixin, admin.ModelAdmin):
-    """View only: the scheduled commands write these as they run. Graphs of them are a
-    link away from the list."""
+    """View only: the scheduled commands write these as they run. Graphs of them, and the
+    minutes they took, are a link away from the list."""
 
+    change_list_template = "admin/jobs/jobrun/change_list.html"
     graphs_title = "Job run graphs"
     list_display = ("started_at", "job", "arguments", "status", "duration", "what_it_did")
     list_filter = ("job", "status")
@@ -51,3 +55,15 @@ class JobRunAdmin(GraphsAdminMixin, admin.ModelAdmin):
 
     def graphs_context(self, request, days):
         return job_graphs(days, job=request.GET.get("job", ""))
+
+    def get_urls(self):
+        # Ahead of the ModelAdmin's own, whose <object_id>/ would take it for an id.
+        return [
+            path("busy-time/", self.admin_site.admin_view(self.busy_time_view), name="jobs_jobrun_busy_time"),
+            *super().get_urls(),
+        ]
+
+    def busy_time_view(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        return self.chart_page(request, "Busy time", busy_time(request.GET.get("offset")))

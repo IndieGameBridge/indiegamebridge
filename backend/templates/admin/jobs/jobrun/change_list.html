@@ -1,0 +1,6 @@
+{% extends "admin/charts/change_list.html" %}
+
+{% block object-tools-items %}
+  <li><a href="{% url 'admin:jobs_jobrun_busy_time' %}">Busy time</a></li>
+  {{ block.super }}
+{% endblock %}

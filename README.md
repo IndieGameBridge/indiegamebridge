@@ -69,6 +69,7 @@ Every cron run is recorded: when it ran, how long it took, whether it failed, an
 
 - **Fetch runs:** run time against the 15-minute limit, where the time goes, and Helix requests per minute against Twitch's limit of 800, plus what each run collected, for all languages or one of them.
 - **Job runs:** a table of every job that flags the overdue ones, plus each job's run times and its counts per day.
+- **Busy time:** every job's runs minute by minute over a 3-hour window, for finding free minutes to deploy or to add a cron job in.
 - **Exports:** exports per day, and how many repeat an earlier one.
 
 The pipeline's jobs also ping Healthchecks.io when they succeed.

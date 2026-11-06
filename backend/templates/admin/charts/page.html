@@ -98,6 +98,13 @@
   .viz-marker-critical { fill: var(--viz-critical); }
   .viz-marker-warning { fill: var(--viz-warning); }
 
+  /* A timeline is a row as well: the names of its rows, then its minutes, which scroll
+     like a plot when they're wider than the page. */
+  .viz-timeline { display: grid; grid-template-columns: 190px minmax(0, 1fr); }
+  .viz-row-names { position: relative; height: var(--plot-height); }
+  .viz-row-names span { position: absolute; left: 0; transform: translateY(-50%); color: var(--body-fg); font-size: 0.75rem; white-space: nowrap; pointer-events: none; }
+  .viz-bar { fill: var(--c); shape-rendering: crispEdges; }
+
   .viz-tooltip { position: absolute; z-index: 10; min-width: 150px; max-width: 340px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--body-bg); color: var(--body-fg); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14); font-size: 0.8125rem; pointer-events: none; }
   .viz-tooltip-title { margin-bottom: 4px; color: var(--body-quiet-color); }
   .viz-tooltip-row { display: flex; align-items: baseline; gap: 6px; margin-top: 3px; }
@@ -117,25 +124,32 @@
 <a href="{% url 'admin:index' %}">Home</a>
 &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
 &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
-&rsaquo; Graphs
+&rsaquo; {{ breadcrumb|default:"Graphs" }}
 </div>
 {% endblock %}
 
 {% block content %}
 <div id="content-main" class="viz">
   <div class="viz-filters">
-    <nav class="viz-windows" aria-label="Time range">
-      {% for option in windows %}<a href="{{ option.href }}"{% if option.selected %} aria-current="page"{% endif %}>{{ option.label }}</a>{% endfor %}
-    </nav>
+    {% if windows %}
+      <nav class="viz-windows" aria-label="Time range">
+        {% for option in windows %}<a href="{{ option.href }}"{% if option.selected %} aria-current="page"{% endif %}>{{ option.label }}</a>{% endfor %}
+      </nav>
+    {% endif %}
     {% if select %}
       <form class="viz-select" method="get">
-        <input type="hidden" name="days" value="{{ days }}">
+        {% if days %}<input type="hidden" name="days" value="{{ days }}">{% endif %}
         <label for="viz-select">{{ select.label }}</label>
         <select id="viz-select" name="{{ select.name }}" onchange="this.form.submit()">
           {% for option in select.options %}<option value="{{ option.value }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>{% endfor %}
         </select>
         <noscript><button type="submit">Show</button></noscript>
       </form>
+    {% endif %}
+    {% if page_links %}
+      <nav class="viz-windows" aria-label="Other chart pages">
+        {% for link in page_links %}<a href="{{ link.href }}">{{ link.label }}</a>{% endfor %}
+      </nav>
     {% endif %}
   </div>
   {% if figures %}

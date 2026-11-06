@@ -1,0 +1,17 @@
+{% load l10n %}{% localize off %}
+<div class="viz-timeline" style="--plot-height: {{ plot.height }}px">
+  <div class="viz-row-names" aria-hidden="true">{% for row in plot.rows %}<span style="top: {{ row.middle }}px">{{ row.label }}</span>{% endfor %}</div>
+  <div class="viz-scroll" data-now="100" data-group="timeline">
+    <div class="viz-canvas" style="min-width: {{ plot.width }}px">
+      <svg class="viz-plot" viewBox="0 0 {{ plot.width }} {{ plot.height }}" preserveAspectRatio="none" role="img" aria-label="{{ plot.label }}" tabindex="0" data-source="{{ plot.hover }}" data-fields="{{ plot.fields_json }}">
+        {% for row in plot.rows %}<line class="viz-grid" x1="0" x2="{{ plot.width }}" y1="{{ row.bottom }}" y2="{{ row.bottom }}"/>{% endfor %}
+        {% for x in plot.gridlines %}<line class="viz-grid" x1="{{ x }}" x2="{{ x }}" y1="0" y2="{{ plot.base }}"/>{% endfor %}
+        {% for x in plot.hour_lines %}<line class="viz-baseline" x1="{{ x }}" x2="{{ x }}" y1="0" y2="{{ plot.base }}"/>{% endfor %}
+        {% for bar in plot.bars %}<rect class="viz-bar" style="--c: var(--viz-{{ bar.color }})" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ plot.bar_height }}"/>{% endfor %}
+        <line class="viz-cursor" x1="0" x2="0" y1="0" y2="{{ plot.base }}"/>
+      </svg>
+      {% for label in plot.x_labels %}<span class="viz-x-label" style="left: {{ label.left }}%; top: {{ plot.x_label_top }}px">{{ label.text }}</span>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endlocalize %}
