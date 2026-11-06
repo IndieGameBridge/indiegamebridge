@@ -98,12 +98,22 @@ class ListExportTests(TestCase):
 
         self.assertEqual(len(self._streamers()), PAGE_SIZE + 1)
 
-    def test_stats_come_from_the_lists_language(self):
+    def test_a_streamer_outside_the_lists_language_shows_in_their_main_one(self):
         self._add(self._make_streamer(1, "moved_on", languages=("fr",)))
 
         (streamer,) = self._streamers()
 
         self.assertEqual(streamer["twitch_login"], "moved_on")
+        self.assertEqual(streamer["language"], "French")
+        self.assertIsNotNone(streamer["max_viewers"])
+
+    def test_a_streamer_gone_quiet_in_every_language_has_no_stats(self):
+        self._add(self._make_streamer(1, "quiet", languages=()))
+
+        (streamer,) = self._streamers()
+
+        self.assertEqual(streamer["twitch_login"], "quiet")
+        self.assertIsNone(streamer["language"])
         self.assertIsNone(streamer["max_viewers"])
 
     def test_a_list_made_by_hand_shows_each_streamer_in_their_main_language(self):

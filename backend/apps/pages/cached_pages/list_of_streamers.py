@@ -34,10 +34,7 @@ class ListOfStreamersPageBuilder(BaseCachedPageBuilder):
             "show_more": "Show More",
             "loading": "Loading...",
             "load_error": "Couldn't load more streamers. Reload the page and try again.",
-            "no_stats": "No streams in this list's language in the last 4 weeks.",
-            # A list made by hand shows each streamer in their main language, so
-            # this one means no streams in any language.
-            "no_stats_any": "No streams in the last 4 weeks.",
+            "no_stats": "No streams in the last 4 weeks.",
             "removed": "Removed streamer",
             "removed_note": "This streamer opted out, so their details are gone. Your note stays.",
             "note_label": "Note",

@@ -242,6 +242,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.AllowAny",
     ),
+    # DRF's defaults, with its JSON parser swapped for one that takes objects only.
+    "DEFAULT_PARSER_CLASSES": (
+        "core.utils.parsers.JsonObjectParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
+    ),
     # Global ceiling applied to every endpoint that doesn't override
     # throttle_classes: anon requests keyed by client IP, authed by user id.
     # Views that need a tighter, endpoint-specific cap layer ScopedRateThrottle

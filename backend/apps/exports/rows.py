@@ -52,21 +52,21 @@ def search_rows(search: StreamerSearch) -> list[dict]:
 def list_rows(list_of_streamers) -> list[dict]:
     """Every entry of the list in saved order, with the stats its page shows.
 
-    As on the page (ListDetailView), a list saved from a search shows its
-    streamers in that search's language, and one made by hand shows each in
-    their main language. An entry whose streamer opted out keeps only the
-    owner's note and date.
+    As on the page (ListDetailView), each streamer is in the language of the
+    search the list was saved from, or else in their main one. An entry whose
+    streamer opted out keeps only the owner's note and date.
     """
     entries = list(list_of_streamers.entries.select_related("streamer_profile"))
     profile_ids = [entry.streamer_profile_id for entry in entries if entry.streamer_profile_id]
+    language = None
     if list_of_streamers.search_filters:
         language = StreamerSearch(list_of_streamers.search_filters).filters["lang"]
-        stats = StreamerSearch.stats_for_profiles(profile_ids, language)
+    stats = StreamerSearch.stats_for_list(profile_ids, language)
+    if language:
+        # The file always names the language, where the page leaves the list's own unsaid.
         language_label = StreamerSearch.language_label(language)
         for one_stats in stats.values():
-            one_stats["language"] = language_label
-    else:
-        stats = StreamerSearch.main_language_stats_for_profiles(profile_ids)
+            one_stats.setdefault("language", language_label)
 
     rows = []
     for entry in entries:

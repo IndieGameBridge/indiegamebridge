@@ -98,15 +98,41 @@ class ListDetailTests(TestCase):
         )
 
     def test_stats_come_from_the_lists_language(self):
-        # The list was searched in English. A streamer who now only streams in
-        # French stays in it, just without numbers to show.
-        self._add(self._make_streamer(1, "bilingual", languages=("en", "fr")))
-        self._add(self._make_streamer(2, "moved_on", languages=("fr",)))
+        # The list was searched in English, so that's what shows, even for a streamer
+        # with more hours in French, and it needs no line saying so.
+        streamer = self._make_streamer(1, "bilingual", languages=("en", "fr"))
+        StreamerSearchStats.objects.filter(streamer_profile=streamer, language="fr").update(
+            total_duration_seconds=72000, peak_viewers=300,
+        )
+        self._add(streamer)
 
-        entries = self._get().data["entries"]
+        (entry,) = self._get().data["entries"]
 
-        self.assertIsNotNone(entries[0]["streamer"]["stats"])
-        self.assertIsNone(entries[1]["streamer"]["stats"])
+        self.assertEqual(entry["streamer"]["stats"]["peak_viewers"], 100)
+        self.assertNotIn("language", entry["streamer"]["stats"])
+
+    def test_a_streamer_outside_the_lists_language_shows_in_their_main_one(self):
+        # Added from another language's search or by hand, or moved on since. They
+        # keep their numbers, and the row says which language those are in.
+        streamer = self._make_streamer(1, "moved_on", languages=("de", "fr"))
+        StreamerSearchStats.objects.filter(streamer_profile=streamer, language="fr").update(
+            total_duration_seconds=72000, peak_viewers=300,
+        )
+        self._add(streamer)
+        self._add(self._make_streamer(2, "stayed"))
+
+        moved_on, stayed = self._get().data["entries"]
+
+        self.assertEqual(moved_on["streamer"]["stats"]["language"], "French")
+        self.assertEqual(moved_on["streamer"]["stats"]["peak_viewers"], 300)
+        self.assertNotIn("language", stayed["streamer"]["stats"])
+
+    def test_a_streamer_gone_quiet_in_every_language_has_no_stats(self):
+        self._add(self._make_streamer(1, "quiet", languages=()))
+
+        (entry,) = self._get().data["entries"]
+
+        self.assertIsNone(entry["streamer"]["stats"])
 
     def test_an_opted_out_streamer_comes_back_anonymized_with_its_note(self):
         streamer = self._make_streamer(1, "gone")
@@ -163,7 +189,6 @@ class ListDetailTests(TestCase):
     def test_describes_the_search_it_was_saved_from(self):
         data = self._get().data
 
-        self.assertTrue(data["from_search"])
         self.assertIn({"label": "Language", "value": "English"}, data["search"])
         # No max was set, so the summary shows an open-ended range.
         self.assertIn({"label": "Avg Viewers", "value": "5+"}, data["search"])
@@ -179,7 +204,6 @@ class ListDetailTests(TestCase):
 
         data = self._get(list_id=by_hand.id).data
 
-        self.assertFalse(data["from_search"])
         self.assertEqual(data["search"], [])
         stats = data["entries"][0]["streamer"]["stats"]
         self.assertEqual(stats["language"], "French")

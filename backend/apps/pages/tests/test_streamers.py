@@ -22,7 +22,7 @@ class StreamersPageTests(TestCase):
             peak_viewers=peak_viewers,
             avg_viewers=50,
             total_duration_seconds=36000,
-            streams_count=5,
+            streams_count=8,
             host_login=profile.host_login,
             host_display_name=profile.host_display_name,
         )

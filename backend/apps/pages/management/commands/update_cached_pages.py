@@ -46,8 +46,8 @@ class Command(RecordedCommand):
             "keys",
             nargs="*",
             help="Page keys to rebuild (e.g. 'home'). Omit to rebuild every page."
-                " Use this for the hourly cron ('home' and 'streamers', whose caches hold"
-                " real streamers and games); rebuild all pages when their text changes.",
+                " The hourly cron rebuilds every page; give keys in a deploy, for the pages"
+                " whose text changed, so the new text doesn't wait for the next run.",
         )
 
     def handle(self, *args, **options):

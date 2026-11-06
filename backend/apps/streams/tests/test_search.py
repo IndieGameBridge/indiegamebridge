@@ -24,7 +24,7 @@ from apps.streams.models import (
 from apps.streams.search import StreamerSearch
 
 # StreamerSearch applies the search form's defaults to every call (peak 51-200, avg
-# 5-200, >= 4 streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
+# 5-200, >= 8 streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
 # not "no filters". The tests below probe one filter at a time against deliberately
 # tiny fixtures, so they neutralise the rest explicitly: "any" is the config's
 # no-filter sentinel, and streamsmin has no "any" option so it takes its lowest
@@ -354,12 +354,12 @@ class RebuildAndSearchTests(TestCase):
 
     def test_default_filters_apply_when_none_are_given(self):
         # A bare search is the form's default search, not an unfiltered one. Locks
-        # the defaults (>= 4 streams, >= 8 hours) that moved once already and left
+        # the defaults (>= 8 streams, >= 8 hours) that have moved before and left
         # every other search test here asserting an empty result set.
         casual = self._make_streamer(1, "casual")
         regular = self._make_streamer(2, "regular")
         self._make_stream(casual, 1, max_viewers=60, avg_viewers=20, duration=3600)
-        for i in range(4):
+        for i in range(8):
             self._make_stream(regular, 10 + i, max_viewers=60, avg_viewers=20, duration=3 * 3600)
         self._rebuild()
 

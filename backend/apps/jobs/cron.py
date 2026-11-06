@@ -46,7 +46,7 @@ JOBS = (
     Job("rebuild_genre_stats", timedelta(days=1), (
         ("rows", "Genre and language rows"),
     )),
-    # Hourly for the pages that hold real rows, plus every page once a day.
+    # Every page: a run takes seconds, and it takes an opted-out streamer off Home within the hour.
     Job("update_cached_pages", timedelta(hours=1), (
         ("pages", "Pages rebuilt"),
     )),

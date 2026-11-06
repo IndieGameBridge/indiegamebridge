@@ -4,7 +4,7 @@ export type StreamerStatsData = {
     streams_count: number;
     hours_streamed: number;
     genres: string[];
-    // Only on lists made by hand, which mix languages: the one these stats are in.
+    // Only where a saved list mixes languages: the one these stats are in.
     language?: string;
     // The days of the last 28 with a stream, as days ago: 0 is today. Absent from a
     // cached page until its text is rebuilt with it.

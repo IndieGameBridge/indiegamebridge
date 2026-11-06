@@ -16,8 +16,7 @@ export type ListEntry = {
     streamer: {
         login: string;
         display_name: string;
-        // null when they have no recent streams in the list's language, or for
-        // a list made by hand, in any language.
+        // null when they have no recent streams in any language.
         stats: StreamerStatsData | null;
     } | null;
 };
@@ -29,8 +28,6 @@ export type ListDetail = {
     labels: ListLabel[];
     created_at: string;
     streamers_count: number;
-    // False for a list made by hand: its stats are in each streamer's main language.
-    from_search: boolean;
     search: { label: string; value: string }[];
     entries: ListEntry[];
 };
@@ -46,7 +43,6 @@ export type ListEntriesLabels = EntryNoteLabels & {
     loading: string;
     load_error: string;
     no_stats: string;
-    no_stats_any: string;
     removed: string;
     removed_note: string;
 };
@@ -161,9 +157,7 @@ export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEn
                         ? <StreamerStats stats={entry.streamer.stats} />
                         : (
                             <p className="border-t border-t-gray-300 py-4 text-sm text-gray-600">
-                                {!entry.streamer
-                                    ? labels.removed_note
-                                    : list.from_search ? labels.no_stats : labels.no_stats_any}
+                                {entry.streamer ? labels.no_stats : labels.removed_note}
                             </p>
                         )}
 

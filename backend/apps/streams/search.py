@@ -117,7 +117,7 @@ class StreamerSearch:
     def main_language_stats_for_profiles(cls, profile_ids) -> dict[int, dict]:
         """Given streamers' stats in each one's main language, keyed by profile id.
 
-        For lists made by hand, which have no search language to show stats in.
+        For a list's streamers it has no language to show in, or none of theirs.
         The main language is the one with the most hours streamed in the window;
         more streams, then the language code, break ties. Each row names its
         language the way the search form does, since a list can mix them.
@@ -134,6 +134,20 @@ class StreamerSearch:
             row["language"] = cls.language_label(row["language"])
             stats[row.pop("streamer_profile_id")] = cls._format_stats(row)
         return stats
+
+    @classmethod
+    def stats_for_list(cls, profile_ids, language: str | None) -> dict[int, dict]:
+        """A saved list's streamers' stats, keyed by profile id.
+
+        Each shows in the list's language, the one its search ran in, so the list
+        reads like the results it came from. A streamer with no recent streams in
+        it shows in their main language instead, and the row names that language.
+        So does everyone in a list made by hand, whose language is None. Only a
+        streamer with no recent streams at all is absent.
+        """
+        stats = cls.stats_for_profiles(profile_ids, language) if language else {}
+        others = [profile_id for profile_id in profile_ids if profile_id not in stats]
+        return stats | cls.main_language_stats_for_profiles(others)
 
     @classmethod
     def language_label(cls, language: str) -> str:
@@ -357,7 +371,7 @@ class StreamerSearch:
                 name="streams",
                 label="Streams",
                 min_values=__class__._get_streams_filter_values(),
-                min_default=4,
+                min_default=8,
                 max_values=__class__._get_streams_filter_values() + [{"v": "any", "l": "Max"}],
                 max_default="any",
             ),

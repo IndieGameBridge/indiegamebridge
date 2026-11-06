@@ -36,7 +36,7 @@ The system has two halves: scheduled management commands that **collect and shap
 | `rebuild_game_stats` | every 6 hours | Counts the streams live in each hour of the last 4 weeks, per game, language and streamer size, and sorts each list once, for the Games page. |
 | `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
-| `update_cached_pages` | daily, and hourly for Home and Streamers | Pre-renders the pages' payloads. Those two hold real streamers and games, so the hourly run keeps their numbers fresh and takes an opted-out streamer off them within the hour. |
+| `update_cached_pages` | hourly | Pre-renders the pages' payloads. Home and Streamers hold real streamers and games, so the hourly run keeps their numbers fresh and takes an opted-out streamer off them within the hour. |
 | `delete_expired_personal_data` | daily | Deletes personal data older than 12 months. |
 | `remove_opted_out_from_archive` | weekly | Rewrites the archive files that still hold streamers who opted out. |
 | `archive_streams` | monthly | Writes the month that left the retention window to a Parquet file. |

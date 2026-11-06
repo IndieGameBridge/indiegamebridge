@@ -24,8 +24,8 @@ class ListDetailView(APIView):
 
     Each entry carries the streamer's current stats in the list's language - the
     one its search ran in - so the list reads like the results it came from, with
-    live numbers. A list made by hand has no such language, so each of its
-    streamers shows in their main one instead.
+    live numbers. A streamer with no recent streams in it shows in their main
+    language instead, as everyone does in a list made by hand, which has none.
 
     PATCH edits the title and note, DELETE removes the list with its entries.
     Both are light writes, left on the global per-user throttle. Another user's
@@ -59,11 +59,7 @@ class ListDetailView(APIView):
             if list_of_streamers.search_filters
             else None
         )
-        stats = (
-            StreamerSearch.stats_for_profiles(profile_ids, search.filters["lang"])
-            if search
-            else StreamerSearch.main_language_stats_for_profiles(profile_ids)
-        )
+        stats = StreamerSearch.stats_for_list(profile_ids, search.filters["lang"] if search else None)
 
         return Response({
             "id": list_of_streamers.id,
@@ -75,8 +71,6 @@ class ListDetailView(APIView):
             ],
             "created_at": list_of_streamers.created_at.isoformat(),
             "streamers_count": list_of_streamers.entries.count(),
-            # Whether the list came from a search, which only those can re-run.
-            "from_search": search is not None,
             "search": search.describe() if search else [],
             "entries": [self._entry(entry, stats) for entry in entries],
         })
@@ -124,8 +118,7 @@ class ListDetailView(APIView):
             "streamer": None if profile is None else {
                 "login": profile.host_login,
                 "display_name": profile.host_display_name,
-                # None when they have no recent streams in the list's language,
-                # or for a list made by hand, none at all.
+                # None when they have no recent streams in any language.
                 "stats": stats.get(profile.id),
             },
         }
