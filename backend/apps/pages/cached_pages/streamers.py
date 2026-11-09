@@ -3,6 +3,7 @@ from .base import BaseCachedPageBuilder
 from .export_menu import export_menu_labels
 from .home import HomePageBuilder
 from .list_form import list_form_labels
+from .pagination import pagination_labels
 from apps.streams.languages import PAGE_LANGUAGES, names_of
 from apps.streams.search import MAX_RESULTS, StreamerSearch
 
@@ -55,8 +56,9 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                 "found_count_one": "Found 1 streamer",
                 "view_profile": "View Profile",
                 "login_to_view_profile": "Log in to see profile",
+                # The logged-out demo's link to the login page.
                 "show_more": "Show More",
-                "loading": "Loading...",
+                "pagination": pagination_labels(),
             },
             "add_to_list": add_to_list_labels(),
             "export": export_menu_labels(),

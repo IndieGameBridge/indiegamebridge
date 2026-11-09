@@ -3,6 +3,7 @@ from datetime import date, datetime, time, timezone as dt_timezone
 from django.utils import timezone
 
 from .base import BaseCachedPageBuilder
+from .pagination import pagination_labels
 from apps.streams.game_search import GameSearch
 from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES, collected_since, day_month_year
 from apps.streams.management.commands.rebuild_game_stats import WINDOW_HOURS
@@ -57,8 +58,7 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                 "no_data": "The game numbers are being built. Check back soon.",
                 "game_column": "Game",
                 "hours_caption": "Streams live in each hour, UTC",
-                "show_more": "Show More",
-                "loading": "Loading...",
+                "pagination": pagination_labels(),
                 "chart": {
                     "language": "Language",
                     "all_languages": "All",

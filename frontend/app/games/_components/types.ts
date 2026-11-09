@@ -1,3 +1,6 @@
+import type { PaginationLabels } from "../../_components/Pagination";
+import type { Paging } from "../../_lib/paging";
+
 export type GameFilter = {
     name: string;
     label: string;
@@ -14,7 +17,7 @@ export type GameRow = {
     recent_streams: number[];
 };
 
-export type GameSearchResponse = {
+export type GameSearchResponse = Paging & {
     results: GameRow[];
     total: number;
     // Whole hours since the Unix epoch; null until the stats have first been built.
@@ -55,7 +58,6 @@ export type GameListLabels = {
     no_data: string;
     game_column: string;
     hours_caption: string;
-    show_more: string;
-    loading: string;
+    pagination: PaginationLabels;
     chart: GameChartLabels;
 };

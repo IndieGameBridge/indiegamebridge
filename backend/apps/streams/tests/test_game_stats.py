@@ -449,12 +449,28 @@ class GameApiTests(GameStatsTestCase):
         self.assertEqual((data["total"], data["newest_hour"]), (1, NEWEST_HOUR))
         self.assertEqual(data["results"][0]["recent_streams"], [2, 0, 0])
 
-    def test_search_is_public_and_pages(self):
+    def test_search_pages_by_number(self):
+        for number in range(3):
+            self._streams(self._game(f"game {number}"), number + 1, age=0)
+        self._rebuild()
+
+        # Two a page, so the three games make two pages.
+        with mock.patch("apps.api.views.GAME_PAGE_SIZE", 2):
+            data = self.client.get("/games/", {"lang": "en", "p": "2"}).json()
+
+        self.assertEqual((data["page"], data["pages"], data["page_size"]), (2, 2, 2))
+        self.assertEqual([row["name"] for row in data["results"]], ["game 0"])
+
+    def test_search_is_public_and_keeps_the_page_in_range(self):
         self._stream({self._game("one"): [0]})
         self._rebuild()
 
-        self.assertEqual(self.client.get("/games/", {"p": "2"}).json()["results"], [])
-        self.assertEqual(self.client.get("/games/", {"p": "nonsense"}).json()["total"], 1)
+        # One game is one page: a later page reads as it, and so does one that isn't a number.
+        for raw in ("2", "nonsense"):
+            with self.subTest(p=raw):
+                data = self.client.get("/games/", {"p": raw}).json()
+                self.assertEqual((data["page"], data["pages"], data["total"]), (1, 1, 1))
+                self.assertEqual(len(data["results"]), 1)
 
     def test_hours_endpoint(self):
         game = self._game("one")

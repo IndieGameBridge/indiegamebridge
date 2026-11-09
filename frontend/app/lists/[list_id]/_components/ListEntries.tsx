@@ -5,7 +5,9 @@ import { ProgressLink as Link } from "../../../_components/ProgressLink";
 import { useRouter } from "next/navigation";
 
 import type { ListLabel } from "../../../_components/LabelChip";
+import { Pagination, PaginationLabels } from "../../../_components/Pagination";
 import { StreamerStats, StreamerStatsData } from "../../../_components/StreamerStats";
+import type { Paging } from "../../../_lib/paging";
 import { EntryNote, EntryNoteLabels } from "./EntryNote";
 
 export type ListEntry = {
@@ -21,7 +23,8 @@ export type ListEntry = {
     } | null;
 };
 
-export type ListDetail = {
+// One page of the list's entries: `page` is the one shown, which the API keeps in range.
+export type ListDetail = Paging & {
     id: number;
     title: string;
     description: string;
@@ -39,9 +42,7 @@ export type ListEntriesLabels = EntryNoteLabels & {
     remove_btn: string;
     remove_confirm: string;
     remove_error: string;
-    show_more: string;
-    loading: string;
-    load_error: string;
+    pagination: PaginationLabels;
     no_stats: string;
     removed: string;
     removed_note: string;
@@ -54,36 +55,13 @@ function readCookie(name: string): string {
 
 export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEntriesLabels }) {
     const router = useRouter();
-    const [entries, setEntries] = useState<ListEntry[]>(list.entries);
-    // Kept here rather than read from the list, which only changes once the page
-    // around this has re-rendered after a removal.
-    const [streamersCount, setStreamersCount] = useState(list.streamers_count);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+    // A removed entry goes at once, before the page has reloaded without it.
+    const [removedIds, setRemovedIds] = useState<number[]>([]);
     const [removingId, setRemovingId] = useState<number | null>(null);
     const [removeErrorId, setRemoveErrorId] = useState<number | null>(null);
-    const hasMore = entries.length < streamersCount;
-
-    async function handleShowMore() {
-        if (loading) return;
-        setLoading(true);
-        setError("");
-        try {
-            // From the number shown rather than a page number: entries removed
-            // here move the rest up, and a page number would skip past them.
-            const response = await fetch(`/api/lists/${list.id}/?offset=${entries.length}`, { credentials: "include" });
-            if (!response.ok) {
-                throw new Error(`List page request failed (status ${response.status})`);
-            }
-            const data: ListDetail = await response.json();
-            setEntries((prev) => [...prev, ...data.entries]);
-            setStreamersCount(data.streamers_count);
-        } catch {
-            setError(labels.load_error);
-        } finally {
-            setLoading(false);
-        }
-    }
+    const entries = list.entries.filter((entry) => !removedIds.includes(entry.id));
+    // Numbered through the whole list, so page 2's first is #51.
+    const firstNumber = (list.page - 1) * list.page_size + 1;
 
     async function handleRemove(entryId: number) {
         if (removingId !== null || !window.confirm(labels.remove_confirm)) return;
@@ -106,13 +84,13 @@ export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEn
             setRemoveErrorId(entryId);
             return;
         }
-        setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
-        setStreamersCount((count) => count - 1);
-        // The page header shows the streamer count too.
+        setRemovedIds((ids) => [...ids, entryId]);
+        // The page header shows the streamer count too, and the next page's first entry
+        // moves up into this one. A last page left empty shows the one before it.
         router.refresh();
     }
 
-    if (entries.length === 0 && !hasMore) {
+    if (entries.length === 0 && list.pages === 1) {
         return (
             <div className="border-t border-t-gray-400 pt-8">
                 <p className="mb-8 text-gray-800">{labels.empty}</p>
@@ -129,7 +107,7 @@ export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEn
                 <div key={entry.id} className="border-t border-t-gray-400 pt-2 mb-16 bg-white">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-2 gap-6">
                         <div className="font-bold text-lg">
-                            <span className="text-gray-500 font-normal mr-1">#{index + 1} </span>
+                            <span className="text-gray-500 font-normal mr-1">#{firstNumber + index} </span>
                             <span>{entry.streamer ? entry.streamer.display_name : labels.removed}</span>
                         </div>
                         <div className="flex flex-col md:flex-row lg:flex-row md:items-center justify-end gap-6">
@@ -165,20 +143,7 @@ export function ListEntries({ list, labels }: { list: ListDetail; labels: ListEn
                 </div>
             ))}
 
-            {hasMore && (
-                <div className="text-center">
-                    <button
-                        type="button"
-                        onClick={handleShowMore}
-                        disabled={loading}
-                        className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
-                    >
-                        {labels.show_more}
-                    </button>
-                    {loading && <div className="pt-2 text-sm text-gray-600">{labels.loading}</div>}
-                    {error && <div role="alert" className="pt-2 text-sm text-red-600">{error}</div>}
-                </div>
-            )}
+            <Pagination path={`/lists/${list.id}`} query="" page={list.page} pages={list.pages} labels={labels.pagination} />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 from .base import BaseCachedPageBuilder
 from .export_menu import export_menu_labels
 from .list_form import list_form_labels
+from .pagination import pagination_labels
 from apps.userlists.views.list_entry import MAX_NOTE
 
 
@@ -31,9 +32,7 @@ class ListOfStreamersPageBuilder(BaseCachedPageBuilder):
             "remove_btn": "Remove from list",
             "remove_confirm": "Remove this streamer from the list? Your note on them goes too.",
             "remove_error": "Couldn't remove the streamer. Reload the page and try again.",
-            "show_more": "Show More",
-            "loading": "Loading...",
-            "load_error": "Couldn't load more streamers. Reload the page and try again.",
+            "pagination": pagination_labels(),
             "no_stats": "No streams in the last 4 weeks.",
             "removed": "Removed streamer",
             "removed_note": "This streamer opted out, so their details are gone. Your note stays.",

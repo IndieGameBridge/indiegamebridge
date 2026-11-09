@@ -15,6 +15,7 @@ import {
 } from "../_components";
 import { ExportMenu, ExportMenuLabels } from "../_components/ExportMenu";
 import { CurrentUser, getCurrentUser } from "../_lib/auth";
+import { Paging, RESULTS_ANCHOR, pageParam } from "../_lib/paging";
 import { serverFetch } from "../_lib/server-fetch";
 import { LoadingNote } from "./_components/LoadingNote";
 import { PublicPageCopy, PublicStreamers } from "./_components/PublicStreamers";
@@ -42,7 +43,7 @@ type StreamersPageContent = {
     footer_content: PageFooterContent;
 };
 
-type SearchResponse = {
+type SearchResponse = Paging & {
     filters: Record<string, unknown>;
     results: StreamerData[];
     total: number;
@@ -78,10 +79,12 @@ export async function generateMetadata(): Promise<Metadata> {
     };
 }
 
+// The search's filters from the address. The page isn't one: it stays out of the export, a
+// saved list and the key that starts a new search afresh.
 function buildSearchQuery(searchParams: { [key: string]: string | string[] | undefined }): string {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams)) {
-        if (value === undefined) continue;
+        if (value === undefined || key === "p") continue;
         if (Array.isArray(value)) {
             for (const v of value) params.append(key, v);
         } else {
@@ -94,13 +97,17 @@ function buildSearchQuery(searchParams: { [key: string]: string | string[] | und
 // The results of a logged-in user's search. On its own under a Suspense boundary, so the
 // spinner belongs to the search alone: a logged-out visitor's page streams nothing and
 // arrives whole.
-async function SearchResults({ content, user, searchQuery }: {
+async function SearchResults({ content, user, searchQuery, page }: {
     content: StreamersPageContent;
     user: CurrentUser;
     searchQuery: string;
+    page: string | undefined;
 }) {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
-    const searchResp = await serverFetch(`${apiBase}/streamers/${searchQuery ? `?${searchQuery}` : ""}`);
+    const apiParams = new URLSearchParams(searchQuery);
+    if (page) apiParams.set("p", page);
+    const apiQuery = apiParams.toString();
+    const searchResp = await serverFetch(`${apiBase}/streamers/${apiQuery ? `?${apiQuery}` : ""}`);
 
     if (!searchResp.ok) {
         throw new Error(`Failed to run streamer search (status ${searchResp.status})`);
@@ -114,7 +121,7 @@ async function SearchResults({ content, user, searchQuery }: {
             user={user}
             labels={content.results_labels}
             total={search.total}
-            can_load_more
+            paging={{ page: search.page, pages: search.pages, page_size: search.page_size, query: searchQuery }}
             add_to_list={content.add_to_list}
             count_actions={search.total > 0
                 ? (
@@ -164,13 +171,16 @@ export default async function StreamersPage({
                 <section className="px-6">
                     <div className="max-w-[1000] mx-auto py-24">
                         {/* Keyed so each search starts fresh: the form takes its URL's filters,
-                            going back included, and the spinner shows while the results load. */}
+                            going back included, and the spinner shows while the results load.
+                            Another page of the same search keeps both, and its results replace
+                            these once they've loaded, under the progress bar. */}
                         <Fragment key={searchQuery}>
                             <SearchStreamerForm
                                 search_form={content.search_form}
                                 user={user}
                                 initial_values={sp}
                             />
+                            <div id={RESULTS_ANCHOR} className="scroll-mt-8" />
                             <Suspense
                                 fallback={
                                     <LoadingNote
@@ -179,7 +189,7 @@ export default async function StreamersPage({
                                     />
                                 }
                             >
-                                <SearchResults content={content} user={user} searchQuery={searchQuery} />
+                                <SearchResults content={content} user={user} searchQuery={searchQuery} page={pageParam(sp.p)} />
                             </Suspense>
                         </Fragment>
                     </div>

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { LanguageSwitch, PageFooter, PageFooterContent, PageHeader } from "../../_components";
 import type { CurrentUser } from "../../_lib/auth";
+import { RESULTS_ANCHOR, pageParam } from "../../_lib/paging";
 import { serverFetch } from "../../_lib/server-fetch";
 import { GamesList } from "./GamesList";
 import { GamesSearchForm, GamesSearchFormData } from "./GamesSearchForm";
@@ -102,8 +103,10 @@ export async function GamesView({ content, page, user, searchParams }: {
 }) {
     const copy = page ?? content;
     const query = filtersQuery(content, searchParams);
-    const apiQuery = [`lang=${page?.code ?? "all"}`, query].filter(Boolean).join("&");
-    const search = await searchGames(apiQuery);
+    // The list the filters pick; the page of it shown is asked for on top.
+    const listQuery = [`lang=${page?.code ?? "all"}`, query].filter(Boolean).join("&");
+    const resultsPage = pageParam(searchParams.p);
+    const search = await searchGames(resultsPage ? `${listQuery}&p=${encodeURIComponent(resultsPage)}` : listQuery);
 
     return (
         <Fragment>
@@ -123,17 +126,23 @@ export async function GamesView({ content, page, user, searchParams }: {
                             path={pathOf(page)}
                             initial_values={searchParams}
                         />
-                        <GamesList
-                            key={apiQuery}
-                            results={search.results}
-                            total={search.total}
-                            newest_hour={search.newest_hour}
-                            api_query={apiQuery}
-                            peak={one(searchParams.peak) ?? "any"}
-                            languages={content.language_pages.map(({ code, label, since_hour }) => ({ code, label, since_hour }))}
-                            default_language={page?.code ?? "all"}
-                            labels={content.labels}
-                        />
+                        <div id={RESULTS_ANCHOR} className="scroll-mt-8">
+                            {/* Keyed by the list: new filters start it afresh, while another page
+                                of the same list keeps the chart's language as picked. */}
+                            <GamesList
+                                key={listQuery}
+                                results={search.results}
+                                total={search.total}
+                                paging={{ page: search.page, pages: search.pages, page_size: search.page_size }}
+                                newest_hour={search.newest_hour}
+                                path={pathOf(page)}
+                                query={query}
+                                peak={one(searchParams.peak) ?? "any"}
+                                languages={content.language_pages.map(({ code, label, since_hour }) => ({ code, label, since_hour }))}
+                                default_language={page?.code ?? "all"}
+                                labels={content.labels}
+                            />
+                        </div>
                     </div>
                 </section>
             </main>

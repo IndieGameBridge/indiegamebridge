@@ -10,17 +10,17 @@ from rest_framework.views import APIView
 
 from apps.streams.search import PAGE_SIZE, StreamerSearch
 from apps.userlists.models import UserListOfStreamers
-from apps.userlists.views.list_entries import MAX_STREAMERS_PER_LIST
 from apps.userlists.views.lists import clean_description, clean_title
+from core.utils.paging import page_of
 
 
 @method_decorator(csrf_protect, name="dispatch")
 class ListDetailView(APIView):
     """One list and a page of its entries, in the order they were saved.
 
-    Pages are PAGE_SIZE entries from ?offset=N rather than numbered: the list
-    page removes entries as it goes, and the next page has to start right after
-    the ones still shown, wherever that now is.
+    Pages are PAGE_SIZE entries, numbered by ?p=N. The list page reloads its
+    page after each removal, so the entry that moves up from the next page
+    shows at the bottom, and none is skipped.
 
     Each entry carries the streamer's current stats in the list's language - the
     one its search ran in - so the list reads like the results it came from, with
@@ -41,12 +41,9 @@ class ListDetailView(APIView):
             owner=request.user,
         )
 
-        try:
-            # No list is longer than the cap, and an offset past Postgres's
-            # bigint would fail the query rather than come back empty.
-            offset = min(max(0, int(request.GET.get("offset", "0"))), MAX_STREAMERS_PER_LIST)
-        except ValueError:
-            offset = 0
+        streamers_count = list_of_streamers.entries.count()
+        page, pages = page_of(request.GET.get("p"), streamers_count, PAGE_SIZE)
+        offset = (page - 1) * PAGE_SIZE
         entries = list(
             list_of_streamers.entries.select_related("streamer_profile")[offset:offset + PAGE_SIZE]
         )
@@ -70,7 +67,10 @@ class ListDetailView(APIView):
                 for label in list_of_streamers.labels.all()
             ],
             "created_at": list_of_streamers.created_at.isoformat(),
-            "streamers_count": list_of_streamers.entries.count(),
+            "streamers_count": streamers_count,
+            "page": page,
+            "pages": pages,
+            "page_size": PAGE_SIZE,
             "search": search.describe() if search else [],
             "entries": [self._entry(entry, stats) for entry in entries],
         })

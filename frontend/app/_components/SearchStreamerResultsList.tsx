@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { ProgressLink as Link } from "./ProgressLink";
 
 import { CurrentUser } from "../_lib/auth";
-import { loadStreamersPage } from "../streamers/actions";
+import type { Paging } from "../_lib/paging";
 import { AddToList, AddToListLabels } from "./AddToList";
+import { PagePicker, Pagination, PaginationLabels } from "./Pagination";
 import { StreamerStats } from "./StreamerStats";
 
 export type StreamerData = {
@@ -24,8 +25,9 @@ export type ResultsListLabels = {
     found_count_one?: string;
     view_profile: string;
     login_to_view_profile: string;
+    // The public demo's link to the login page.
     show_more: string;
-    loading: string;
+    pagination: PaginationLabels;
 };
 
 const PROFILE_LINK_CLASSES = "text-sm align-baseline inline-block p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700";
@@ -35,7 +37,9 @@ type Props = {
     user: CurrentUser | null;
     labels: ResultsListLabels;
     total?: number;
-    can_load_more?: boolean;
+    // The page of a real search's results, with the search's filters for the other pages'
+    // addresses. The public demo shows its few rows with none.
+    paging?: Paging & { query: string };
     more_href?: string;
     // Shown beside the result count, e.g. the streamers page's "Save to list".
     count_actions?: React.ReactNode;
@@ -49,41 +53,38 @@ export function SearchStreamerResultsList({
     user,
     labels,
     total,
-    can_load_more = false,
+    paging,
     more_href,
     count_actions,
     add_to_list,
 }: Props) {
-    const [loadedResults, setLoadedResults] = useState<StreamerData[]>(search_results);
-    const [knownTotal, setKnownTotal] = useState<number>(total ?? search_results.length);
-    const [loadedPage, setLoadedPage] = useState(1);
-    const [loading, setLoading] = useState(false);
-    const hasMore = can_load_more && loadedResults.length < knownTotal;
-
-    async function handleShowMore() {
-        if (loading) return;
-        const nextPage = loadedPage + 1;
-        setLoading(true);
-        try {
-            const data = await loadStreamersPage(window.location.search, nextPage);
-            setLoadedResults((prev) => [...prev, ...data.results]);
-            setKnownTotal(data.total);
-            setLoadedPage(nextPage);
-        } finally {
-            setLoading(false);
-        }
-    }
+    // Rows are numbered through the whole search, so page 2's first is #51.
+    const firstNumber = paging ? (paging.page - 1) * paging.page_size + 1 : 1;
 
     return (
         <div>
-            {/* Result count, between the form and the listing; tracks Show More.
+            {/* Result count, between the form and the listing.
                 Only shown when a real total is supplied (the home demo passes none). */}
             {total !== undefined && labels.found_count && (
-                <div className="mb-8 flex flex-row flex-wrap items-center justify-between gap-4">
-                    <div className="text-lg text-brand-blue">
-                        {knownTotal === 1 && labels.found_count_one
-                            ? labels.found_count_one
-                            : labels.found_count.replace("{count}", knownTotal.toLocaleString())}
+                <div className="mb-8 flex flex-row flex-wrap items-start justify-between gap-4">
+                    {/* The page dropdown under the count, so another page is a pick away
+                        without going down to the end of this one. */}
+                    <div className="flex flex-col items-start gap-3">
+                        <div className="text-lg text-brand-blue">
+                            {total === 1 && labels.found_count_one
+                                ? labels.found_count_one
+                                : labels.found_count.replace("{count}", total.toLocaleString())}
+                        </div>
+                        {paging && (
+                            <PagePicker
+                                path="/streamers"
+                                query={paging.query}
+                                page={paging.page}
+                                pages={paging.pages}
+                                labels={labels.pagination}
+                                className="text-sm"
+                            />
+                        )}
                     </div>
                     {/* A Fragment's only child rather than a sibling in this row: an
                         element passed in from a server component can still be loading
@@ -92,12 +93,12 @@ export function SearchStreamerResultsList({
                 </div>
             )}
 
-            {loadedResults.map((one_result, index) => (
-                <div key={`search-result-${index}`} className="border-t border-t-gray-400 pt-2 mb-16 bg-white">
+            {search_results.map((one_result, index) => (
+                <div key={one_result.profile_id} className="border-t border-t-gray-400 pt-2 mb-16 bg-white">
 
                     {/* Listing header */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 items-center pb-2 gap-6">
-                        <div className="font-bold text-lg"><span className="text-gray-500 font-normal mr-1">#{index + 1} </span><span>{one_result.display_name}</span></div>
+                        <div className="font-bold text-lg"><span className="text-gray-500 font-normal mr-1">#{firstNumber + index} </span><span>{one_result.display_name}</span></div>
                         <div className="flex flex-col md:flex-row lg:flex-row justify-end gap-6">
                             {add_to_list && <AddToList profileId={one_result.profile_id} labels={add_to_list} />}
                             {user
@@ -117,24 +118,17 @@ export function SearchStreamerResultsList({
                 </div>
             ))}
 
-            {/* Show More */}
-            {hasMore && (
-                <div className="text-center">
-                    <button
-                        type="button"
-                        onClick={handleShowMore}
-                        disabled={loading}
-                        className="text-sm inline-block p-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 border border-blue-600 hover:border-blue-700 cursor-pointer disabled:bg-gray-400 disabled:border-gray-400 disabled:hover:bg-gray-400 disabled:hover:border-gray-400 disabled:cursor-not-allowed"
-                    >
-                        {labels.show_more}
-                    </button>
-                    {loading && (
-                        <div className="pt-2 text-sm text-gray-600">{labels.loading}</div>
-                    )}
-                </div>
+            {paging && (
+                <Pagination
+                    path="/streamers"
+                    query={paging.query}
+                    page={paging.page}
+                    pages={paging.pages}
+                    labels={labels.pagination}
+                />
             )}
 
-            {/* Demo Show More leaads to target URL */}
+            {/* Demo Show More leads to target URL */}
             {more_href && (
                 <div className="text-center">
                     <Link

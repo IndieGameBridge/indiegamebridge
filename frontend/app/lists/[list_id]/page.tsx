@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { getCurrentUser } from "../../_lib/auth";
 import { formatDate } from "../../_lib/format";
+import { RESULTS_ANCHOR, pageParam } from "../../_lib/paging";
 import { serverFetch } from "../../_lib/server-fetch";
 import { LabelChip, PageHeader, PageFooter, PageFooterContent } from "../../_components";
 import { ListActions, ListActionsLabels } from "./_components/ListActions";
@@ -27,8 +28,12 @@ export const metadata: Metadata = {
     robots: { index: false, follow: false },
 };
 
-export default async function ListPage({ params }: { params: Promise<{ list_id: string }> }) {
-    const { list_id } = await params;
+export default async function ListPage({ params, searchParams }: {
+    params: Promise<{ list_id: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+    const [{ list_id }, sp] = await Promise.all([params, searchParams]);
+    const page = pageParam(sp.p);
 
     const user = await getCurrentUser();
     if (!user) {
@@ -41,7 +46,7 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
     const cookieHeader = (await cookies()).toString();
     const [contentResp, listResp] = await Promise.all([
         serverFetch(`${apiBase}/pages/list_of_streamers/`),
-        serverFetch(`${apiBase}/api/lists/${encodeURIComponent(list_id)}/`, {
+        serverFetch(`${apiBase}/api/lists/${encodeURIComponent(list_id)}/${page ? `?p=${encodeURIComponent(page)}` : ""}`, {
             headers: { cookie: cookieHeader },
             cache: "no-store",
         }),
@@ -97,7 +102,9 @@ export default async function ListPage({ params }: { params: Promise<{ list_id: 
                             />
                         </div>
 
-                        <ListEntries list={list} labels={entriesLabels} />
+                        <div id={RESULTS_ANCHOR} className="scroll-mt-8">
+                            <ListEntries list={list} labels={entriesLabels} />
+                        </div>
                     </div>
                 </section>
             </main>

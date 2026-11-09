@@ -9,6 +9,7 @@ from apps.streams.game_search import PAGE_SIZE as GAME_PAGE_SIZE, GameSearch
 from apps.streams.models import StreamerProfile
 from apps.streams.profile import StreamerProfileStreams
 from apps.streams.search import PAGE_SIZE as SEARCH_PAGE_SIZE, StreamerSearch
+from core.utils.paging import page_of
 
 
 class CachedPageContentView(APIView):
@@ -57,7 +58,7 @@ class StreamerSearchView(APIView):
 
     Query params mirror the form field names. Multi-valued params (e.g. genre,
     week_days) can be repeated: ?week_days=1&week_days=5. Missing params fall
-    back to StreamerSearch.default_filters().
+    back to StreamerSearch.default_filters(). p is the page.
     """
 
     # Stricter per-IP cap (the "search" rate) on top of the global anon/user
@@ -68,19 +69,18 @@ class StreamerSearchView(APIView):
     throttle_scope = "search"
 
     def get(self, request):
-        try:
-            page = max(1, int(request.GET.get("p", "1")))
-        except ValueError:
-            page = 1
-        offset = (page - 1) * SEARCH_PAGE_SIZE
-
         # Param handling lives on StreamerSearch so that saving a search as a
         # list goes through exactly the same rules.
         search = StreamerSearch.from_query_params(request.GET)
+        total = search.total()
+        page, pages = page_of(request.GET.get("p"), total, SEARCH_PAGE_SIZE)
         return Response({
             "filters": search.filters,
-            "results": search.results(offset=offset, limit=SEARCH_PAGE_SIZE),
-            "total": search.total(),
+            "results": search.results(offset=(page - 1) * SEARCH_PAGE_SIZE, limit=SEARCH_PAGE_SIZE),
+            "total": total,
+            "page": page,
+            "pages": pages,
+            "page_size": SEARCH_PAGE_SIZE,
         })
 
 
@@ -92,16 +92,16 @@ class GameSearchView(APIView):
     """
 
     def get(self, request):
-        try:
-            page = max(1, int(request.GET.get("p", "1")))
-        except ValueError:
-            page = 1
-
         search = GameSearch.from_query_params(request.GET)
+        total = search.total()
+        page, pages = page_of(request.GET.get("p"), total, GAME_PAGE_SIZE)
         return Response({
             "filters": search.filters,
             "results": search.results(offset=(page - 1) * GAME_PAGE_SIZE, limit=GAME_PAGE_SIZE),
-            "total": search.total(),
+            "total": total,
+            "page": page,
+            "pages": pages,
+            "page_size": GAME_PAGE_SIZE,
             "newest_hour": search.newest_hour(),
         })
 
