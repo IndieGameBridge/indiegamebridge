@@ -1,0 +1,7 @@
+{% extends "admin/change_list.html" %}
+
+{% comment %}A changelist with the export dropdown, for a CsvExportAdminMixin with no graphs.{% endcomment %}
+{% block search %}
+  {{ block.super }}
+  {% include "admin/export_form.html" %}
+{% endblock %}

@@ -115,6 +115,7 @@ class ListExportTests(TestCase):
         self.assertEqual(streamer["twitch_login"], "quiet")
         self.assertIsNone(streamer["language"])
         self.assertIsNone(streamer["max_viewers"])
+        self.assertIsNone(streamer["dates_streamed"])
 
     def test_a_list_made_by_hand_shows_each_streamer_in_their_main_language(self):
         by_hand = self._make_list(self.user)
@@ -133,6 +134,7 @@ class ListExportTests(TestCase):
 
         self.assertIsNone(row["twitch_login"])
         self.assertIsNone(row["twitch_url"])
+        self.assertIsNone(row["days_streamed"])
         self.assertEqual(row["note"], "replied 3 Sep, wants a key")
 
     def test_links_back_to_the_list(self):

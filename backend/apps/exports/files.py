@@ -4,7 +4,8 @@ import csv
 import io
 import json
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from itertools import groupby
 
 import xlsxwriter
 
@@ -26,7 +27,13 @@ XLSX_COLUMN_WIDTHS = {
     "twitch_user_id": 14,
     "note": 50,
     "added_at": 18,
+    "days_streamed": 22,
+    "dates_streamed": 40,
 }
+
+# The months that days streamed are grouped under, in a spreadsheet cell. Spelled
+# out rather than taken from the server's locale, so every file reads the same.
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
 @dataclass
@@ -55,6 +62,7 @@ class About:
             lines.append((label, " · ".join(f"{one['label']}: {one['value']}" for one in self.search), False))
         lines.append(("Open on IndieGameBridge", self.url, True))
         lines.append(("Stats", f"From each streamer's streams in the {WINDOW_DAYS} days before the export.", False))
+        lines.append(("Days streamed", f"The days of those {WINDOW_DAYS} on which a stream started, in UTC.", False))
         if self.removed_streamers:
             lines.append((
                 "Opted out",
@@ -79,7 +87,8 @@ def write_xlsx(rows: list[dict], columns, about: About) -> bytes:
     for row_index, row in enumerate(rows, start=1):
         for col, (key, _) in enumerate(columns):
             value = row[key]
-            if value is None:
+            # Nothing to write, as for a streamer with no stats or no days streamed.
+            if value is None or value == []:
                 continue
             if key == "twitch_url":
                 sheet.write_url(row_index, col, value, string=value)
@@ -119,18 +128,29 @@ def write_csv(rows: list[dict], columns, about: About) -> bytes:
 
 
 def write_json(rows: list[dict], columns, about: About) -> bytes:
-    payload = {
-        "exported_from": "IndieGameBridge",
-        "exported_at": about.exported_at.isoformat(timespec="seconds"),
-        "source": about.source,
-        "title": about.title or None,
-        "search": about.search,
-        "url": about.url,
-        "stats_window_days": WINDOW_DAYS,
-        "streamers": [{key: _json_value(row[key]) for key, _ in columns} for row in rows],
-    }
     # Indented for reading in an editor; names stay as spelled, not \u-escaped.
-    return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    head = json.dumps(
+        {
+            "exported_from": "IndieGameBridge",
+            "exported_at": about.exported_at.isoformat(timespec="seconds"),
+            "source": about.source,
+            "title": about.title or None,
+            "search": about.search,
+            "url": about.url,
+            "stats_window_days": WINDOW_DAYS,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+    # One streamer to a line. Indenting them too put every genre and date on a line
+    # of its own, which made the file about 45% bigger.
+    streamers = ",\n".join(
+        "    " + json.dumps({key: _json_value(row[key]) for key, _ in columns}, ensure_ascii=False)
+        for row in rows
+    )
+    listing = f"[\n{streamers}\n  ]" if rows else "[]"
+    # The head ends with its closing "\n}": the streamers go in before it, as the last key.
+    return f'{head[:-2]},\n  "streamers": {listing}\n}}'.encode("utf-8")
 
 
 # Each format's content type and writer; the format is also the file extension.
@@ -145,12 +165,23 @@ FILE_TYPES = {
 
 
 def _text(value) -> str:
-    """A cell's text: genres joined, dates in UTC to the minute."""
+    """A cell's text: genres joined, days streamed by month, dates in UTC to the minute."""
     if isinstance(value, list):
+        if value and isinstance(value[0], date):
+            return _by_month(value)
         return ", ".join(value)
     if isinstance(value, datetime):
         return f"{value.astimezone(UTC):%Y-%m-%d %H:%M}"
     return str(value)
+
+
+def _by_month(days: list[date]) -> str:
+    """Days in order as "Oct 8, 10, 11; Nov 1". The years go unsaid: the 28 days end on
+    the export's date, so "Dec 30, 31; Jan 2" can only mean one thing."""
+    return "; ".join(
+        f"{MONTHS[month - 1]} " + ", ".join(str(one_day.day) for one_day in group)
+        for (_, month), group in groupby(days, key=lambda one_day: (one_day.year, one_day.month))
+    )
 
 
 def _csv_cell(value):
@@ -165,4 +196,7 @@ def _csv_cell(value):
 def _json_value(value):
     if isinstance(value, datetime):
         return value.isoformat(timespec="seconds")
+    # Days streamed: plain ISO dates, which any script reads as they are.
+    if isinstance(value, list) and value and isinstance(value[0], date):
+        return [one_day.isoformat() for one_day in value]
     return value

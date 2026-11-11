@@ -5,7 +5,7 @@ import dataclasses
 import io
 import json
 import zipfile
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from xml.etree import ElementTree
 
 from django.test import SimpleTestCase
@@ -39,6 +39,8 @@ def _row(**overrides) -> dict:
         "twitch_user_id": "123456789",
         "note": "replied, wants a key",
         "added_at": datetime(2026, 10, 20, 9, 30, tzinfo=UTC),
+        "days_streamed": 3,
+        "dates_streamed": [date(2026, 10, 30), date(2026, 10, 31), date(2026, 11, 2)],
     }
     row.update(overrides)
     return row
@@ -79,20 +81,35 @@ class CsvTests(SimpleTestCase):
             "smallstreamer", "SmallStreamer", "https://www.twitch.tv/smallstreamer", "English",
             "40", "12", "30", "9", "Indie, Platform", "123456789",
             "replied, wants a key", "2026-10-20 09:30",
+            "3", "Oct 30, 31; Nov 2",
         ])
+
+    def test_the_day_columns_come_last_so_older_columns_keep_their_places(self):
+        header, _ = self._read([_row()])
+
+        self.assertEqual(header[10:], ["Note", "Added to list (UTC)", "Days streamed (last 28)", "Dates streamed (UTC)"])
+
+    def test_days_streamed_across_a_new_year_read_in_order(self):
+        _, row = self._read([_row(dates_streamed=[date(2026, 12, 30), date(2026, 12, 31), date(2027, 1, 2)])])
+
+        self.assertEqual(row[-1], "Dec 30, 31; Jan 2")
 
     def test_text_that_would_run_as_a_formula_stays_text(self):
         for note in ('=HYPERLINK("https://example.com")', "+1", "-1", "@SUM(A1)"):
             with self.subTest(note=note):
                 _, row = self._read([_row(note=note)])
-                self.assertEqual(row[-2], f"'{note}")
+                self.assertEqual(row[10], f"'{note}")
 
     def test_a_streamer_without_stats_has_empty_cells(self):
-        no_stats = dict.fromkeys(("language", "max_viewers", "avg_viewers", "hours_streamed", "streams", "genres"))
+        no_stats = dict.fromkeys((
+            "language", "max_viewers", "avg_viewers", "hours_streamed", "streams", "genres",
+            "days_streamed", "dates_streamed",
+        ))
 
         _, row = self._read([_row(**no_stats)])
 
         self.assertEqual(row[3:9], [""] * 6)
+        self.assertEqual(row[12:], ["", ""])
 
 
 class XlsxTests(SimpleTestCase):
@@ -113,6 +130,14 @@ class XlsxTests(SimpleTestCase):
         # Excel counts days from 1899-12-30; the time of day is the fraction.
         days = (datetime(2026, 10, 20, 9, 30) - datetime(1899, 12, 30)).total_seconds() / 86400
         self.assertAlmostEqual(cells["L2"], days)
+        # How many days streamed is a number to sort by; which ones, text grouped by month.
+        self.assertEqual((cells["M2"], cells["N2"]), (3, "Oct 30, 31; Nov 2"))
+
+    def test_no_days_streamed_is_zero_with_an_empty_cell_beside_it(self):
+        cells = _xlsx_cells(write_xlsx([_row(days_streamed=0, dates_streamed=[])], LIST_COLUMNS, ABOUT))
+
+        self.assertEqual(cells["M2"], 0)
+        self.assertNotIn("N2", cells)
 
     def test_text_that_looks_like_a_formula_is_written_as_text(self):
         cells = _xlsx_cells(write_xlsx([_row(note="=1+1")], LIST_COLUMNS, ABOUT))
@@ -128,19 +153,20 @@ class XlsxTests(SimpleTestCase):
     def test_says_when_and_where_it_came_from(self):
         cells = _xlsx_cells(write_xlsx([_row()], LIST_COLUMNS, ABOUT), sheet=2)
 
-        about = {cells[f"A{row}"]: cells[f"B{row}"] for row in range(1, 6)}
+        about = {cells[f"A{row}"]: cells[f"B{row}"] for row in range(1, 7)}
         self.assertEqual(about["Exported"], "2026-10-28 14:03 UTC")
         self.assertEqual(about["List"], "to contact")
         self.assertEqual(about["Saved from"], "Language: English · Max Viewers: 5–200")
         self.assertEqual(about["Open on IndieGameBridge"], "https://indiegamebridge.test/lists/7")
+        self.assertEqual(about["Days streamed"], "The days of those 28 on which a stream started, in UTC.")
 
     def test_counts_the_streamers_who_opted_out(self):
         about = dataclasses.replace(ABOUT, removed_streamers=2)
 
         cells = _xlsx_cells(write_xlsx([_row()], LIST_COLUMNS, about), sheet=2)
 
-        self.assertEqual(cells["A6"], "Opted out")
-        self.assertTrue(cells["B6"].startswith("2 of these streamers opted out"))
+        self.assertEqual(cells["A7"], "Opted out")
+        self.assertTrue(cells["B7"].startswith("2 of these streamers opted out"))
 
     def test_an_empty_list_is_still_a_file_with_its_header(self):
         cells = _xlsx_cells(write_xlsx([], LIST_COLUMNS, ABOUT))
@@ -170,6 +196,26 @@ class JsonTests(SimpleTestCase):
         self.assertEqual(streamer["genres"], ["Indie", "Platform"])
         self.assertEqual(streamer["twitch_user_id"], "123456789")
         self.assertEqual(streamer["added_at"], "2026-10-20T09:30:00+00:00")
+        self.assertEqual(streamer["days_streamed"], 3)
+        self.assertEqual(streamer["dates_streamed"], ["2026-10-30", "2026-10-31", "2026-11-02"])
+
+    def test_puts_each_streamer_on_a_line_of_its_own(self):
+        content = write_json([_row(twitch_login="first"), _row(twitch_login="second")], LIST_COLUMNS, ABOUT).decode()
+
+        lines = [line for line in content.splitlines() if line.startswith('    {"twitch_login"')]
+        self.assertEqual(len(lines), 2)
+        self.assertIn('"dates_streamed": ["2026-10-30", "2026-10-31", "2026-11-02"]', lines[0])
+
+    def test_a_streamer_without_days_streamed_has_an_empty_list(self):
+        (streamer,) = self._read([_row(days_streamed=0, dates_streamed=[])])["streamers"]
+
+        self.assertEqual((streamer["days_streamed"], streamer["dates_streamed"]), (0, []))
+
+    def test_an_empty_list_is_still_a_file(self):
+        data = self._read([])
+
+        self.assertEqual(data["streamers"], [])
+        self.assertEqual(data["title"], "to contact")
 
     def test_keeps_names_as_spelled(self):
         content = write_json([_row(display_name="Zoé")], LIST_COLUMNS, ABOUT)

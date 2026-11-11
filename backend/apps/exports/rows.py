@@ -1,5 +1,9 @@
 """The streamers an export writes: one dict per row, whatever the file format."""
 
+from datetime import date, timedelta
+
+from django.utils import timezone
+
 from apps.streams.models import StreamerProfile
 from apps.streams.search import MAX_RESULTS, StreamerSearch
 
@@ -8,8 +12,9 @@ TWITCH_CHANNEL_URL = "https://www.twitch.tv/{login}"
 # Every export's columns in file order: the key a row holds, and its header.
 # They stay put from one export to the next, so a fresh file lines up with an
 # older copy someone has added their own columns to - the Twitch login first,
-# as the column to match rows on.
-STREAMER_COLUMNS = (
+# as the column to match rows on. For the same reason, columns added later go
+# at the very end, after a list's own.
+_FIRST_COLUMNS = (
     ("twitch_login", "Twitch login"),
     ("display_name", "Display name"),
     ("twitch_url", "Twitch channel"),
@@ -22,11 +27,21 @@ STREAMER_COLUMNS = (
     ("twitch_user_id", "Twitch user ID"),
 )
 
+# The days of the last 28 a streamer started a stream on, the ones the results'
+# strip fills: how many, and which.
+DAY_COLUMNS = (
+    ("days_streamed", "Days streamed (last 28)"),
+    ("dates_streamed", "Dates streamed (UTC)"),
+)
+
+STREAMER_COLUMNS = (*_FIRST_COLUMNS, *DAY_COLUMNS)
+
 # A list's entries add the owner's note and when each was added.
 LIST_COLUMNS = (
-    *STREAMER_COLUMNS,
+    *_FIRST_COLUMNS,
     ("note", "Note"),
     ("added_at", "Added to list (UTC)"),
+    *DAY_COLUMNS,
 )
 
 
@@ -86,6 +101,7 @@ def list_rows(list_of_streamers) -> list[dict]:
 def _streamer_row(login, display_name, twitch_user_id, stats) -> dict:
     """One streamer's columns; stats are None when there are no recent streams to count."""
     stats = stats or {}
+    days_ago = stats.get("days_ago")
     return {
         "twitch_login": login,
         "display_name": display_name,
@@ -98,4 +114,13 @@ def _streamer_row(login, display_name, twitch_user_id, stats) -> dict:
         "genres": stats.get("genres"),
         # Text, as Twitch's API gives it: an id, not a number to add up.
         "twitch_user_id": None if twitch_user_id is None else str(twitch_user_id),
+        "days_streamed": None if days_ago is None else len(days_ago),
+        "dates_streamed": None if days_ago is None else _dates(days_ago),
     }
+
+
+def _dates(days_ago: list[int]) -> list[date]:
+    """The UTC dates of some days ago, oldest first: dates, so a file kept for a while
+    still says when each stream was."""
+    today = timezone.now().date()
+    return sorted(today - timedelta(days=one_day) for one_day in days_ago)

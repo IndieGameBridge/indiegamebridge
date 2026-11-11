@@ -3,11 +3,13 @@
 import csv
 import io
 import json
+from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.exports.models import Export
@@ -79,6 +81,19 @@ class SearchExportTests(TestCase):
 
         self.assertEqual(header[0], "Twitch login")
         self.assertNotIn("Note", header)
+        self.assertEqual(header[-2:], ["Days streamed (last 28)", "Dates streamed (UTC)"])
+
+    def test_exports_the_days_streamed_in_the_last_28_as_dates(self):
+        # Stored as days since the epoch; one stream began before the strip's 28 days.
+        today = int(timezone.now().timestamp()) // 86400
+        StreamerSearchStats.objects.filter(host_login="top").update(active_days=[today - 40, today - 3, today])
+
+        top, middle, _ = json.loads(self._export().content)["streamers"]
+
+        today_date = timezone.now().date()
+        self.assertEqual(top["days_streamed"], 2)
+        self.assertEqual(top["dates_streamed"], [str(today_date - timedelta(days=3)), str(today_date)])
+        self.assertEqual((middle["days_streamed"], middle["dates_streamed"]), (0, []))
 
     def test_links_back_to_the_same_search_with_every_filter_spelled_out(self):
         data = json.loads(self._export("peak=any").content)

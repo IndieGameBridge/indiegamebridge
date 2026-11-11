@@ -3,11 +3,12 @@ from datetime import timezone as dt_timezone
 from allauth.socialaccount.models import SocialAccount
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.db.models import CharField, Exists, OuterRef
-from django.db.models.functions import Cast
+from django.db.models import CharField, Exists, F, OuterRef, Window
+from django.db.models.functions import Cast, Lag, RowNumber
 from django.utils import formats
 
 from apps.users.models import User, TwitchExclusion, AccountSettings, LoginSnapshot
+from core.utils.admin_export import CsvExportAdminMixin, days_between, utc_minute
 
 
 def _utc(value):
@@ -60,11 +61,13 @@ class CustomUserAdmin(UserAdmin):
 
 
 @admin.register(LoginSnapshot)
-class LoginSnapshotAdmin(admin.ModelAdmin):
+class LoginSnapshotAdmin(CsvExportAdminMixin, admin.ModelAdmin):
     """Rows are created by the login signal only - no adding or editing here.
     Deleting stays enabled on purpose: snapshots are user PII and admins may
-    need to purge them."""
+    need to purge them. The newest can be exported for studying who comes back."""
 
+    change_list_template = "admin/export/change_list.html"
+    export_name = "logins"
     list_display = ("user", "created_at_utc", "ip_address", "location")
     search_fields = ("user__username", "ip_address")
     list_select_related = ("user",)
@@ -85,6 +88,36 @@ class LoginSnapshotAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def export_rows(self, size):
+        """The newest logins, each with which of its user's logins it is and how long after
+        the one before. Both count every login on record, so a returning user shows as one
+        even when their first login is older than the file's. No IP, name, region or city."""
+        by_user = {"partition_by": [F("user_id")], "order_by": F("created_at").asc()}
+        logins = (
+            LoginSnapshot.objects.select_related("user")
+            .annotate(
+                login_number=Window(RowNumber(), **by_user),
+                previous_login=Window(Lag("created_at"), **by_user),
+            )
+            .order_by("-created_at")[:size]
+        )
+        header = [
+            "user", "logged_in_at_utc", "login_number", "days_since_previous_login",
+            "user_joined_utc", "country", "staff",
+        ]
+        return header, [
+            [
+                login.user_id,
+                utc_minute(login.created_at),
+                login.login_number,
+                days_between(login.previous_login, login.created_at),
+                utc_minute(login.user.date_joined),
+                login.country_code,
+                "yes" if login.user.is_staff else "no",
+            ]
+            for login in logins
+        ]
 
 
 @admin.register(TwitchExclusion)

@@ -5,3 +5,9 @@
   <li><a href="{% url opts|admin_urlname:'graphs' %}">Graphs</a></li>
   {{ block.super }}
 {% endblock %}
+
+{% comment %}The export dropdown, for the admins that also mix in CsvExportAdminMixin.{% endcomment %}
+{% block search %}
+  {{ block.super }}
+  {% include "admin/export_form.html" %}
+{% endblock %}
