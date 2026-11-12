@@ -33,7 +33,7 @@ Today a developer finds streamers with the search filters on `/streamers`. This 
 - **Tags can come from the filters.** `StreamerSearch.describe()` already turns a search's filters into label and value pairs. Generating tags the same way keeps them in step with the search behind the list.
 - **Import is close to "Save as new list".** That flow (`POST /api/lists/`) saves a search's results. An import would instead copy the curated list's current streamers.
 - **Current limits:**
-  - a list holds at most 5,000 streamers;
+  - a list holds at most 10,000 streamers;
   - a user keeps at most 20 lists.
 
 ## Open questions

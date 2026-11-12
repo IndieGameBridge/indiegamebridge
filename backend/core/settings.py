@@ -261,8 +261,9 @@ REST_FRAMEWORK = {
         # a few requests) stays well under it; brute hammering trips it.
         "anon": "120/min",
         "user": "120/min",
-        # Stricter per-IP cap for the heavy search query (hits Postgres with
-        # arbitrary filters); applied on top of the anon ceiling.
+        # Stricter cap for the heavy search query (hits Postgres with arbitrary
+        # filters), per user when signed in and per IP otherwise; applied on top
+        # of the anon/user ceiling.
         "search": "30/min",
         "contact": "5/hour",
         # Saving a search as a list, or adding a search's results to one,

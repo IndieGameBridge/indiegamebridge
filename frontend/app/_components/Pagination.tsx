@@ -27,7 +27,8 @@ const BUTTON_CLASSES = "block p-2 bg-blue-600 text-white font-medium rounded hov
 
 /**
  * A dropdown of every page in its label, "Page [3] of 100"; picking one opens that page. It sits
- * on its own under a list's result count, and again between Previous and Next at the end.
+ * on its own under a search's result count and above a saved list's entries, and again between
+ * Previous and Next at the end.
  */
 export function PagePicker({ path, query, page, pages, labels, className = "" }: PagingProps & { className?: string }) {
     const router = useRouter();

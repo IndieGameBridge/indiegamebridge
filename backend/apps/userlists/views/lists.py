@@ -27,7 +27,7 @@ MAX_LISTS_PER_USER = 20
 MAX_TITLE = 32
 MAX_DESCRIPTION = 512
 
-# Rows are written in one statement, but 5,000 of them is a lot to hold in memory
+# Rows are written in one statement, but 10,000 of them is a lot to hold in memory
 # as model instances at once.
 BULK_BATCH_SIZE = 1000
 

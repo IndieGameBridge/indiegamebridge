@@ -55,6 +55,7 @@ JOBS = (
         ("sign_ins", "Sign-in records deleted"),
         ("contact_messages", "Contact messages deleted"),
         ("exports", "Export records deleted"),
+        ("searches", "Search records deleted"),
     )),
     Job("remove_opted_out_from_archive", timedelta(weeks=1), (
         ("months", "Files rewritten"),

@@ -7,6 +7,7 @@ that hit the same endpoints.
 """
 
 from django.conf import settings
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
@@ -22,3 +23,16 @@ class JWTCookieAuthentication(JWTAuthentication):
 
         validated_token = self.get_validated_token(raw_token)
         return (self.get_user(validated_token), validated_token)
+
+
+class OptionalJWTCookieAuthentication(JWTCookieAuthentication):
+    """For an endpoint that works logged out too: a token that doesn't validate reads
+    as logged out, rather than failing the request with a 401. The streamer search
+    uses it, so a token that runs out between the page's user check and its search
+    can't break the results."""
+
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except AuthenticationFailed:
+            return None

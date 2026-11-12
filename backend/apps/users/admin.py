@@ -7,8 +7,23 @@ from django.db.models import CharField, Exists, F, OuterRef, Window
 from django.db.models.functions import Cast, Lag, RowNumber
 from django.utils import formats
 
-from apps.users.models import User, TwitchExclusion, AccountSettings, LoginSnapshot
-from core.utils.admin_export import CsvExportAdminMixin, days_between, utc_minute
+from apps.streams.models import GameGenre
+from apps.streams.search import GENRE_FILTER_NAMES, StreamerSearch
+from apps.users.models import User, TwitchExclusion, AccountSettings, LoginSnapshot, SearchSnapshot
+from core.utils.admin_export import CsvExportAdminMixin, days_between, minutes_between, utc_minute
+
+# A search's filters other than the genres, each with its column in the CSV file. The
+# columns hold the values the form sends: "51-200" for a size, 5 for a minimum.
+SEARCH_FILTER_COLUMNS = (
+    ("lang", "language"),
+    ("peak", "max_viewers"),
+    ("avgmin", "avg_viewers_min"),
+    ("avgmax", "avg_viewers_max"),
+    ("streamsmin", "streams_min"),
+    ("streamsmax", "streams_max"),
+    ("hoursmin", "hours_min"),
+    ("hoursmax", "hours_max"),
+)
 
 
 def _utc(value):
@@ -118,6 +133,75 @@ class LoginSnapshotAdmin(CsvExportAdminMixin, admin.ModelAdmin):
             ]
             for login in logins
         ]
+
+
+@admin.register(SearchSnapshot)
+class SearchSnapshotAdmin(CsvExportAdminMixin, admin.ModelAdmin):
+    """The search endpoint writes these - no adding or editing here. Deleting stays allowed,
+    as for login snapshots: each row is one user's usage data. The newest can be exported
+    for studying what people search for, and which searches find few streamers."""
+
+    change_list_template = "admin/export/change_list.html"
+    export_name = "searches"
+    list_display = ("created_at_utc", "user", "search", "matches")
+    search_fields = ("user__username",)
+    list_select_related = ("user",)
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+
+    @admin.display(description="Searched at (UTC)", ordering="created_at")
+    def created_at_utc(self, obj):
+        return _utc(obj.created_at)
+
+    @admin.display(description="Search")
+    def search(self, obj):
+        """The filters that narrowed it, as the form names them."""
+        described = StreamerSearch(obj.filters).describe()
+        return "; ".join(f"{item['label']}: {item['value']}" for item in described) or "-"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def export_rows(self, size):
+        """The newest searches, each with which of its user's searches it is and how many
+        minutes after the one before, counting every search on record. A filter left open
+        reads "any", and the genres picked are named. No username."""
+        by_user = {"partition_by": [F("user_id")], "order_by": F("created_at").asc()}
+        searches = (
+            SearchSnapshot.objects.select_related("user")
+            .annotate(
+                search_number=Window(RowNumber(), **by_user),
+                previous_search=Window(Lag("created_at"), **by_user),
+            )
+            .order_by("-created_at")[:size]
+        )
+        genre_names = dict(GameGenre.objects.values_list("host_genre_id", "host_name"))
+        header = [
+            "user", "searched_at_utc", "search_number", "minutes_since_previous_search", "matches",
+            *(column for _, column in SEARCH_FILTER_COLUMNS), "genres", "staff",
+        ]
+        return header, [
+            [
+                search.user_id,
+                utc_minute(search.created_at),
+                search.search_number,
+                minutes_between(search.previous_search, search.created_at),
+                search.matches,
+                *(search.filters.get(name, "any") for name, _ in SEARCH_FILTER_COLUMNS),
+                _genres_text(search.filters, genre_names),
+                "yes" if search.user.is_staff else "no",
+            ]
+            for search in searches
+        ]
+
+
+def _genres_text(filters: dict, genre_names: dict) -> str:
+    """The genres a search narrowed to, by name, as "Strategy + Indie"; "any" for none."""
+    picked = [filters.get(name, "any") for name in GENRE_FILTER_NAMES]
+    return " + ".join(genre_names.get(genre, str(genre)) for genre in picked if genre != "any") or "any"
 
 
 @admin.register(TwitchExclusion)

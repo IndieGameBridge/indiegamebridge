@@ -8,6 +8,7 @@ import { formatDate } from "../../_lib/format";
 import { RESULTS_ANCHOR, pageParam } from "../../_lib/paging";
 import { serverFetch } from "../../_lib/server-fetch";
 import { LabelChip, PageHeader, PageFooter, PageFooterContent } from "../../_components";
+import { PagePicker } from "../../_components/Pagination";
 import { ListActions, ListActionsLabels } from "./_components/ListActions";
 import { ListDetail, ListEntries, ListEntriesLabels } from "./_components/ListEntries";
 
@@ -102,7 +103,19 @@ export default async function ListPage({ params, searchParams }: {
                             />
                         </div>
 
+                        {/* The anchor is above the dropdown, so a page picked here or at the end
+                            opens with the dropdown in view, as on the search. */}
                         <div id={RESULTS_ANCHOR} className="scroll-mt-8">
+                            {/* Above the entries too, so another page is a pick away without
+                                going down to the end of this one. */}
+                            <PagePicker
+                                path={`/lists/${list.id}`}
+                                query=""
+                                page={list.page}
+                                pages={list.pages}
+                                labels={entriesLabels.pagination}
+                                className="mb-8 w-fit text-sm"
+                            />
                             <ListEntries list={list} labels={entriesLabels} />
                         </div>
                     </div>

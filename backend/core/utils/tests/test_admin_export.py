@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 
 from django.test import SimpleTestCase
 
-from core.utils.admin_export import EXPORT_SIZES, _cell, days_between, export_size, last_line, seconds, utc_minute
+from core.utils.admin_export import (
+    EXPORT_SIZES, _cell, days_between, export_size, last_line, minutes_between, seconds, utc_minute,
+)
 
 
 class ExportSizeTests(SimpleTestCase):
@@ -30,6 +32,13 @@ class CellTests(SimpleTestCase):
 
         self.assertEqual(days_between(earlier, datetime(2026, 11, 4, 12, tzinfo=UTC)), 3.5)
         self.assertEqual(days_between(None, earlier), "")
+
+    def test_minutes_between_are_whole(self):
+        earlier = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
+
+        self.assertEqual(minutes_between(earlier, datetime(2026, 11, 1, 9, 12, 59, tzinfo=UTC)), 12)
+        self.assertEqual(minutes_between(earlier, datetime(2026, 11, 2, 9, 0, tzinfo=UTC)), 1440)
+        self.assertEqual(minutes_between(None, earlier), "")
 
     def test_seconds_are_to_a_tenth(self):
         self.assertEqual(seconds(312.44), 312.4)

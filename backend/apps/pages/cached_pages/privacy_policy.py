@@ -11,7 +11,7 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
             "description": f"How IndieGameBridge collects, uses, and protects your data.",
             "return_home": f"Return to Home Page",
             "contact_link_text": f"Contact page",
-            "last_updated": f"Last updated: October 29, 2026",
+            "last_updated": f"Last updated: November 12, 2026",
             "intro": f"This Privacy Policy explains what data IndieGameBridge collects, why we"
                 f" collect it, and the choices you have. IndieGameBridge helps indie game"
                 f" developers discover Twitch streamers by aggregating publicly available"
@@ -26,8 +26,9 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" with Twitch, we receive your Twitch user ID, username, and display name"
                         f" from Twitch. We do not request your email address from Twitch. Usage data:"
                         f" unless you disable it in your"
-                        f" account settings, we record which features you use, such as the lists"
-                        f" and searches you export, to help us improve the service. Sign-in records:"
+                        f" account settings, we record which features you use, such as the searches"
+                        f" you run, with their filters and how many streamers they found, and the"
+                        f" lists and searches you export, to help us improve the service. Sign-in records:"
                         f" under the same setting, each time you sign in we record the time and your"
                         f" IP address, and may look up an approximate location for that address"
                         f" (country, region, and city). Contact messages: when you write to us"

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import {
     AddToListLabels,
@@ -107,7 +108,13 @@ async function SearchResults({ content, user, searchQuery, page }: {
     const apiParams = new URLSearchParams(searchQuery);
     if (page) apiParams.set("p", page);
     const apiQuery = apiParams.toString();
-    const searchResp = await serverFetch(`${apiBase}/streamers/${apiQuery ? `?${apiQuery}` : ""}`);
+    // The user's own cookies, so the search counts as theirs: recorded for them when they
+    // allow tracking, and rate-limited per user rather than per address.
+    const cookieHeader = (await cookies()).toString();
+    const searchResp = await serverFetch(`${apiBase}/streamers/${apiQuery ? `?${apiQuery}` : ""}`, {
+        headers: { cookie: cookieHeader },
+        cache: "no-store",
+    });
 
     if (!searchResp.ok) {
         throw new Error(`Failed to run streamer search (status ${searchResp.status})`);

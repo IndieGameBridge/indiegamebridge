@@ -1,3 +1,5 @@
+import logging
+
 from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle, UserRateThrottle
@@ -9,7 +11,11 @@ from apps.streams.game_search import PAGE_SIZE as GAME_PAGE_SIZE, GameSearch
 from apps.streams.models import StreamerProfile
 from apps.streams.profile import StreamerProfileStreams
 from apps.streams.search import PAGE_SIZE as SEARCH_PAGE_SIZE, StreamerSearch
+from apps.users.authentication import OptionalJWTCookieAuthentication
+from apps.users.models import AccountSettings, SearchSnapshot
 from core.utils.paging import page_of
+
+logger = logging.getLogger(__name__)
 
 
 class CachedPageContentView(APIView):
@@ -59,10 +65,15 @@ class StreamerSearchView(APIView):
     Query params mirror the form field names. Multi-valued params (e.g. genre,
     week_days) can be repeated: ?week_days=1&week_days=5. Missing params fall
     back to StreamerSearch.default_filters(). p is the page.
+
+    A signed-in user's search is recorded as a SearchSnapshot from its first page.
     """
 
-    # Stricter per-IP cap (the "search" rate) on top of the global anon/user
-    # ceiling, since each search runs a fresh filtered Postgres query. Listing
+    # The page forwards the user's cookies; one that doesn't validate reads as logged out.
+    authentication_classes = [OptionalJWTCookieAuthentication]
+
+    # Stricter cap (the "search" rate), per user when signed in and per IP otherwise, on top
+    # of the global anon/user ceiling, since each search runs a fresh filtered Postgres query. Listing
     # throttle_classes here replaces the project defaults, so the global
     # classes are re-included alongside the scoped one.
     throttle_classes = [AnonRateThrottle, UserRateThrottle, ScopedRateThrottle]
@@ -74,14 +85,30 @@ class StreamerSearchView(APIView):
         search = StreamerSearch.from_query_params(request.GET)
         total = search.total()
         page, pages = page_of(request.GET.get("p"), total, SEARCH_PAGE_SIZE)
+        results = search.results(offset=(page - 1) * SEARCH_PAGE_SIZE, limit=SEARCH_PAGE_SIZE)
+        # Paging on through a search isn't a new one.
+        if page == 1:
+            self._record(search)
         return Response({
             "filters": search.filters,
-            "results": search.results(offset=(page - 1) * SEARCH_PAGE_SIZE, limit=SEARCH_PAGE_SIZE),
+            "results": results,
             "total": total,
             "page": page,
             "pages": pages,
             "page_size": SEARCH_PAGE_SIZE,
         })
+
+    def _record(self, search):
+        """Feature-usage tracking, so only for signed-in users who allow it, and never at
+        the cost of the results. The match count is the one total() already ran."""
+        user = self.request.user
+        if not user.is_authenticated:
+            return
+        try:
+            if AccountSettings.tracking_allowed(user):
+                SearchSnapshot.record(user, search.explicit_filters(), search.matches())
+        except Exception:
+            logger.exception("Failed to record a search for %s", user)
 
 
 class GameSearchView(APIView):

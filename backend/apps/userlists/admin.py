@@ -50,7 +50,7 @@ class UserListOfStreamersAdmin(admin.ModelAdmin):
 @admin.register(StreamerInList)
 class StreamerInListAdmin(admin.ModelAdmin):
     """Deliberately not an inline on the list admin: a list holds up to the
-    search cap of 5,000 entries, and an inline would try to render all of them."""
+    search cap of 10,000 entries, and an inline would try to render all of them."""
 
     list_display = ("streamer", "list_of_streamers", "owner", "added_at")
     search_fields = (

@@ -47,6 +47,11 @@ def days_between(earlier, later):
     return "" if earlier is None else round((later - earlier).total_seconds() / 86400, 1)
 
 
+def minutes_between(earlier, later):
+    """The whole minutes from one datetime to a later one; empty when there's no earlier."""
+    return "" if earlier is None else int((later - earlier).total_seconds() // 60)
+
+
 def seconds(value):
     """Seconds to a tenth; empty until set."""
     return "" if value is None else round(value, 1)

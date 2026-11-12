@@ -47,7 +47,7 @@ class RecordedCommandTests(TestCase):
 
         run = JobRun.objects.get()
         self.assertEqual(run.job, "delete_expired_personal_data")
-        self.assertEqual(run.counts, {"sign_ins": 0, "contact_messages": 0, "exports": 0})
+        self.assertEqual(run.counts, {"sign_ins": 0, "contact_messages": 0, "exports": 0, "searches": 0})
         self.assertTrue(run.output.startswith("Deleted personal data from before "))
 
     def test_a_failed_run_keeps_its_error(self):

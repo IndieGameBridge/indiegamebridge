@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Hard cap on how many results a search pages through; the API slices this into
 # pages of PAGE_SIZE.
-MAX_RESULTS = 5000
+MAX_RESULTS = 10000
 PAGE_SIZE = 50
 
 # Where the Max Viewers dropdown opens. Results run from the highest peak down and stop at
@@ -52,6 +52,7 @@ class StreamerSearch:
         self.raw_filters = filters or {}
         self.filters = self._normalize_query_params(self.raw_filters)
         self._queryset = None
+        self._matches = None
 
     @classmethod
     def from_query_params(cls, query_params) -> "StreamerSearch":
@@ -155,9 +156,15 @@ class StreamerSearch:
         the form offers only some of them yet, and stats exist for all."""
         return LANGUAGE_NAMES.get(language, language)
 
+    def matches(self) -> int:
+        """How many streamers match, counting any past MAX_RESULTS. Counted once a search."""
+        if self._matches is None:
+            self._matches = self._stats_queryset().count()
+        return self._matches
+
     def total(self) -> int:
         # Capped to MAX_RESULTS to match the pageable result set.
-        return min(self._stats_queryset().count(), MAX_RESULTS)
+        return min(self.matches(), MAX_RESULTS)
 
     def explicit_filters(self) -> dict:
         """Every filter's effective value, "any" included: the form to store a search in.

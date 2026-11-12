@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.contact.models import ContactMessage
 from apps.exports.models import Export
 from apps.users.management.commands.delete_expired_personal_data import RETENTION
-from apps.users.models import LoginSnapshot
+from apps.users.models import LoginSnapshot, SearchSnapshot
 
 User = get_user_model()
 
@@ -32,6 +32,7 @@ class DeleteExpiredPersonalDataTests(TestCase):
             Export.objects.create(
                 user=self.user, source=Export.Source.SEARCH, file_format=Export.FileFormat.CSV, rows=1,
             ),
+            SearchSnapshot.objects.create(user=self.user, filters={"lang": "en"}, matches=1),
         )
         for record in records:
             # auto_now_add overrides a created_at passed to create(), so backdate after.
@@ -45,26 +46,26 @@ class DeleteExpiredPersonalDataTests(TestCase):
     def test_deletes_what_is_past_the_retention_period_and_keeps_the_rest(self):
         output = self._run()
 
-        for model in (LoginSnapshot, ContactMessage, Export):
+        for model in (LoginSnapshot, ContactMessage, Export, SearchSnapshot):
             with self.subTest(model=model.__name__):
                 self.assertEqual(list(model.objects.values_list("created_at", flat=True)), [self.kept_at])
         self.assertIn("Deleted personal data from before", output)
-        self.assertIn("1 sign-in records, 1 contact messages, 1 export records", output)
+        self.assertIn("1 sign-in records, 1 contact messages, 1 export records, 1 search records", output)
 
     def test_a_dry_run_only_counts(self):
         output = self._run("--dry-run")
 
-        for model in (LoginSnapshot, ContactMessage, Export):
+        for model in (LoginSnapshot, ContactMessage, Export, SearchSnapshot):
             with self.subTest(model=model.__name__):
                 self.assertEqual(model.objects.count(), 2)
         self.assertIn("Would delete personal data from before", output)
-        self.assertIn("1 sign-in records, 1 contact messages, 1 export records", output)
+        self.assertIn("1 sign-in records, 1 contact messages, 1 export records, 1 search records", output)
 
     def test_a_run_with_nothing_expired_deletes_nothing(self):
-        for model in (LoginSnapshot, ContactMessage, Export):
+        for model in (LoginSnapshot, ContactMessage, Export, SearchSnapshot):
             model.objects.filter(created_at=self.expired_at).delete()
 
         output = self._run()
 
-        self.assertIn("0 sign-in records, 0 contact messages, 0 export records", output)
+        self.assertIn("0 sign-in records, 0 contact messages, 0 export records, 0 search records", output)
         self.assertEqual(LoginSnapshot.objects.count(), 1)
