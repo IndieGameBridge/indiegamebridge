@@ -9,12 +9,15 @@ import { headers } from "next/headers";
 // autoreload (`ECONNREFUSED`) are also covered. A genuinely down backend
 // still fails on the retry, so this doesn't paper over real issues.
 //
-// It also passes the visitor's address on, as middleware.ts does for the
-// browser's own calls, since the backend's per-IP rate limit counts by it.
-// Without it, every page built for a logged-out visitor counts as the
-// Cloudflare Worker's one address (2a06:98c0:3600::103), so they all share a
-// single allowance. A route built ahead of any request, like the sitemap,
-// has no visitor and passes { visitor: false }.
+// It also passes the visitor's address on, in the headers middleware.ts passes
+// on for the browser's own calls, since the backend's per-IP rate limit counts
+// by it. For a Worker's request to a host in its own zone, as the API is,
+// Cloudflare takes the client address from X-Real-IP; X-Forwarded-For serves
+// a backend reached directly, as in local dev. Without them, every page built
+// for a logged-out visitor counts as the Worker's own address
+// (2a06:98c0:3600::103), so they all share a single allowance. A route built
+// ahead of any request, like the sitemap, has no visitor and passes
+// { visitor: false }.
 export async function serverFetch(
     url: string,
     init?: RequestInit,
@@ -29,9 +32,12 @@ export async function serverFetch(
 }
 
 async function withVisitorAddress(init?: RequestInit): Promise<RequestInit | undefined> {
-    const forwardedFor = (await headers()).get("x-forwarded-for");
-    if (!forwardedFor) return init;
+    const incoming = await headers();
+    const realIp = incoming.get("x-real-ip") ?? incoming.get("cf-connecting-ip");
+    const forwardedFor = incoming.get("x-forwarded-for");
+    if (!realIp && !forwardedFor) return init;
     const merged = new Headers(init?.headers);
-    merged.set("x-forwarded-for", forwardedFor);
+    if (realIp) merged.set("x-real-ip", realIp);
+    if (forwardedFor) merged.set("x-forwarded-for", forwardedFor);
     return { ...init, headers: merged };
 }
