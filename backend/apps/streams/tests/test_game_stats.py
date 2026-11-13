@@ -20,7 +20,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.streams.game_search import GameSearch
+from apps.streams.game_search import NAME_MAX_LENGTH, GameSearch
 from apps.streams.languages import ALL_LANGUAGES
 from apps.streams.management.commands.rebuild_game_stats import WINDOW_HOURS
 from apps.streams.models import (
@@ -387,6 +387,7 @@ class GameSearchTests(GameStatsTestCase):
 
         self.assertEqual(GameSearch({"lang": "en"}).results(), [{
             "id": game.id,
+            "place": 1,
             "name": "one",
             "release_year": 2024,
             "genres": ["Indie", "Puzzle"],
@@ -418,6 +419,80 @@ class GameSearchTests(GameStatsTestCase):
     def test_a_game_with_no_stats_yet_is_no_error(self):
         self.assertEqual(GameSearch().results(), [])
         self.assertIsNone(GameSearch.newest_hour())
+
+    def test_a_name_finds_the_games_with_every_word_in_any_order(self):
+        for name in ("Hollow Knight", "Hollow Knight: Silksong", "Stardew Valley"):
+            self._stream({self._game(name): [0]})
+        self._rebuild()
+
+        self.assertEqual(set(self._names(name="hollow")), {"Hollow Knight", "Hollow Knight: Silksong"})
+        self.assertEqual(set(self._names(name="KNIGHT hollow")), {"Hollow Knight", "Hollow Knight: Silksong"})
+        self.assertEqual(self._names(name="silksong hollow"), ["Hollow Knight: Silksong"])
+        self.assertEqual(self._names(name="dew val"), ["Stardew Valley"])
+        self.assertEqual(self._names(name="hollow valley"), [])
+
+    def test_a_name_ignores_accents_and_curly_apostrophes(self):
+        for name in ("Pokémon Go", "God of War Ragnarök", "Don’t Starve", "Ōkami"):
+            self._stream({self._game(name): [0]})
+        self._rebuild()
+
+        self.assertEqual(self._names(name="pokemon"), ["Pokémon Go"])
+        self.assertEqual(self._names(name="POKÉMON go"), ["Pokémon Go"])
+        self.assertEqual(self._names(name="ragnarok"), ["God of War Ragnarök"])
+        self.assertEqual(self._names(name="don't"), ["Don’t Starve"])
+        self.assertEqual(self._names(name="Don’t"), ["Don’t Starve"])
+        self.assertEqual(self._names(name="okami"), ["Ōkami"])
+        # An accent typed as a separate mark, as some keyboards send it.
+        self.assertEqual(self._names(name="Poke" + chr(0x301) + "mon"), ["Pokémon Go"])
+
+    def test_a_name_reads_pattern_characters_as_themselves(self):
+        self._stream({self._game("R.E.P.O."): [0], self._game("Repo Man"): [0]})
+        self._rebuild()
+
+        self.assertEqual(self._names(name="r.e.p.o."), ["R.E.P.O."])
+        # Read as a pattern, "re.o" would find Repo Man.
+        self.assertEqual(self._names(name="re.o"), [])
+        # Pattern syntax, SQL and markup are all just text that no name holds, and none of
+        # it errors: the marks (a Devanagari vowel sign, a combining accent) included.
+        hostile = (
+            "(", "[", "\\", "*", "a|b", "^$", "(a+)+$", "a{1,99999}", "[[:alpha:]]", "[^]", "\\d", "%_",
+            "'; DROP TABLE streams_game; --", "<script>alert(1)</script>", "a" + chr(0x093E), "x" + chr(0x0301) * 50,
+        )
+        for typed in hostile:
+            with self.subTest(typed=typed):
+                self.assertEqual(self._names(name=typed), [])
+
+    def test_a_blank_name_is_no_filter_and_a_long_one_is_cut(self):
+        self._stream({self._game("one"): [0], self._game("two"): [0]})
+        self._rebuild()
+
+        self.assertEqual(len(self._names(name="   ")), 2)
+        self.assertNotIn("name", GameSearch({"name": " \t "}).filters)
+        self.assertEqual(GameSearch({"name": "  hollow   knight "}).filters["name"], "hollow knight")
+        self.assertEqual(len(GameSearch({"name": "x" * 500}).filters["name"]), NAME_MAX_LENGTH)
+        # Postgres refuses a NUL in a query, so it goes like any unprintable character.
+        self.assertEqual(GameSearch({"name": "o\x00ne"}).filters["name"], "o ne")
+        self.assertEqual(self._names(name="o\x00ne"), ["one"])
+
+    def test_a_game_found_by_name_keeps_its_place_in_the_list(self):
+        indie = self._genre(32, "Indie")
+        # The most streams first: alpha 4, beta 3, gamma 2, delta 1.
+        games = (("alpha", [indie], 2025), ("beta", [], 2025), ("gamma", [indie], 2024), ("delta", [indie], 2025))
+        for streams, (name, genres, year) in zip((4, 3, 2, 1), games):
+            self._streams(self._game(name, genres=genres, release_date=date(year, 5, 1)), streams, age=0)
+        self._rebuild()
+
+        def places(**filters):
+            return [(row["name"], row["place"]) for row in GameSearch({"lang": "en", **filters}).results()]
+
+        self.assertEqual(places(name="delta"), [("delta", 4)])
+        self.assertEqual(places(name="ta"), [("beta", 2), ("delta", 4)])
+        # Its place among the Indie games, which leave beta out.
+        self.assertEqual(places(genres=32, name="delta"), [("delta", 3)])
+        self.assertEqual(places(year=2025, name="ta"), [("beta", 2), ("delta", 3)])
+        # Without a name, the rows are numbered down the list.
+        self.assertEqual([row["place"] for row in GameSearch({"lang": "en"}).results(offset=1, limit=2)], [2, 3])
+        self.assertEqual([row["place"] for row in GameSearch({"lang": "en", "genres": 32}).results()], [1, 2, 3])
 
     def test_hours_of_a_game(self):
         game = self._game("one")
@@ -460,6 +535,16 @@ class GameApiTests(GameStatsTestCase):
 
         self.assertEqual((data["page"], data["pages"], data["page_size"]), (2, 2, 2))
         self.assertEqual([row["name"] for row in data["results"]], ["game 0"])
+
+    def test_search_by_name(self):
+        for streams, name in enumerate(("Pokémon Go", "Stardew Valley", "Pokémon Unite"), 1):
+            self._streams(self._game(name), streams, age=0)
+        self._rebuild()
+
+        data = self.client.get("/games/", {"lang": "en", "name": " pokemon "}).json()
+
+        self.assertEqual((data["total"], data["filters"]["name"]), (2, "pokemon"))
+        self.assertEqual([(row["name"], row["place"]) for row in data["results"]], [("Pokémon Unite", 1), ("Pokémon Go", 3)])
 
     def test_search_is_public_and_keeps_the_page_in_range(self):
         self._stream({self._game("one"): [0]})

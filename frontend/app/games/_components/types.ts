@@ -6,10 +6,17 @@ export type GameFilter = {
     label: string;
     values: { v: string | number; l: string }[];
     default: string | number;
+    // The name box is typed into rather than picked from, so its values are empty.
+    type?: "text";
+    placeholder?: string;
+    max_length?: number;
 };
 
 export type GameRow = {
     id: number;
+    // Its number in the list the filters make, the name left out: a game found by name
+    // keeps the number it has in the list. Absent from an API older than the name search.
+    place?: number;
     name: string;
     release_year: number | null;
     genres: string[];

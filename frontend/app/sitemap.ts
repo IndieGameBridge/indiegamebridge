@@ -23,7 +23,8 @@ type CachedPageContent = {
 async function pageContent(key: string): Promise<CachedPageContent | undefined> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     try {
-        const response = await serverFetch(`${apiBase}/pages/${key}/`);
+        // Built hourly ahead of any request, so there's no visitor's address to pass on.
+        const response = await serverFetch(`${apiBase}/pages/${key}/`, undefined, { visitor: false });
         if (!response.ok) return undefined;
         return await response.json();
     } catch {

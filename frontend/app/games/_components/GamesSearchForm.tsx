@@ -27,6 +27,10 @@ export function GamesSearchForm({ search_form, path, initial_values }: {
         const initial: Record<string, string> = {};
         for (const one_filter of search_form.filters) {
             const value = initial_values[one_filter.name];
+            if (one_filter.type === "text") {
+                initial[one_filter.name] = (Array.isArray(value) ? value[0] : value) ?? "";
+                continue;
+            }
             const known = one_filter.values.some((option) => String(option.v) === value);
             initial[one_filter.name] = known ? String(value) : String(one_filter.default);
         }
@@ -36,8 +40,12 @@ export function GamesSearchForm({ search_form, path, initial_values }: {
     const submitFilters = () => {
         const params = new URLSearchParams();
         for (const one_filter of search_form.filters) {
-            if (values[one_filter.name] !== String(one_filter.default)) {
-                params.set(one_filter.name, values[one_filter.name]);
+            // Typed text goes in with its spaces tidied, so a blank box stays out of the address.
+            const value = one_filter.type === "text"
+                ? values[one_filter.name].trim().replace(/\s+/g, " ")
+                : values[one_filter.name];
+            if (value !== String(one_filter.default)) {
+                params.set(one_filter.name, value);
             }
         }
         const query = params.toString();
@@ -54,20 +62,43 @@ export function GamesSearchForm({ search_form, path, initial_values }: {
                 onSubmit={(event) => { event.preventDefault(); submitFilters(); }}
             >
                 {search_form.filters.map((one_filter) => (
-                    <fieldset key={one_filter.name} className="flex items-center flex-wrap col-span-1">
+                    // The name box takes the rest of the last row on wide screens.
+                    <fieldset
+                        key={one_filter.name}
+                        className={`flex items-center flex-wrap col-span-1 ${one_filter.type === "text" ? "lg:col-span-3" : ""}`}
+                    >
                         <legend className="mr-4 text-sm text-brand-blue">{one_filter.label}</legend>
-                        <select
-                            id={one_filter.name}
-                            name={one_filter.name}
-                            aria-label={one_filter.label}
-                            className="text-sm p-2 border border-gray-300 rounded-sm grow cursor-pointer outline-gray-400"
-                            value={values[one_filter.name]}
-                            onChange={(event) => setValues((previous) => ({ ...previous, [one_filter.name]: event.target.value }))}
-                        >
-                            {one_filter.values.map((option) => (
-                                <option key={String(option.v)} value={option.v}>{option.l}</option>
-                            ))}
-                        </select>
+                        {one_filter.type === "text" ? (
+                            <input
+                                id={one_filter.name}
+                                name={one_filter.name}
+                                type="search"
+                                aria-label={one_filter.label}
+                                // A game's name, not something to pick from past searches.
+                                autoComplete="off"
+                                enterKeyHint="search"
+                                maxLength={one_filter.max_length}
+                                placeholder={one_filter.placeholder}
+                                // The dropdowns' height and text inset: their line height is the font's own,
+                                // and their text sits a little in from the padding.
+                                className="text-sm px-3 py-2 leading-[normal] border border-gray-300 rounded-sm grow min-w-0 outline-gray-400"
+                                value={values[one_filter.name]}
+                                onChange={(event) => setValues((previous) => ({ ...previous, [one_filter.name]: event.target.value }))}
+                            />
+                        ) : (
+                            <select
+                                id={one_filter.name}
+                                name={one_filter.name}
+                                aria-label={one_filter.label}
+                                className="text-sm p-2 border border-gray-300 rounded-sm grow cursor-pointer outline-gray-400"
+                                value={values[one_filter.name]}
+                                onChange={(event) => setValues((previous) => ({ ...previous, [one_filter.name]: event.target.value }))}
+                            >
+                                {one_filter.values.map((option) => (
+                                    <option key={String(option.v)} value={option.v}>{option.l}</option>
+                                ))}
+                            </select>
+                        )}
                     </fieldset>
                 ))}
                 <div className="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">

@@ -1,9 +1,9 @@
 """Download a ModelAdmin's newest rows as a CSV file, from a dropdown on its changelist.
 
-The files are for studying the site's use over time somewhere else: in a spreadsheet, or
-handed to an LLM. So they hold what that needs and no more: a user is their number, with
-no name, IP address or place finer than a country. CSV rather than JSON, since it names
-each column once, which makes a file about half the size for the same rows.
+The files are for studying the site's use over time, so they hold what that needs and no
+more: a user is their number, with no name, IP address or place finer than a country. CSV
+rather than JSON, since it names each column once, which makes a file about half the size
+for the same rows.
 """
 
 import csv

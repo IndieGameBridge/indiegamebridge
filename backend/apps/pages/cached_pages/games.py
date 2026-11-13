@@ -49,12 +49,15 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                     "Picking a second or third genre narrows the results: only games with all of the chosen"
                         " genres are shown.",
                     "Max Viewers is a streamer's highest viewer count in the last 4 weeks.",
+                    "Game Name finds the games with every word you type in their name, in any order, so hollow knight"
+                        " also finds Hollow Knight: Silksong. Each game found keeps its number in the list, so you see"
+                        " where it stands.",
                 ],
             },
             "labels": {
                 "found_count": "Found {count} games",
                 "found_count_one": "Found 1 game",
-                "no_results": "No games match these filters.",
+                "no_results": "No game streamed in the last 4 weeks matches these filters.",
                 "no_data": "The game numbers are being built. Check back soon.",
                 "game_column": "Game",
                 "hours_caption": "Streams live in each hour, UTC",

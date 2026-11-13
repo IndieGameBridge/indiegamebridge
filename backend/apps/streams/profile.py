@@ -21,7 +21,7 @@ STREAMER_PROFILE_DAILY_DAYS = STREAMER_PROFILE_RECENT_WINDOW.days
 class StreamerProfileStreams:
     """Per-streamer cached profile payload: recent streams list + aggregate stats.
 
-    Wraps StreamerProfileCache with TTL-on-read semantics, matching StreamerSearch.
+    Wraps StreamerProfileCache with TTL-on-read semantics.
     Each streamer's payload is computed on miss/stale and reused for an hour;
     last_hit_at is bumped on every read so cold entries can be evicted later.
     """

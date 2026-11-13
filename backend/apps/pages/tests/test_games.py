@@ -45,3 +45,9 @@ class GamesPageTests(TestCase):
             ["any", "3-10", "11-20", "21-50", "51-200", "201+"],
         )
         self.assertNotIn("lang", filters)
+
+    def test_the_form_ends_with_a_name_box(self):
+        filters = self._content(2026, 11, 4)["search_form"]["filters"]
+
+        self.assertEqual(filters[-1]["name"], "name")
+        self.assertEqual((filters[-1]["type"], filters[-1]["default"], filters[-1]["values"]), ("text", "", []))

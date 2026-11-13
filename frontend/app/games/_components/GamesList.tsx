@@ -119,10 +119,12 @@ export function GamesList({ results, total, paging, newest_hour, path, query, pe
     // Charts slide once someone opens one; the top game's, open from the start, just shows.
     const [sliding, setSliding] = useState(false);
     const [chartLanguage, setChartLanguage] = useState(default_language);
-    // Numbered through the whole list, so page 2's first is 51.
+    // Each row's number is its place in the list, so page 2's first is 51, and a game found by
+    // name keeps its own. Rows from an older API, without a place, are numbered down the list.
+    // The widest sets the column: 2 digits on page 1, 5 deep in the list.
     const firstNumber = (paging.page - 1) * paging.page_size + 1;
-    // The page's widest number is its last: 2 digits on page 1, 5 deep in the list.
-    const numberDigits = String(firstNumber + results.length - 1).length;
+    const placeOf = (game: GameRow, index: number) => game.place ?? firstNumber + index;
+    const numberDigits = String(results.reduce((widest, game, index) => Math.max(widest, placeOf(game, index)), 1)).length;
 
     // Opens a game's chart, shutting the open one, or shuts the chart if it's the open one. An
     // opened row goes to the top of the screen: a chart shutting above it would pull it up, off
@@ -190,7 +192,7 @@ export function GamesList({ results, total, paging, newest_hour, path, query, pe
                                 onClick={(event) => toggleGame(game.id, event.currentTarget)}
                                 className={`${COLUMNS} w-full items-baseline text-left px-1.5 py-2 cursor-pointer hover:bg-gray-100 aria-expanded:bg-gray-100`}
                             >
-                                <span className="text-gray-500 tabular-nums">{firstNumber + index}</span>
+                                <span className="text-gray-500 tabular-nums">{placeOf(game, index)}</span>
                                 <span className="min-w-0 col-span-3 md:col-span-1 wrap-anywhere">
                                     <span className="font-bold">{game.name}</span>
                                     {about && <span className="block text-xs text-gray-600">{about}</span>}

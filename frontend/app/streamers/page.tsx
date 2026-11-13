@@ -189,12 +189,7 @@ export default async function StreamersPage({
                             />
                             <div id={RESULTS_ANCHOR} className="scroll-mt-8" />
                             <Suspense
-                                fallback={
-                                    <LoadingNote
-                                        text="Searching streamers…"
-                                        note="Fresh searches may take a moment. Results are cached for an hour after the first run, so the next request with the same filters will be instant."
-                                    />
-                                }
+                                fallback={<LoadingNote text="Searching streamers…" />}
                             >
                                 <SearchResults content={content} user={user} searchQuery={searchQuery} page={pageParam(sp.p)} />
                             </Suspense>

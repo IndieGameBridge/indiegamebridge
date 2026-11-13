@@ -34,6 +34,11 @@ class StreamerProfile(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["host", "host_user_id"], name="unique_host_user"),
         ]
+        indexes = [
+            # A profile page finds its streamer by login. Not unique: Twitch hands a freed
+            # login to a new account, so a few logins belong to two profiles.
+            models.Index(fields=["host_login"], name="streamerprofile_login_idx"),
+        ]
 
     def __str__(self):
         return f"Host: {self.host} | Host User ID: {self.host_user_id} - {self.host_display_name}"

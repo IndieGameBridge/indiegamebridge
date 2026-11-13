@@ -17,7 +17,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file, with each streamer's days streamed in the last 28 days and their dates.
 - **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own.
-- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own.
+- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year, or found by name. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own.
 - **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Sign-in, search and export records, and contact messages, are deleted after 12 months.
 
 ## How it works

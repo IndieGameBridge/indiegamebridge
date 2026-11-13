@@ -257,9 +257,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
-        # Generous per-visitor ceiling - a real browser session (a page load is
-        # a few requests) stays well under it; brute hammering trips it.
-        "anon": "120/min",
+        # Per-visitor ceiling - a real browser session (a page load is a few
+        # requests) stays under it; brute hammering trips it.
+        "anon": "60/min",
         "user": "120/min",
         # Stricter cap for the heavy search query (hits Postgres with arbitrary
         # filters), per user when signed in and per IP otherwise; applied on top
