@@ -11,7 +11,7 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
             "description": f"How IndieGameBridge collects, uses, and protects your data.",
             "return_home": f"Return to Home Page",
             "contact_link_text": f"Contact page",
-            "last_updated": f"Last updated: November 12, 2026",
+            "last_updated": f"Last updated: November 17, 2026",
             "intro": f"This Privacy Policy explains what data IndieGameBridge collects, why we"
                 f" collect it, and the choices you have. IndieGameBridge helps indie game"
                 f" developers discover Twitch streamers by aggregating publicly available"
@@ -28,7 +28,10 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                         f" unless you disable it in your"
                         f" account settings, we record which features you use, such as the searches"
                         f" you run, with their filters and how many streamers they found, and the"
-                        f" lists and searches you export, to help us improve the service. Sign-in records:"
+                        f" lists and searches you export, to help us improve the service. Searches are"
+                        f" stored without any link to your account; a short-lived note, gone within"
+                        f" 30 minutes of your last search, groups the searches you run close together"
+                        f" and skips repeats. Sign-in records:"
                         f" under the same setting, each time you sign in we record the time and your"
                         f" IP address, and may look up an approximate location for that address"
                         f" (country, region, and city). Contact messages: when you write to us"
@@ -101,13 +104,14 @@ class PrivacyPolicyPageBuilder(BaseCachedPageBuilder):
                     "heading": f"Data Retention",
                     "body": f"We retain collected stream data while it remains useful for the"
                         f" service; streams older than two to three months move from our database to"
-                        f" archive files. When you opt out, data tied to your Twitch ID is removed"
+                        f" archive files. When you opt out, the streams data tied to your Twitch ID is removed"
                         f" from the database right away, though copies may persist in caches for up"
                         f" to an hour while they refresh. It is removed from the archive files within"
                         f" a week, and from backups of them when those are next replaced. Account"
                         f" data is kept until you delete your account, after which your account,"
                         f" settings, and Twitch login link are removed. Usage and sign-in records"
-                        f" are deleted after 12 months, or sooner if you delete your account."
+                        f" are deleted after 12 months, or sooner if you delete your account, except"
+                        f" searches: they are not linked to your account, so they stay for the 12 months."
                         f" Contact messages are deleted after 12 months; ask through the contact"
                         f" page if you want yours deleted sooner.",
                 },

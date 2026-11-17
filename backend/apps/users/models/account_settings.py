@@ -15,7 +15,7 @@ class AccountSettings(models.Model):
 
     allow_tracking also gates login bookkeeping (LoginSnapshot rows and the
     last_login timestamp) - see apps.users.signals - and the records of a user's
-    exports (apps.exports) and searches (SearchSnapshot).
+    exports (apps.exports) and searches (SearchSnapshot, stored without the user).
     """
 
     user = models.OneToOneField(

@@ -15,7 +15,7 @@ from apps.users.models import SearchSnapshot
 User = get_user_model()
 
 HEADER = [
-    "user", "searched_at_utc", "search_number", "minutes_since_previous_search", "matches",
+    "sitting", "searched_at_utc", "search_in_sitting", "minutes_since_previous_search", "matches",
     "language", "max_viewers", "avg_viewers_min", "avg_viewers_max", "streams_min", "streams_max",
     "hours_min", "hours_max", "genres", "staff",
 ]
@@ -27,13 +27,11 @@ class SearchExportTests(TestCase):
             GameGenre.objects.create(host_genre_id=host_genre_id, host_name=name, host_url="", slug=name.lower())
         # The form's genre options come from the rows above.
         StreamerSearch.get_filters_config.cache_clear()
-        self.admin = User.objects.create_superuser(username="admin", password="unused")
-        self.client.force_login(self.admin)
-        self.alice = User.objects.create_user(username="alice")
+        self.client.force_login(User.objects.create_superuser(username="admin", password="unused"))
 
-    def _search(self, user, when, matches=12, **filters):
+    def _search(self, sitting, when, matches=12, staff=False, **filters):
         snapshot = SearchSnapshot.objects.create(
-            user=user, filters=StreamerSearch(filters).explicit_filters(), matches=matches,
+            sitting=sitting, filters=StreamerSearch(filters).explicit_filters(), matches=matches, staff=staff,
         )
         SearchSnapshot.objects.filter(pk=snapshot.pk).update(created_at=when)
 
@@ -41,36 +39,38 @@ class SearchExportTests(TestCase):
         response = self.client.get(reverse("admin:users_searchsnapshot_export"))
         return response, list(csv.reader(io.StringIO(response.content.decode())))
 
-    def test_numbers_each_users_searches_and_the_minutes_between_them(self):
-        self._search(self.alice, datetime(2026, 10, 1, 9, 0, tzinfo=UTC))
-        self._search(self.alice, datetime(2026, 10, 1, 9, 12, 40, tzinfo=UTC), matches=7400, lang="de", peak="any")
+    def test_numbers_each_sittings_searches_and_the_minutes_between_them(self):
+        self._search(40, datetime(2026, 10, 1, 9, 0, tzinfo=UTC))
+        # Another sitting's search in between doesn't count in this one.
+        self._search(41, datetime(2026, 10, 1, 9, 5, tzinfo=UTC))
+        self._search(40, datetime(2026, 10, 1, 9, 12, 40, tzinfo=UTC), matches=7400, lang="de", peak="any")
 
-        _, (header, newest, first) = self._export()
+        _, (header, newest, other, first) = self._export()
 
         self.assertEqual(header, HEADER)
         self.assertEqual(newest, [
-            str(self.alice.pk), "2026-10-01 09:12", "2", "12", "7400",
+            "40", "2026-10-01 09:12", "2", "12", "7400",
             "de", "any", "5", "200", "8", "any", "8", "any", "any", "no",
         ])
-        self.assertEqual(first[1:7], ["2026-10-01 09:00", "1", "", "12", "en", "51-200"])
+        self.assertEqual(other[:4], ["41", "2026-10-01 09:05", "1", ""])
+        self.assertEqual(first[:7], ["40", "2026-10-01 09:00", "1", "", "12", "en", "51-200"])
 
     def test_names_the_genres_picked(self):
-        self._search(self.alice, datetime(2026, 10, 1, tzinfo=UTC), genres="15", genres3="32")
+        self._search(1, datetime(2026, 10, 1, tzinfo=UTC), genres="15", genres3="32")
 
         _, (_, row) = self._export()
 
         self.assertEqual(row[HEADER.index("genres")], "Strategy + Indie")
 
-    def test_marks_staff_searches_and_leaves_out_names(self):
-        self._search(self.admin, datetime(2026, 10, 1, tzinfo=UTC))
+    def test_marks_staff_searches(self):
+        self._search(1, datetime(2026, 10, 1, tzinfo=UTC), staff=True)
 
-        response, (_, row) = self._export()
+        _, (_, row) = self._export()
 
         self.assertEqual(row[HEADER.index("staff")], "yes")
-        self.assertNotContains(response, "admin")
 
     def test_the_list_shows_what_narrowed_each_search_and_offers_the_export(self):
-        self._search(self.alice, datetime(2026, 10, 1, tzinfo=UTC), genres="15", hoursmin="any")
+        self._search(1, datetime(2026, 10, 1, tzinfo=UTC), genres="15", hoursmin="any")
 
         response = self.client.get(reverse("admin:users_searchsnapshot_changelist"))
 

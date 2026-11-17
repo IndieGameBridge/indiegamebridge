@@ -66,7 +66,8 @@ class StreamerSearchView(APIView):
     week_days) can be repeated: ?week_days=1&week_days=5. Missing params fall
     back to StreamerSearch.default_filters(). p is the page.
 
-    A signed-in user's search is recorded as a SearchSnapshot from its first page.
+    A signed-in user's search is recorded from its first page, as a SearchSnapshot that
+    doesn't name them.
     """
 
     # The page forwards the user's cookies; one that doesn't validate reads as logged out.

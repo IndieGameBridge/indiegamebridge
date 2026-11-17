@@ -1,9 +1,9 @@
 """Delete personal data kept past its retention period.
 
-Sign-in records, contact messages, export records and search records each tie
-a person to something they did, and the privacy policy promises they go after
-12 months. Meant for a daily cron: a run with nothing to delete is four small
-DELETEs.
+Sign-in records, contact messages and export records each tie a person to
+something they did. Search records name no one, but come from the same usage
+tracking. The privacy policy promises all four go after 12 months. Meant for a
+daily cron: a run with nothing to delete is four small DELETEs.
 """
 
 from datetime import timedelta

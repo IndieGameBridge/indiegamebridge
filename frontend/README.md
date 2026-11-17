@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IndieGameBridge frontend
 
-## Getting Started
+The Next.js app of [IndieGameBridge](../README.md). Its pages are rendered on the server, and it runs on Cloudflare Workers through OpenNext.
 
-First, run the development server:
+## Running it locally
 
 ```bash
+cp .env.example .env.development   # the API's address, this app's address, the Turnstile site key
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+It needs the Django API running too (see the main README), by default on `http://localhost:8000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Building and deploying
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run build` makes a production build.
+- `npm run preview` builds the Worker and runs it locally.
+- `npm run deploy` builds the Worker and deploys it to Cloudflare.
 
-## Learn More
+## Good to know
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Local settings go in `.env.development`, not `.env`. Next loads `.env` for the production build too, and OpenNext would bundle its local addresses into the Worker. Production takes its values from `wrangler.jsonc`.
+- The build uses webpack (`next build --webpack`), since OpenNext can't load Turbopack's chunks.
+- Every page is `force-dynamic`: each one fetches the API per request, so none can be prerendered at build time.
+- `middleware.ts` keeps Next's `middleware` convention rather than Next 16's `proxy`, because OpenNext runs only edge middleware. It passes `/api/`, `/auth/` and `/accounts/` through to Django as a transparent proxy, so the Twitch sign-in's redirects and cookies reach the browser unchanged. It also renews an expired access token on the way.
+- Server-rendered pages call the API through `app/_lib/server-fetch.ts`. It and the middleware both send the visitor's address along (`app/_lib/visitor-address.ts`), so the API's rate limits count each visitor.

@@ -1,6 +1,6 @@
-"""Tests for recording streamer searches (GET /streamers/): which searches get a SearchSnapshot."""
+"""Tests for recording streamer searches (GET /streamers/): which searches get a SearchSnapshot,
+and how one person's searches share a sitting without naming them."""
 
-from datetime import timedelta
 from unittest import mock
 
 from django.conf import settings
@@ -14,7 +14,6 @@ from apps.api.views import StreamerSearchView
 from apps.streams.models import StreamerProfile, StreamerSearchStats
 from apps.streams.search import StreamerSearch
 from apps.users.models import AccountSettings, SearchSnapshot
-from apps.users.models.search_snapshot import REPEAT_WINDOW
 
 User = get_user_model()
 
@@ -68,10 +67,17 @@ class SearchTrackingTests(TestCase):
         self._search("peak=any&genres=any")
 
         snapshot = SearchSnapshot.objects.get()
-        self.assertEqual(snapshot.user, self.user)
         self.assertEqual(snapshot.filters, StreamerSearch({"peak": "any"}).explicit_filters())
         self.assertEqual((snapshot.filters["peak"], snapshot.filters["avgmin"]), ("any", 5))
         self.assertEqual(snapshot.matches, 3)
+        self.assertFalse(snapshot.staff)
+
+    def test_stores_nothing_that_names_the_user(self):
+        self._search()
+
+        self.assertEqual(
+            set(SearchSnapshot.objects.values().get()), {"id", "sitting", "filters", "matches", "staff", "created_at"},
+        )
 
     def test_counts_the_matches_past_the_cap(self):
         with mock.patch("apps.streams.search.MAX_RESULTS", 2):
@@ -100,8 +106,8 @@ class SearchTrackingTests(TestCase):
 
     def test_the_same_search_after_the_window_counts_again(self):
         self._search()
-        first = SearchSnapshot.objects.get()
-        SearchSnapshot.objects.update(created_at=first.created_at - REPEAT_WINDOW - timedelta(minutes=1))
+        # What the cache holds about a user's searches runs out once the window passes.
+        cache.clear()
 
         self._search()
 
@@ -118,11 +124,41 @@ class SearchTrackingTests(TestCase):
         )
         self.assertEqual([snapshot.matches for snapshot in SearchSnapshot.objects.order_by("created_at")], [3, 0, 3])
 
-    def test_another_users_same_search_is_theirs(self):
+    def test_searches_close_together_share_a_sitting_numbered_by_the_first(self):
+        self._search()
+        self._search("peak=21-50")
+
+        first, second = SearchSnapshot.objects.order_by("created_at")
+        self.assertEqual((first.sitting, second.sitting), (first.pk, first.pk))
+
+    def test_a_search_after_the_gap_starts_a_new_sitting(self):
+        self._search()
+        cache.clear()
+        self._search("peak=21-50")
+
+        first, second = SearchSnapshot.objects.order_by("created_at")
+        self.assertEqual((first.sitting, second.sitting), (first.pk, second.pk))
+
+    def test_another_users_same_search_counts_in_a_sitting_of_its_own(self):
         self._search()
         self._search(user=User.objects.create_user(username="other"))
 
-        self.assertEqual(SearchSnapshot.objects.count(), 2)
+        self.assertEqual(SearchSnapshot.objects.values("sitting").distinct().count(), 2)
+
+    def test_marks_a_staff_members_search(self):
+        self.user.is_staff = True
+        self.user.save()
+
+        self._search()
+
+        self.assertTrue(SearchSnapshot.objects.get().staff)
+
+    def test_the_searches_stay_when_the_account_is_deleted(self):
+        self._search()
+
+        self.user.delete()
+
+        self.assertEqual(SearchSnapshot.objects.count(), 1)
 
     def test_records_nothing_for_a_user_who_turned_tracking_off(self):
         AccountSettings.objects.create(user=self.user, allow_tracking=False)
@@ -131,10 +167,14 @@ class SearchTrackingTests(TestCase):
 
         self.assertFalse(SearchSnapshot.objects.exists())
 
-    def test_records_the_user_whose_cookie_the_page_forwards(self):
+    def test_records_a_search_whose_cookie_the_page_forwards(self):
+        self.user.is_staff = True
+        self.user.save()
+
         self._search_with_cookie(AccessToken.for_user(self.user))
 
-        self.assertEqual(SearchSnapshot.objects.get().user, self.user)
+        # Only a signed-in search is recorded, and the staff mark comes from the cookie's user.
+        self.assertTrue(SearchSnapshot.objects.get().staff)
 
     def test_a_cookie_that_doesnt_validate_reads_as_logged_out(self):
         response = self._search_with_cookie("not-a-token")

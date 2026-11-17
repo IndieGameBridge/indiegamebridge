@@ -11,10 +11,11 @@ class AccountPageBuilder(BaseCachedPageBuilder):
             "description": f"Manage your tracking preferences and account.",
             "tracking_label": f"Allow feature-usage tracking for service improvement",
             "exclusion_label": f"Allow streams tracking for my Twitch ID",
-            "exclusion_warning": f"Turning this off removes all data tied to your Twitch ID and excludes it from future collection."
+            "exclusion_warning": f"Turning this off removes all streams data tied to your Twitch ID and excludes it from future collection."
                 f" The removed data cannot be restored, though you can turn tracking back on anytime to re-enable future collection."
-                f" The public page and search results may still show your data for up to an hour while caches refresh.",
-            "exclusion_confirm": f"This removes all data tied to your Twitch ID and excludes it from future collection."
+                f" The public page and search results may still show your data for up to an hour while caches refresh,"
+                f" and streams in our archive files are removed within a week.",
+            "exclusion_confirm": f"This removes all streams data tied to your Twitch ID and excludes it from future collection."
                 f" The removed data cannot be restored. Continue?",
             "danger_zone": {
                 "title": f"Danger zone",

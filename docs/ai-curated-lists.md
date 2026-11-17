@@ -1,9 +1,6 @@
 # AI-curated streamer lists
 
-**Status:** planned, not started. It builds on the personal lists feature. Work starts once two things are done:
-
-- the lists feature is deployed;
-- old streams are archived out of Postgres, the planned database optimization.
+**Status:** planned, not started. It builds on the personal lists feature. The two things it waited for are done: the lists feature is live, and old streams are archived out of Postgres.
 
 ## The idea
 
@@ -31,6 +28,7 @@ Today a developer finds streamers with the search filters on `/streamers`. This 
 - **A list can already store a search.** Each user list keeps the search it came from in `UserListOfStreamers.search_filters`, with every filter spelled out by `StreamerSearch.explicit_filters()`. So a curated list can be a stored search that gets re-run each week, without a new mechanism.
 - **Re-running a list's search is already planned** as step 7 of the lists feature, "Refresh". That step marks streamers as new or missing compared with the list. The weekly rebuild is the same operation on a schedule.
 - **Tags can come from the filters.** `StreamerSearch.describe()` already turns a search's filters into label and value pairs. Generating tags the same way keeps them in step with the search behind the list.
+- **Monday's data includes Sunday.** The search table is rebuilt in one pass every 6 hours, so by 12:00 UTC on Monday it already holds Sunday's streams.
 - **Import is close to "Save as new list".** That flow (`POST /api/lists/`) saves a search's results. An import would instead copy the curated list's current streamers.
 - **Current limits:**
   - a list holds at most 10,000 streamers;
@@ -38,7 +36,6 @@ Today a developer finds streamers with the search filters on `/streamers`. This 
 
 ## Open questions
 
-- **Will Monday's data include Sunday?** `rebuild_search_stats` refreshes streamers in rolling chunks and covers everyone about once a day. So at 12:00 UTC on Monday, some streamers' stats won't include Sunday yet. Two fixes: run a full stats rebuild just before the weekly job, or move the job later.
 - **How do per-week tags map to the filters?** The search counts streams over the 4-week window, so "2-5 streams per week" means 8-20 streams in that window. The filter's options include both 8 and 20.
 - **How much does the agent do beyond writing queries?** Reviewing individual streamers, for example their recent games and stream titles, would make lists sharper. It would also cost more per list. Measure both on the first few dozen lists.
 - **Where do curated lists live?** One option is a model of their own, readable by every signed-in user. The other is lists owned by a system account. They are shared, rebuilt weekly and tagged, which favours a model of their own.

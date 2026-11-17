@@ -18,7 +18,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file, with each streamer's days streamed in the last 28 days and their dates.
 - **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own.
 - **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year, or found by name. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own.
-- **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Sign-in, search and export records, and contact messages, are deleted after 12 months.
+- **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Searches are recorded without the user who ran them. Sign-in, search and export records, and contact messages, are deleted after 12 months.
 
 ## How it works
 
@@ -37,7 +37,7 @@ The system has two halves: scheduled management commands that **collect and shap
 | `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
 | `update_cached_pages` | hourly | Pre-renders the pages' payloads. Home and Streamers hold real streamers and games, so the hourly run keeps their numbers fresh and takes an opted-out streamer off them within the hour. |
-| `delete_expired_personal_data` | daily | Deletes personal data older than 12 months. |
+| `delete_expired_personal_data` | daily | Deletes the sign-in, search and export records and the contact messages older than 12 months. |
 | `remove_opted_out_from_archive` | weekly | Rewrites the archive files that still hold streamers who opted out. |
 | `archive_streams` | monthly | Writes the month that left the retention window to a Parquet file. |
 | `delete_archived_streams` | weekly | Deletes the archived months' streams from Postgres. |
@@ -76,7 +76,7 @@ The pipeline's jobs also ping Healthchecks.io when they succeed.
 
 ### Frontend
 
-Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Its middleware passes `/api/`, `/auth/` and `/accounts/` through to Django, so the auth cookies stay first-party, and renews an expired access token on the way.
+Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Its middleware passes `/api/`, `/auth/` and `/accounts/` through to Django, so the auth cookies stay first-party, and renews an expired access token on the way. Its calls to the API, and those of the server-rendered pages, carry the visitor's address as Cloudflare saw it, so the rate limits count each visitor.
 
 The pages are home, Genre Trends, Games, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags, `robots` and a `sitemap`. The Genre Trends pages also carry schema.org `Dataset` structured data, and the overview its FAQ.
 
@@ -86,7 +86,7 @@ The pages are home, Genre Trends, Games, streamer search (`/streamers`) and prof
 - Search, profiles, lists and exports need a signed-in user. The home page, Genre Trends and Games are public, and so is `/streamers` itself: a logged-out visitor gets a page about the search, with a sample of real results.
 - Cookie-authenticated writes are CSRF-protected.
 - DRF throttles limit request rates, counted in Redis so every Gunicorn worker shares them:
-  - 120 requests a minute per visitor;
+  - 60 requests a minute per logged-out visitor, and 120 per signed-in user;
   - 30 searches a minute;
   - 60 list changes and 30 exports an hour;
   - 5 contact messages an hour.
@@ -110,7 +110,7 @@ backend/
   apps/exports/      Excel, CSV and JSON exports
   apps/users/        accounts, sign-in, opt-out and account settings
   apps/pages/        pre-rendered page payloads
-  apps/api/          the search, distribution and page endpoints
+  apps/api/          the streamer and game searches, the Games chart, the distribution and page endpoints
   apps/jobs/         run records and graphs for the scheduled jobs
   apps/contact/      the contact form
 frontend/            the Next.js app

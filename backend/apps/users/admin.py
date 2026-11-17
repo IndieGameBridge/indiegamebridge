@@ -137,15 +137,15 @@ class LoginSnapshotAdmin(CsvExportAdminMixin, admin.ModelAdmin):
 
 @admin.register(SearchSnapshot)
 class SearchSnapshotAdmin(CsvExportAdminMixin, admin.ModelAdmin):
-    """The search endpoint writes these - no adding or editing here. Deleting stays allowed,
-    as for login snapshots: each row is one user's usage data. The newest can be exported
-    for studying what people search for, and which searches find few streamers."""
+    """The search endpoint writes these - no adding or editing here. Deleting stays allowed.
+    The newest can be exported for studying what people search for, and which searches
+    find few streamers. No row names who searched; a sitting holds one person's searches
+    made close together."""
 
     change_list_template = "admin/export/change_list.html"
     export_name = "searches"
-    list_display = ("created_at_utc", "user", "search", "matches")
-    search_fields = ("user__username",)
-    list_select_related = ("user",)
+    list_display = ("created_at_utc", "sitting", "search", "matches", "staff")
+    list_filter = ("staff",)
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
 
@@ -166,33 +166,33 @@ class SearchSnapshotAdmin(CsvExportAdminMixin, admin.ModelAdmin):
         return False
 
     def export_rows(self, size):
-        """The newest searches, each with which of its user's searches it is and how many
-        minutes after the one before, counting every search on record. A filter left open
-        reads "any", and the genres picked are named. No username."""
-        by_user = {"partition_by": [F("user_id")], "order_by": F("created_at").asc()}
+        """The newest searches, each with which search of its sitting it is and how many
+        minutes after the one before. A filter left open reads "any", and the genres picked
+        are named."""
+        by_sitting = {"partition_by": [F("sitting")], "order_by": F("created_at").asc()}
         searches = (
-            SearchSnapshot.objects.select_related("user")
+            SearchSnapshot.objects
             .annotate(
-                search_number=Window(RowNumber(), **by_user),
-                previous_search=Window(Lag("created_at"), **by_user),
+                search_in_sitting=Window(RowNumber(), **by_sitting),
+                previous_search=Window(Lag("created_at"), **by_sitting),
             )
             .order_by("-created_at")[:size]
         )
         genre_names = dict(GameGenre.objects.values_list("host_genre_id", "host_name"))
         header = [
-            "user", "searched_at_utc", "search_number", "minutes_since_previous_search", "matches",
+            "sitting", "searched_at_utc", "search_in_sitting", "minutes_since_previous_search", "matches",
             *(column for _, column in SEARCH_FILTER_COLUMNS), "genres", "staff",
         ]
         return header, [
             [
-                search.user_id,
+                search.sitting,
                 utc_minute(search.created_at),
-                search.search_number,
+                search.search_in_sitting,
                 minutes_between(search.previous_search, search.created_at),
                 search.matches,
                 *(search.filters.get(name, "any") for name, _ in SEARCH_FILTER_COLUMNS),
                 _genres_text(search.filters, genre_names),
-                "yes" if search.user.is_staff else "no",
+                "yes" if search.staff else "no",
             ]
             for search in searches
         ]

@@ -32,7 +32,7 @@ class DeleteExpiredPersonalDataTests(TestCase):
             Export.objects.create(
                 user=self.user, source=Export.Source.SEARCH, file_format=Export.FileFormat.CSV, rows=1,
             ),
-            SearchSnapshot.objects.create(user=self.user, filters={"lang": "en"}, matches=1),
+            SearchSnapshot.objects.create(sitting=1, filters={"lang": "en"}, matches=1),
         )
         for record in records:
             # auto_now_add overrides a created_at passed to create(), so backdate after.

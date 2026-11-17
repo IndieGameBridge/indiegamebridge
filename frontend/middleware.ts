@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { visitorAddressHeaders } from "./app/_lib/visitor-address";
+
 // NOTE: This is the `middleware` convention, not Next 16's `proxy`. Next 16's
 // proxy.ts runs on the Node.js runtime (and can't be configured to edge), but
 // the OpenNext Cloudflare adapter only supports *edge* middleware. The
@@ -56,6 +58,10 @@ async function proxyToBackend(request: NextRequest, refresh: Refresh | null): Pr
     headers.delete("host"); // let fetch set Host to the backend origin
     headers.set("x-forwarded-host", FRONTEND_HOST);
     headers.set("x-forwarded-proto", FRONTEND_PROTO);
+    // The visitor's address as Cloudflare saw it, over any X-Real-IP they sent.
+    for (const [name, value] of Object.entries(visitorAddressHeaders(request.headers))) {
+        headers.set(name, value);
+    }
     if (refresh?.cookieHeader) headers.set("cookie", refresh.cookieHeader);
 
     // The refresh's cookies go first, so a response that sets or clears the same
@@ -117,9 +123,6 @@ async function refreshTokens(request: NextRequest, refreshToken: string): Promis
     const csrf = request.cookies.get(CSRF_COOKIE);
     const upstreamCookies = [`${REFRESH_COOKIE}=${refreshToken}`];
     if (csrf) upstreamCookies.push(`${CSRF_COOKIE}=${csrf.value}`);
-    // Lets the backend's per-IP throttle count the visitor, as on proxied calls.
-    const forwardedFor = request.headers.get("x-forwarded-for");
-
     let refreshResp: Response;
     try {
         refreshResp = await fetch(`${API_BASE}/auth/token/refresh/`, {
@@ -127,7 +130,8 @@ async function refreshTokens(request: NextRequest, refreshToken: string): Promis
             headers: {
                 cookie: upstreamCookies.join("; "),
                 ...(csrf ? { "X-CSRFToken": csrf.value } : {}),
-                ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+                // Lets the backend's per-IP throttle count the visitor, as on proxied calls.
+                ...visitorAddressHeaders(request.headers),
                 // CSRF middleware accepts requests whose Origin matches CSRF_TRUSTED_ORIGINS.
                 origin: FRONTEND_URL,
             },
