@@ -13,7 +13,7 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 ## What it offers
 
 - **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other. Up to 10,000 results, 50 to a page. Each result shows a strip of the last 28 days, so regular streamers stand out from those who stopped.
-- **Streamer profiles:** the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them.
+- **Streamer profiles** (signed in): the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them. The Home page finds one by Twitch login or channel link, and the account menu opens a signed-in streamer's own. A logged-out visitor who follows a link to a profile logs in with Twitch first, then lands on it.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file, with each streamer's days streamed in the last 28 days and their dates.
 - **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own.
@@ -110,7 +110,7 @@ backend/
   apps/exports/      Excel, CSV and JSON exports
   apps/users/        accounts, sign-in, opt-out and account settings
   apps/pages/        pre-rendered page payloads
-  apps/api/          the streamer and game searches, the Games chart, the distribution and page endpoints
+  apps/api/          the streamer and game searches, the streamer lookup, the Games chart, the distribution and page endpoints
   apps/jobs/         run records and graphs for the scheduled jobs
   apps/contact/      the contact form
 frontend/            the Next.js app

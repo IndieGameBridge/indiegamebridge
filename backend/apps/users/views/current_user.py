@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from allauth.socialaccount.models import SocialAccount
 
+from apps.streams.models import StreamerProfile
 from apps.users.models import AccountSettings, TwitchExclusion
 
 
@@ -28,6 +29,18 @@ class CurrentUserView(APIView):
 
         account_settings, _ = AccountSettings.objects.get_or_create(user=user)
 
+        # The user's own streamer profile, if we have one, for the account menu's link to it.
+        # Found by Twitch ID, since a login can change; None for someone who never streamed a
+        # game we collect, or who opted out.
+        streamer_login = None
+        if twitch_id and str(twitch_id).isdigit():
+            streamer_login = (
+                StreamerProfile.objects
+                .filter(host=StreamerProfile.Host.TWITCH, host_user_id=int(twitch_id))
+                .values_list("host_login", flat=True)
+                .first()
+            )
+
         return Response(
             {
                 "twitch_id": twitch_id,
@@ -36,5 +49,6 @@ class CurrentUserView(APIView):
                 "email": user.email or "",
                 "is_twitch_excluded": is_twitch_excluded,
                 "allow_tracking": account_settings.allow_tracking,
+                "streamer_login": streamer_login,
             }
         )

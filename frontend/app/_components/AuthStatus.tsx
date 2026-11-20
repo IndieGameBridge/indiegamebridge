@@ -13,6 +13,7 @@ export type AuthStatusProps = {
         username: string;
         display_name: string;
         email: string;
+        streamer_login?: string | null;
     } | null;
 };
 
@@ -21,9 +22,9 @@ function readCookie(name: string): string {
     return match ? decodeURIComponent(match[1]) : "";
 }
 
-// Settings and Log out in a menu off the user icon, which leaves the top bar's
-// row for the pages people go to more often.
-function UserMenu() {
+// The user's own streamer profile (when we have one), Settings and Log out, in a menu
+// off the user icon, which leaves the top bar's row for the pages people go to more often.
+function UserMenu({ streamerLogin }: { streamerLogin?: string | null }) {
     const router = useRouter();
     const pathname = usePathname();
     const { open, setOpen, rootRef, buttonRef } = useDropdown();
@@ -60,9 +61,21 @@ function UserMenu() {
             {open && (
                 <div
                     id={menuId}
-                    className="absolute left-0 md:left-auto md:right-0 z-20 mt-2 w-40 rounded border border-gray-300 bg-white text-sm text-left text-gray-900 shadow-lg"
+                    className="absolute left-0 md:left-auto md:right-0 z-20 mt-2 w-48 rounded border border-gray-300 bg-white text-sm text-left text-gray-900 shadow-lg"
                 >
                     <ul className="py-1">
+                        {streamerLogin && (
+                            <li>
+                                <Link
+                                    href={`/streamers/${streamerLogin}`}
+                                    onClick={() => setOpen(false)}
+                                    aria-current={pathname === `/streamers/${streamerLogin}` ? "page" : undefined}
+                                    className="block px-3 py-2 hover:bg-gray-100 aria-[current=page]:font-medium"
+                                >
+                                    My streamer profile
+                                </Link>
+                            </li>
+                        )}
                         <li>
                             <Link
                                 href="/account"
@@ -94,7 +107,7 @@ export function AuthStatus({ user }: AuthStatusProps) {
                     : <a href="/login" className="cursor-pointer text-white hover:underline underline-offset-3 text-nowrap">Log in</a>)
                 : <Fragment>
                         <NavLink href="/dashboard">Dashboard</NavLink>
-                        <UserMenu />
+                        <UserMenu streamerLogin={user.streamer_login} />
                     </Fragment>
             }
         </div>

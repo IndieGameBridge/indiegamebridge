@@ -9,6 +9,9 @@ export type CurrentUser = {
     email: string;
     is_twitch_excluded: boolean;
     allow_tracking: boolean;
+    // The user's own streamer profile's login, null when we have none. Absent from a
+    // backend older than the account menu's link to it.
+    streamer_login?: string | null;
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {

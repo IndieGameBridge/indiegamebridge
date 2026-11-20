@@ -70,6 +70,19 @@ class HomePageBuilder(BaseCachedPageBuilder):
                 "sample_title": f"Indie streamers in English, {DEFAULT_SIZE_GROUP} max viewers",
                 "columns": {"name": "Streamer", "avg": "Avg viewers", "streams": "Streams", "hours": "Hours"},
                 "rows": StreamerSearch({GENRE_FILTER_NAMES[0]: INDIE_GENRE_ID}).results(limit=SAMPLE_ROWS),
+                # The lookup of one streamer by login or channel link. {name} is their display name.
+                "finder": {
+                    "title": "Look up one streamer",
+                    "placeholder": "shroud or twitch.tv/shroud",
+                    "btn": "Find",
+                    "hint": "Type their Twitch login, or paste a link to their channel.",
+                    # Shown to logged-out visitors, whom the profile sends through the login.
+                    "login_note": "Profiles open after a free login with Twitch.",
+                    "opening": "Opening {name}'s profile...",
+                    "not_found": "No streamer with that login is in our data.",
+                    "invalid": "That isn't a Twitch login or a link to a Twitch channel.",
+                    "error": "Couldn't look that up. Try again in a minute.",
+                },
             },
             "lists": {
                 "title": "Keep your shortlist in lists",

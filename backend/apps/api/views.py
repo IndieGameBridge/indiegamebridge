@@ -8,9 +8,9 @@ from rest_framework.views import APIView
 from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
 from apps.streams.game_search import PAGE_SIZE as GAME_PAGE_SIZE, GameSearch
-from apps.streams.models import StreamerProfile
 from apps.streams.profile import StreamerProfileStreams
 from apps.streams.search import PAGE_SIZE as SEARCH_PAGE_SIZE, StreamerSearch
+from apps.streams.streamer_lookup import profile_for_login, twitch_login_from
 from apps.users.authentication import OptionalJWTCookieAuthentication
 from apps.users.models import AccountSettings, SearchSnapshot
 from core.utils.paging import page_of
@@ -31,12 +31,7 @@ class CachedPageContentView(APIView):
             raise Http404
         
         if key == "streamer_profile":
-            twitch_login = request.GET.get("twitch_login", "")
-            streamer_profile = (
-                StreamerProfile.objects
-                .filter(host=StreamerProfile.Host.TWITCH, host_login=twitch_login)
-                .first()
-            )
+            streamer_profile = profile_for_login(request.GET.get("twitch_login", ""))
             page.content["title"] = page.content["title"].replace(
                 "%streamer_display_name%",
                 streamer_profile.host_display_name if streamer_profile else "Not found",
@@ -110,6 +105,26 @@ class StreamerSearchView(APIView):
                 SearchSnapshot.record(user, search.explicit_filters(), search.matches())
         except Exception:
             logger.exception("Failed to record a search for %s", user)
+
+
+class StreamerLookupView(APIView):
+    """Find a streamer's profile by their Twitch login or channel link, for the Home page's finder.
+
+    Public, so a logged-out visitor learns whether there's a profile before signing in to see
+    it. It answers with the login and display name only, never a streamer's numbers.
+    """
+
+    # It acts for nobody, so a stale access token can't get in its way.
+    authentication_classes = []
+
+    def get(self, request):
+        login = twitch_login_from(request.GET.get("q", ""))
+        profile = profile_for_login(login) if login else None
+        return Response({
+            # False when the text holds no Twitch login at all, such as a YouTube link.
+            "valid": login is not None,
+            "profile": {"login": profile.host_login, "display_name": profile.host_display_name} if profile else None,
+        })
 
 
 class GameSearchView(APIView):

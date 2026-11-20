@@ -2,7 +2,9 @@ import { Fragment } from "react/jsx-runtime";
 import { ProgressLink as Link } from "./ProgressLink";
 
 import type { CurrentUser } from "../_lib/auth";
+import { BLUE_BUTTON, BUTTON, TWITCH_BUTTON } from "./buttonStyles";
 import type { StreamerData } from "./SearchStreamerResultsList";
+import { StreamerFinder, type StreamerFinderLabels } from "./StreamerFinder";
 
 type FeatureText = {
     title: string;
@@ -30,6 +32,8 @@ export type HomeShowcaseContent = {
         sample_title: string;
         columns: { name: string; avg: string; streams: string; hours: string };
         rows: StreamerData[];
+        // Absent until the page's cached text is rebuilt with it.
+        finder?: StreamerFinderLabels;
     };
     lists: FeatureText & { login_btn: string; open_btn: string };
     games: FeatureText & {
@@ -49,10 +53,6 @@ export type HomeShowcaseContent = {
 // The blue the site's charts give their first series, and the orange that goes with it.
 const BAR_COLOR = "#0072B2";
 const MARKED_BAR_COLOR = "#E69F00";
-
-const BUTTON = "text-sm inline-block py-2.25 px-6 text-white font-medium rounded border text-center";
-const BLUE_BUTTON = `${BUTTON} bg-blue-600 border-blue-600 hover:bg-blue-700 hover:border-blue-700`;
-const TWITCH_BUTTON = `${BUTTON} bg-twitch-brand border-twitch-brand hover:bg-twitch-brand-dark hover:border-twitch-brand-dark`;
 
 // Tighter on a phone, where the headings wrap before the names do, and a very long name
 // wraps too, so the columns fit without scrolling.
@@ -172,10 +172,12 @@ function GenresSample({ content }: { content: HomeShowcaseContent["genres"] }) {
     );
 }
 
-function Feature({ title, text, href, btn, border, children }: FeatureText & {
+function Feature({ title, text, href, btn, border, after, children }: FeatureText & {
     href: string;
     btn: string;
     border?: boolean;
+    // More under the button, such as the streamer finder.
+    after?: React.ReactNode;
     children: React.ReactNode;
 }) {
     return (
@@ -185,6 +187,7 @@ function Feature({ title, text, href, btn, border, children }: FeatureText & {
                     <h2 className="text-2xl font-bold mb-6">{title}</h2>
                     <p className="mb-6">{text}</p>
                     <Link href={href} className={BLUE_BUTTON}>{btn}</Link>
+                    {after}
                 </div>
                 <div className="min-w-0">{children}</div>
             </div>
@@ -197,7 +200,10 @@ export function HomeShowcase({ content, user }: { content: HomeShowcaseContent; 
     const { streamers, lists, games, genres } = content;
     return (
         <Fragment>
-            <Feature title={streamers.title} text={streamers.text} href="/streamers" btn={streamers.btn} border>
+            <Feature
+                title={streamers.title} text={streamers.text} href="/streamers" btn={streamers.btn} border
+                after={streamers.finder && <StreamerFinder labels={streamers.finder} signedIn={user !== null} />}
+            >
                 <StreamersSample content={streamers} />
             </Feature>
 
