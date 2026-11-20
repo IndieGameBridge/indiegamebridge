@@ -23,8 +23,8 @@ from apps.streams.models import (
 )
 from apps.streams.search import StreamerSearch
 
-# StreamerSearch applies the search form's defaults to every call (peak 51-200, avg
-# 5-200, >= 8 streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
+# StreamerSearch applies the search form's defaults to every call (peak 51-200, >= 8
+# streams, >= 8 hours), so a bare StreamerSearch() means "the default search",
 # not "no filters". The tests below probe one filter at a time against deliberately
 # tiny fixtures, so they neutralise the rest explicitly: "any" is the config's
 # no-filter sentinel, and streamsmin has no "any" option so it takes its lowest
@@ -364,6 +364,19 @@ class RebuildAndSearchTests(TestCase):
         self._rebuild()
 
         self.assertEqual(self._logins(StreamerSearch().results()), ["regular"])
+
+    def test_avg_viewers_has_no_default_so_a_size_group_keeps_its_channels(self):
+        # An average never tops the peak, so a preset range would hide most of the 3-10
+        # group (here an average of 2) and the busiest of 201+ (an average of 300).
+        small = self._make_streamer(1, "small")
+        big = self._make_streamer(2, "big")
+        for i in range(8):
+            self._make_stream(small, 10 + i, max_viewers=8, avg_viewers=2, duration=3600)
+            self._make_stream(big, 20 + i, max_viewers=500, avg_viewers=300, duration=3600)
+        self._rebuild()
+
+        self.assertEqual(self._logins(StreamerSearch({"peak": "3-10"}).results()), ["small"])
+        self.assertEqual(self._logins(StreamerSearch({"peak": "201+"}).results()), ["big"])
 
     def test_language_filter_offers_the_page_languages(self):
         # This dropdown is the only whitelist ?lang= is validated against, so a

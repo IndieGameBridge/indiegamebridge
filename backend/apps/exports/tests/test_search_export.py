@@ -102,7 +102,9 @@ class SearchExportTests(TestCase):
         self.assertEqual(f"{url.scheme}://{url.netloc}{url.path}", "https://indiegamebridge.test/streamers")
         query = parse_qs(url.query)
         # "any" is kept, or the link would come back capped at the form's default.
-        self.assertEqual((query["lang"], query["peak"], query["avgmin"]), (["en"], ["any"], ["5"]))
+        self.assertEqual(
+            (query["lang"], query["peak"], query["avgmin"], query["streamsmin"]), (["en"], ["any"], ["any"], ["8"]),
+        )
         self.assertIn({"label": "Language", "value": "English"}, data["search"])
         self.assertIsNone(data["title"])
 

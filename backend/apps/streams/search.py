@@ -369,9 +369,12 @@ class StreamerSearch:
                 name="avg",
                 label="Avg Viewers",
                 min_values=[{"v": "any", "l": "Min"}] + __class__._get_viewers_filter_values(),
-                min_default=5,
+                # Opens unset: Max Viewers sets the size. An average never tops the peak, so a
+                # preset range would hide most of a small group (a 3-10 channel rarely averages
+                # 5) and the busiest channels of 201+.
+                min_default="any",
                 max_values=__class__._get_viewers_filter_values() + [{"v": "any", "l": "Max"}],
-                max_default=200,
+                max_default="any",
             ),
             __class__._filter_defaults(
                 ui_control="range",

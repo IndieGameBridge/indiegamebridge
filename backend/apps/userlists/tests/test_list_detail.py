@@ -22,7 +22,7 @@ class ListDetailTests(TestCase):
         self.factory = APIRequestFactory()
         self.user = User.objects.create_user(username="dev")
         self.other = User.objects.create_user(username="other")
-        self.list = self._make_list(self.user, search={"lang": "en", "avgmax": "any"})
+        self.list = self._make_list(self.user, search={"lang": "en", "avgmin": 5, "avgmax": "any"})
 
     def _make_list(self, owner, search=None):
         return UserListOfStreamers.objects.create(

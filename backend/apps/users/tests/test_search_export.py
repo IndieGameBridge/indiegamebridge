@@ -50,7 +50,7 @@ class SearchExportTests(TestCase):
         self.assertEqual(header, HEADER)
         self.assertEqual(newest, [
             "40", "2026-10-01 09:12", "2", "12", "7400",
-            "de", "any", "5", "200", "8", "any", "8", "any", "any", "no",
+            "de", "any", "any", "any", "8", "any", "8", "any", "any", "no",
         ])
         self.assertEqual(other[:4], ["41", "2026-10-01 09:05", "1", ""])
         self.assertEqual(first[:7], ["40", "2026-10-01 09:00", "1", "", "12", "en", "51-200"])
@@ -70,7 +70,7 @@ class SearchExportTests(TestCase):
         self.assertEqual(row[HEADER.index("staff")], "yes")
 
     def test_the_list_shows_what_narrowed_each_search_and_offers_the_export(self):
-        self._search(1, datetime(2026, 10, 1, tzinfo=UTC), genres="15", hoursmin="any")
+        self._search(1, datetime(2026, 10, 1, tzinfo=UTC), genres="15", avgmin="5", avgmax="200", hoursmin="any")
 
         response = self.client.get(reverse("admin:users_searchsnapshot_changelist"))
 

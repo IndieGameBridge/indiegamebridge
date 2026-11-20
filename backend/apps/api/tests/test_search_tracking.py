@@ -68,7 +68,9 @@ class SearchTrackingTests(TestCase):
 
         snapshot = SearchSnapshot.objects.get()
         self.assertEqual(snapshot.filters, StreamerSearch({"peak": "any"}).explicit_filters())
-        self.assertEqual((snapshot.filters["peak"], snapshot.filters["avgmin"]), ("any", 5))
+        self.assertEqual(
+            (snapshot.filters["peak"], snapshot.filters["avgmin"], snapshot.filters["streamsmin"]), ("any", "any", 8),
+        )
         self.assertEqual(snapshot.matches, 3)
         self.assertFalse(snapshot.staff)
 

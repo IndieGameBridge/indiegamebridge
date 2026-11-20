@@ -46,7 +46,7 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                         " played all of the chosen genres in that window are shown.",
                 ],
                 "demo_note": "This form is a demo of the real search, which you can use once you log in. The results"
-                    " below are real, matching the filters prefilled in the form, and updated daily.",
+                    " below are real, matching the filters prefilled in the form, and updated every 6 hours.",
                 "cta_link_text": "Log in to use the search",
             },
             "search_results": demo_search.results(limit=DEMO_ROWS),
