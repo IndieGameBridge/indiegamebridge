@@ -56,7 +56,8 @@ export function PageHeader(
             <section className="px-6">
                 <div className="max-w-[1000] mx-auto">
                     <div className="flex flex-row items-center justify-between flex-wrap gap-y-8">
-                        {title && <h1 className="text-3xl">{title}</h1>}
+                        {/* A long streamer name breaks rather than push a phone's page sideways. */}
+                        {title && <h1 className="text-3xl min-w-0 wrap-anywhere">{title}</h1>}
                         {(actions || link_to_twitch) && (
                             <div className="flex flex-row flex-wrap items-center gap-4">
                                 {/* A Fragment's only child rather than a sibling here: an

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone as dt_timezone
 from django.db.models import Count, Sum
 from django.utils import timezone
 
+from apps.streams.evening_windows import EVENING_WINDOWS, seconds_by_window
 from apps.streams.languages import LANGUAGE_NAMES
 from apps.streams.models import Game, Stream, StreamerProfile, StreamerProfileCache
 
@@ -91,10 +92,8 @@ class StreamerProfileStreams:
         top_recent = recent.order_by("-max_viewers").only("snapshots").first()
 
         # Per-calendar-day activity over the recent window (drives the profile activity chart).
-        daily = self._build_daily(
-            recent.values("started_at", "duration", "max_viewers", "avg_viewers"),
-            now,
-        )
+        recent_rows = list(recent.values("started_at", "duration", "max_viewers", "avg_viewers"))
+        daily = self._build_daily(recent_rows, now)
 
         # Per-game breakdown over the recent window, folded from snapshots (one stream can span games).
         per_game_acc = self._accumulate_per_game(recent.values("duration", "snapshots"))
@@ -131,8 +130,29 @@ class StreamerProfileStreams:
                 "per_game": self._build_per_game(per_game_acc, games_index),
                 "per_genre": self._build_per_genre(per_game_acc, games_index),
                 "daily": daily,
+                "windows": self._build_windows(recent_rows),
             },
         }
+
+    @staticmethod
+    def _build_windows(rows) -> list[dict]:
+        """The share of the recent streaming time in each part of the day, named after where
+        it's evening then, in the order the pages list them. All zeros with no time to split."""
+        totals = {window.code: 0 for window in EVENING_WINDOWS}
+        for row in rows:
+            for code, seconds in seconds_by_window(row["started_at"], row["duration"] or 0).items():
+                totals[code] += seconds
+        all_seconds = sum(totals.values())
+        return [
+            {
+                "code": window.code,
+                "label": window.label,
+                "utc_hours": window.utc_hours,
+                "hours": round(totals[window.code] / 3600, 1),
+                "share": round(100 * totals[window.code] / all_seconds) if all_seconds else 0,
+            }
+            for window in EVENING_WINDOWS
+        ]
 
     @staticmethod
     def _build_games_index(host_game_ids) -> dict:

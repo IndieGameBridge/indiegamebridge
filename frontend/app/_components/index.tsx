@@ -17,6 +17,7 @@ export * from "./StreamerActivityChart";
 export * from "./GroupedBarChart";
 export * from "./StreamerGenreChart";
 export * from "./StreamerGameChart";
+export * from "./StreamerWindowsChart";
 export * from "./IndieGameBridgeMark";
 export * from "./PageHeader";
 export * from "./PageFooter";

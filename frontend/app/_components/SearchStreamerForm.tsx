@@ -59,8 +59,8 @@ function toString(value: string | string[] | undefined): string | undefined {
     return Array.isArray(value) ? value[0] : value;
 }
 
-// URL params are always strings, but filter values may be typed (e.g. wdays
-// uses numbers). Resolve a raw string against the configured allowed values
+// URL params are always strings, but filter values may be typed (e.g. genre
+// ids are numbers). Resolve a raw string against the configured allowed values
 // and return the typed counterpart so equality checks (`.includes`, `!==`)
 // work in checkbox state and toggle handlers.
 function coerceToAllowed(raw: string, allowed: (string | number)[]): string | number {
@@ -108,13 +108,17 @@ export function SearchStreamerForm({
     });
 
     const handleCheckboxChange = (filterName: string, value: string | number, isChecked: boolean) => {
-    setFormData((prev) => {
-        const currentValues = asArray(prev[filterName]);
+        setFormData((prev) => {
+            const currentValues = asArray(prev[filterName]);
             if (isChecked) {
                 return { ...prev, [filterName]: [...currentValues, value] };
-            } else {
-                return { ...prev, [filterName]: currentValues.filter((v) => v !== value) };
             }
+            // The last ticked box stays ticked: no box at all would search as every box, and the
+            // form would then say something other than what the results show.
+            if (currentValues.length <= 1) {
+                return prev;
+            }
+            return { ...prev, [filterName]: currentValues.filter((v) => v !== value) };
         });
     };
 
@@ -139,6 +143,8 @@ export function SearchStreamerForm({
         for (const one_filter of search_form.filters) {
             if (one_filter.ui_control === 'multiselect') {
                 const values = asArray(formData[one_filter.name]);
+                // Every box ticked narrows nothing, so it stays out of the address.
+                if (values.length >= one_filter.values.length) continue;
                 for (const v of values) params.append(one_filter.name, String(v));
             } else if (one_filter.ui_control === 'range') {
                 const min_key = `${one_filter.name}min`;
@@ -170,7 +176,7 @@ export function SearchStreamerForm({
                                 one_filter.ui_control === 'multiselect'
                                     ? one_filter.values.length > 10
                                         ? 'lg:col-span-3 md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1'
-                                        : (one_filter.values.length > 3
+                                        : (one_filter.values.length >= 3
                                             ? 'lg:col-span-2 md:col-span-2'
                                             : ''
                                         )
@@ -262,7 +268,7 @@ export function SearchStreamerForm({
                 <div className="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
                     <div className="col-span-1 md:col-span-1 lg:col-span-3 text-sm italic">
                         {search_form.search_notes.map((one_note, index) => (
-                            <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4 pt-2"
+                            <div key={`note-${index}`} className="before:content-(--note-marker) ml-6 before:absolute before:-left-6 relative mb-4 pt-2"
                                 style={{ "--note-marker": `"${"*".repeat(index + 1)}"` } as React.CSSProperties}
                             >{one_note}</div>
                         ))}

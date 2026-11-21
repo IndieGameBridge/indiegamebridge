@@ -23,14 +23,36 @@ WINDOW_DAYS = 28
 # Every (streamer, language) row the window's approved streams make. avg_viewers is
 # rounded as a float, half to even, as Python rounds; genre_ids is the union of the
 # streams' genres, sorted; active_days the UTC days they started on, as a profile's chart
-# counts them, sorted.
+# counts them, sorted; evening_window the part of the day holding most of their time.
+#
+# The evening windows split each stream exactly as apps.streams.evening_windows does: in
+# 8-hour steps counted from 07:00 UTC, a step's number modulo 3 is its window (0 Asia &
+# Oceania, 1 Europe & Africa, 2 Americas). A stream crosses one or two boundaries at most
+# in a day, so this adds a row or two per stream. A tie goes to the window the pages list
+# first: Americas, then Europe & Africa.
 FRESH_SQL = """
     CREATE TEMP TABLE fresh_search_stats AS
     WITH window_streams AS MATERIALIZED (
         SELECT streamer_profile_id, language, max_viewers, avg_viewers, duration, genre_ids,
-               (started_at AT TIME ZONE 'UTC')::date - DATE '1970-01-01' AS day
+               (started_at AT TIME ZONE 'UTC')::date - DATE '1970-01-01' AS day,
+               extract(epoch FROM started_at)::bigint - 25200 AS shifted_start
         FROM streams_stream
         WHERE status = 'approved' AND finished_at >= %s
+    ),
+    window_parts AS (
+        SELECT streamer_profile_id, language, step %% 3 AS part,
+               least(shifted_start + duration, (step + 1) * 28800) - greatest(shifted_start, step * 28800) AS seconds
+        FROM window_streams,
+             generate_series(shifted_start / 28800, (shifted_start + duration - 1) / 28800) AS step
+        WHERE duration > 0
+    ),
+    windows AS (
+        SELECT streamer_profile_id, language,
+               coalesce(sum(seconds) FILTER (WHERE part = 2), 0) AS americas,
+               coalesce(sum(seconds) FILTER (WHERE part = 1), 0) AS europe,
+               coalesce(sum(seconds) FILTER (WHERE part = 0), 0) AS asia
+        FROM window_parts
+        GROUP BY streamer_profile_id, language
     ),
     stats AS (
         SELECT streamer_profile_id, language, max(max_viewers) AS peak_viewers,
@@ -44,31 +66,41 @@ FRESH_SQL = """
         FROM window_streams, unnest(genre_ids) AS genre_id
         GROUP BY streamer_profile_id, language
     )
-    SELECT stats.*, coalesce(genres.genre_ids, '{}') AS genre_ids, profile.host_login, profile.host_display_name
+    SELECT stats.*, coalesce(genres.genre_ids, '{}') AS genre_ids, profile.host_login, profile.host_display_name,
+           CASE
+               WHEN coalesce(windows.americas + windows.europe + windows.asia, 0) = 0 THEN ''
+               WHEN windows.americas >= windows.europe AND windows.americas >= windows.asia THEN 'americas'
+               WHEN windows.europe >= windows.asia THEN 'europe'
+               ELSE 'asia'
+           END AS evening_window
     FROM stats
     JOIN streams_streamerprofile AS profile ON profile.id = stats.streamer_profile_id
     LEFT JOIN genres USING (streamer_profile_id, language)
+    LEFT JOIN windows USING (streamer_profile_id, language)
 """
 
 # New rows, and rows whose numbers or names changed; the rest stay as they are.
 UPSERT_SQL = """
     INSERT INTO streams_streamersearchstats AS current (
         streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
-        genre_ids, active_days, host_login, host_display_name, computed_at
+        genre_ids, active_days, evening_window, host_login, host_display_name, computed_at
     )
     SELECT streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
-           genre_ids, active_days, host_login, host_display_name, now()
+           genre_ids, active_days, evening_window, host_login, host_display_name, now()
     FROM fresh_search_stats
     ON CONFLICT (streamer_profile_id, language) DO UPDATE SET
         peak_viewers = EXCLUDED.peak_viewers, avg_viewers = EXCLUDED.avg_viewers,
         total_duration_seconds = EXCLUDED.total_duration_seconds, streams_count = EXCLUDED.streams_count,
-        genre_ids = EXCLUDED.genre_ids, active_days = EXCLUDED.active_days, host_login = EXCLUDED.host_login,
-        host_display_name = EXCLUDED.host_display_name, computed_at = EXCLUDED.computed_at
+        genre_ids = EXCLUDED.genre_ids, active_days = EXCLUDED.active_days, evening_window = EXCLUDED.evening_window,
+        host_login = EXCLUDED.host_login, host_display_name = EXCLUDED.host_display_name,
+        computed_at = EXCLUDED.computed_at
     WHERE (current.peak_viewers, current.avg_viewers, current.total_duration_seconds, current.streams_count,
-           current.genre_ids, current.active_days, current.host_login, current.host_display_name)
+           current.genre_ids, current.active_days, current.evening_window, current.host_login,
+           current.host_display_name)
           IS DISTINCT FROM
           (EXCLUDED.peak_viewers, EXCLUDED.avg_viewers, EXCLUDED.total_duration_seconds, EXCLUDED.streams_count,
-           EXCLUDED.genre_ids, EXCLUDED.active_days, EXCLUDED.host_login, EXCLUDED.host_display_name)
+           EXCLUDED.genre_ids, EXCLUDED.active_days, EXCLUDED.evening_window, EXCLUDED.host_login,
+           EXCLUDED.host_display_name)
 """
 
 # Streamers with no approved stream left in the window drop out of search.

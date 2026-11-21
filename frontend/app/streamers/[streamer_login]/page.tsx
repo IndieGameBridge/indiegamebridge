@@ -18,6 +18,8 @@ import {
     StreamerGenreChart,
     StreamerGenreActivity,
     StreamerProfileStreamsList,
+    StreamerWindowActivity,
+    StreamerWindowsChart,
     TwitchStream,
 } from "../../_components";
 
@@ -51,6 +53,7 @@ type StreamerProfilePageContent = {
         // those entries drop out on their own within the cache TTL.
         daily?: StreamerDailyActivity[];
         per_genre?: StreamerGenreActivity[];
+        windows?: StreamerWindowActivity[];
     };
 };
 
@@ -100,6 +103,11 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                         <div className="mb-12">
                             <StreamerActivityChart daily={content.stats.daily ?? []} />
                         </div>
+                        {content.stats.windows && (
+                            <div className="mb-12">
+                                <StreamerWindowsChart windows={content.stats.windows} />
+                            </div>
+                        )}
                         <div className="mb-12">
                             <StreamerGenreChart genres={content.stats.per_genre ?? []} />
                         </div>

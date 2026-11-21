@@ -1,3 +1,5 @@
+from apps.streams.evening_windows import EVENING_WINDOWS
+
 from .add_to_list import add_to_list_labels
 from .base import BaseCachedPageBuilder
 from .export_menu import export_menu_labels
@@ -44,6 +46,8 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                     "Results are based on each streamer's streams from the last 4 weeks.",
                     "Picking a second or third genre narrows the results: only streamers who"
                         " played all of the chosen genres in that window are shown.",
+                    f"Streams in the evening in: the part of the day that held most of a streamer's streaming time"
+                        f" in the last 4 weeks, named after where it's evening then. {_windows_sentence()}",
                 ],
                 "demo_note": "This form is a demo of the real search, which you can use once you log in. The results"
                     " below are real, matching the filters prefilled in the form, and updated every 6 hours.",
@@ -124,8 +128,8 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                     {
                         "title": "Set the filters.",
                         "text": "Pick a language, a streamer size by max viewers, and up to three game genres. You can"
-                            " also narrow by average viewers, and by how many streams and hours they did in the last"
-                            " 4 weeks.",
+                            " also narrow by average viewers, by how many streams and hours they did in the last"
+                            " 4 weeks, and by the part of the day they stream in.",
                     },
                     {
                         "title": "Read the results.",
@@ -196,6 +200,18 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                             " one that stayed in Just Chatting, doesn't count.",
                     },
                     {
+                        "question": "What does \"Streams in the evening in\" mean?",
+                        "answer": "It's about when a streamer goes live, not where they live. The day is split into"
+                            " three parts of 8 hours: 23:00–07:00 UTC is evening in the Americas (about 18:00–02:00 in"
+                            " New York), 15:00–23:00 UTC is evening in Europe and Africa (about 16:00–24:00 in Berlin),"
+                            " and 07:00–15:00 UTC is evening in Asia and Oceania (16:00–24:00 in Tokyo). A streamer"
+                            " counts under the part that held most of their streaming time in the last 4 weeks."
+                            " Viewers mostly watch live in their own evening, so this shows which audience a streamer"
+                            " can reach, as long as their language fits it too. For example, a German streamer who"
+                            " streams from 13:00 to 17:00 German time counts under Asia & Oceania, because it's evening"
+                            " there.",
+                    },
+                    {
                         "question": "How fresh are the numbers?",
                         "answer": "We check live Twitch streams every 20 minutes, and the search's numbers are rebuilt"
                             " every 6 hours. They always cover the last 4 weeks.",
@@ -214,3 +230,13 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
             },
             "demo_title": "A sample search",
         }
+
+
+def _windows_sentence() -> str:
+    """The parts of the day as one sentence: "Americas is 23:00–07:00 UTC, Europe & Africa
+    15:00–23:00 UTC and Asia & Oceania 07:00–15:00 UTC."."""
+    first, second, third = EVENING_WINDOWS
+    return (
+        f"{first.label} is {first.utc_hours}, {second.label} {second.utc_hours}"
+        f" and {third.label} {third.utc_hours}."
+    )

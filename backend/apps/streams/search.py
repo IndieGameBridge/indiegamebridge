@@ -3,6 +3,7 @@ from functools import cache
 
 from django.utils import timezone
 
+from apps.streams.evening_windows import EVENING_WINDOW_CODES, EVENING_WINDOWS
 from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES
 from apps.streams.models import GameGenre, StreamerSearchStats
 from apps.streams.size_groups import SIZE_FILTER_VALUES, SIZE_GROUPS_BY_LABEL
@@ -23,9 +24,13 @@ DEFAULT_SIZE_GROUP = "51-200"
 # keeps the original "genres" so single-genre links made before the split still work.
 GENRE_FILTER_NAMES = ("genres", "genres2", "genres3")
 
-# Query params that arrive repeated rather than once (?wdays=1&wdays=5). Names
+# The "Streams in the evening in" checkboxes: which parts of the day, named after where it's
+# evening then, may hold most of a streamer's time. Every box ticked is no filter.
+EVENING_FILTER = "evening"
+
+# Query params that arrive repeated rather than once (?evening=europe&evening=asia). Names
 # must match the filter config in get_filters_config.
-LIST_PARAMS = ("wdays",)
+LIST_PARAMS = (EVENING_FILTER,)
 
 # Params that page the results rather than filter them, so they stay out of the
 # filter dict and two pages of one search normalize identically.
@@ -194,6 +199,11 @@ class StreamerSearch:
                     value = f"up to {high}"
                 else:
                     continue
+            elif one_config["ui_control"] == "multiselect":
+                selected = self.filters.get(name)
+                if not selected:
+                    continue
+                value = ", ".join(option["l"] for option in one_config["values"] if option["v"] in selected)
             else:
                 value = self._option_label(one_config["values"], self.filters.get(name))
                 if value is None:
@@ -233,6 +243,9 @@ class StreamerSearch:
         genres = self._selected_genres()
         if genres:
             qs = qs.filter(genre_ids__contains=genres)
+        # Some boxes unticked: only the streamers whose main part of the day is a ticked one.
+        if self.filters.get(EVENING_FILTER):
+            qs = qs.filter(evening_window__in=self.filters[EVENING_FILTER])
 
         # Matches the language-leading index, so this is an index-ordered scan.
         self._queryset = qs.order_by("-peak_viewers", "-avg_viewers", "-total_duration_seconds")
@@ -339,6 +352,9 @@ class StreamerSearch:
                 one_config["default"],
                 multi=is_multi,
             )
+            # Every box ticked narrows nothing, so it's no filter, the same as no box sent.
+            if is_multi and set(normalized_filters.get(base_name, [])) >= {value["v"] for value in one_config["values"]}:
+                normalized_filters.pop(base_name, None)
             apply(
                 base_name + "min",
                 [value["v"] for value in one_config["min_values"]],
@@ -406,6 +422,15 @@ class StreamerSearch:
                 values=[{"v": code, "l": LANGUAGE_NAMES[code]} for code in PAGE_LANGUAGES],
                 default="en",
             ),
+            # When they stream, by where it's evening then: see apps.streams.evening_windows.
+            # Opens with every box ticked, which is no filter.
+            __class__._filter_defaults(
+                ui_control="multiselect",
+                name=EVENING_FILTER,
+                label="Streams in the evening in",
+                values=[{"v": window.code, "l": window.label} for window in EVENING_WINDOWS],
+                default=list(EVENING_WINDOW_CODES),
+            ),
         ], [
             "lang",
             "peak",
@@ -413,6 +438,7 @@ class StreamerSearch:
             "streamsmin", "streamsmax",
             "hoursmin", "hoursmax",
             *GENRE_FILTER_NAMES,
+            EVENING_FILTER,
         ]
 
     @staticmethod

@@ -12,8 +12,8 @@ A possible next step is AI-curated streamer lists, built on the personal lists f
 
 ## What it offers
 
-- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other. Up to 10,000 results, 50 to a page. Each result shows a strip of the last 28 days, so regular streamers stand out from those who stopped.
-- **Streamer profiles** (signed in): the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them. The Home page finds one by Twitch login or channel link, and the account menu opens a signed-in streamer's own. A logged-out visitor who follows a link to a profile logs in with Twitch first, then lands on it.
+- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other, and by the part of the day a streamer goes live in. The day splits into three 8-hour parts named after where it's evening then (Americas 23:00–07:00, Europe & Africa 15:00–23:00, Asia & Oceania 07:00–15:00 UTC), and a streamer counts under the part that held most of their time: it says when they stream, not where they live. Up to 10,000 results, 50 to a page. Each result shows a strip of the last 28 days, so regular streamers stand out from those who stopped.
+- **Streamer profiles** (signed in): the last four weeks' numbers, a day-by-day activity chart, the share of their streaming time in each part of the day, and the recent streams with the games played in them. The Home page finds one by Twitch login or channel link, and the account menu opens a signed-in streamer's own. A logged-out visitor who follows a link to a profile logs in with Twitch first, then lands on it.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file, with each streamer's days streamed in the last 28 days and their dates.
 - **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own, which says in a few sentences built from its numbers which genres it favours compared with the other languages, and where Indie stands.
@@ -32,7 +32,7 @@ The system has two halves: scheduled management commands that **collect and shap
 | `categorize_games` | hourly | Asks Helix `games` about categories new to the database. Those with an IGDB id become games, the rest (Just Chatting, say) non-games. |
 | `enrich_igdb_games` | hourly | Fills games in from IGDB, with genres, summary and link, then updates the genres of the streams that played them. |
 | `approve_streams` | hourly | Approves the ended streams that played a game and deletes those that didn't. A stream still waiting on an uncategorized game is left for the next run. |
-| `rebuild_search_stats` | every 6 hours | Rebuilds the search table in one pass: one read of the streams table, then only the rows whose numbers changed are written. |
+| `rebuild_search_stats` | every 6 hours | Rebuilds the search table in one pass: one read of the streams table, then only the rows whose numbers changed are written. The same pass splits each stream at 07:00, 15:00 and 23:00 UTC to find the part of the day holding most of a streamer's time. |
 | `rebuild_game_stats` | every 6 hours | Counts the streams live in each hour of the last 4 weeks, per game, language and streamer size, and sorts each list once, for the Games page. |
 | `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
@@ -44,10 +44,10 @@ The system has two halves: scheduled management commands that **collect and shap
 
 ### Read models
 
-Search never scans the streams table, which holds tens of millions of rows. A read model, `StreamerSearchStats`, has one row per streamer and language, summing up their last four weeks: peak and average viewers, hours, streams and the genres played. A search is an indexed filter and sort over that table.
+Search never scans the streams table, which holds tens of millions of rows. A read model, `StreamerSearchStats`, has one row per streamer and language, summing up their last four weeks: peak and average viewers, hours, streams, the genres played and the part of the day holding most of their time. A search is an indexed filter and sort over that table.
 
 - It's rebuilt in one pass every 6 hours. A streamer's streams are spread all through the streams table, so reading it costs about the same for one streamer as for all of them, and one pass beats many smaller ones. Only the rows whose numbers changed are written, and streamers with no recent streams drop out.
-- Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the genres it actually played, by snapshot, so non-game time such as Just Chatting doesn't count.
+- Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the games it played, by snapshot, and a game's hours count toward each of its genres, so non-game time such as Just Chatting doesn't count.
 - The Games pages read `GameStats`, rebuilt in one pass every 6 hours: one row per game, language and streamer size group, holding that line's hours and its place in its list. The newest hour decides the order and an older hour only breaks a tie, so a search reads a stored position instead of comparing 4 weeks of hours.
 - Streamer sizes are one set of groups by peak viewers (`apps/streams/size_groups.py`), shared by the home page's chart, the streamer search and the Games pages.
 - Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a block per feature, each with a small sample of real data, and headline counts read from the search table.

@@ -69,3 +69,13 @@ class StreamersPageTests(TestCase):
 
         self.assertIn("It covers 1 streamers", about)
         self.assertIn("English, French", about)
+
+    def test_the_page_explains_the_evening_filter(self):
+        content = StreamersPageBuilder().build_content()
+
+        self.assertIn(
+            "Americas is 23:00–07:00 UTC, Europe & Africa 15:00–23:00 UTC and Asia & Oceania 07:00–15:00 UTC.",
+            content["search_form"]["search_notes"][-1],
+        )
+        answers = {item["question"]: item["answer"] for item in content["public_page"]["faq"]["items"]}
+        self.assertIn("not where they live", answers['What does "Streams in the evening in" mean?'])

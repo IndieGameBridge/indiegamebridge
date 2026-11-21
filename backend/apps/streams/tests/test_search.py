@@ -469,3 +469,56 @@ class RebuildAndSearchTests(TestCase):
 
         # 20.5 rounds to 20, as Python's round did when the rebuild ran in Python.
         self.assertEqual(StreamerSearchStats.objects.get(streamer_profile=streamer).avg_viewers, 20)
+
+    def _timed(self, profile, host_stream_id, started_at, hours):
+        # An approved stream with that start and length, ended inside the window.
+        stream = self._make_stream(profile, host_stream_id, 100, 50, int(hours * 3600), started_at=started_at)
+        stream.finished_at = started_at + timedelta(hours=hours)
+        stream.save(update_fields=["finished_at"])
+
+    def _evening_streamers(self):
+        # One streamer live in each part of the day, and one whose time splits across two.
+        utc = dt_timezone.utc
+        europe, americas, asia, split = (self._make_streamer(n, login) for n, login in enumerate(
+            ("europe_one", "americas_one", "asia_one", "split_one"), 1))
+        self._timed(europe, 1, datetime(2026, 11, 3, 16, tzinfo=utc), 4)
+        self._timed(americas, 2, datetime(2026, 11, 3, 1, tzinfo=utc), 4)
+        self._timed(asia, 3, datetime(2026, 11, 3, 9, tzinfo=utc), 4)
+        # Two hours of Asia's evening, then four of Europe's.
+        self._timed(split, 4, datetime(2026, 11, 3, 13, tzinfo=utc), 6)
+        with self._clock(2026, 11, 5, 12):
+            self._rebuild()
+
+    def test_the_evening_window_is_the_part_of_the_day_with_the_most_time(self):
+        self._evening_streamers()
+
+        self.assertEqual(
+            dict(StreamerSearchStats.objects.values_list("host_login", "evening_window")),
+            {"europe_one": "europe", "americas_one": "americas", "asia_one": "asia", "split_one": "europe"},
+        )
+
+    def test_the_evening_filter_keeps_the_ticked_parts_of_the_day(self):
+        self._evening_streamers()
+
+        with self._clock(2026, 11, 5, 12):
+            self.assertEqual(sorted(self._logins(self._search(evening=["asia"]).results())), ["asia_one"])
+            self.assertEqual(
+                sorted(self._logins(self._search(evening=["europe", "americas"]).results())),
+                ["americas_one", "europe_one", "split_one"],
+            )
+
+    def test_every_box_ticked_or_none_sent_is_no_filter(self):
+        self._evening_streamers()
+
+        with self._clock(2026, 11, 5, 12):
+            every = self._search(evening=["americas", "europe", "asia"])
+            self.assertNotIn("evening", every.filters)
+            self.assertEqual(len(every.results()), 4)
+            self.assertNotIn("evening", self._search().filters)
+            self.assertEqual(every.explicit_filters()["evening"], "any")
+
+    def test_the_evening_filter_is_described_and_rerun(self):
+        search = self._search(evening=["europe", "asia"])
+
+        self.assertIn({"label": "Streams in the evening in", "value": "Europe & Africa, Asia & Oceania"}, search.describe())
+        self.assertEqual(StreamerSearch(search.explicit_filters()).filters["evening"], ["europe", "asia"])

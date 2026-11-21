@@ -2,6 +2,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 
+from apps.streams.evening_windows import EVENING_WINDOWS
 from apps.streams.models.streamer_profile import StreamerProfile
 
 
@@ -54,6 +55,16 @@ class StreamerSearchStats(models.Model):
         blank=True,
         help_text="The UTC days these streams started on, sorted, as days since the Unix epoch: real days"
             " rather than days ago, so a row only changes when its streams do.",
+    )
+
+    evening_window = models.CharField(
+        max_length=8,
+        blank=True,
+        default="",
+        choices=[(window.code, window.label) for window in EVENING_WINDOWS],
+        help_text="The part of the day holding most of these streams' time, named after where it's evening"
+            " then (apps.streams.evening_windows): americas, europe or asia. Empty while there's no stream"
+            " time to split. Filtered by the search's 'Streams in the evening in'.",
     )
 
     # Denormalized from StreamerProfile so search renders without a join. May lag
