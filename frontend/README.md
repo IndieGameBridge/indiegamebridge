@@ -24,4 +24,6 @@ It needs the Django API running too (see the main README), by default on `http:/
 - The build uses webpack (`next build --webpack`), since OpenNext can't load Turbopack's chunks.
 - Every page is `force-dynamic`: each one fetches the API per request, so none can be prerendered at build time.
 - `middleware.ts` keeps Next's `middleware` convention rather than Next 16's `proxy`, because OpenNext runs only edge middleware. It passes `/api/`, `/auth/` and `/accounts/` through to Django as a transparent proxy, so the Twitch sign-in's redirects and cookies reach the browser unchanged. It also renews an expired access token on the way.
+- Next merges metadata shallowly, so a page that sets its own `openGraph` or `twitter` replaces the layout's whole object, preview picture included. Such pages spread in `SHARED_OPEN_GRAPH` and `SHARED_TWITTER` from `app/_lib/share-metadata.ts`, which point at `public/og-image.png`.
+- `app/llms.txt/route.ts` writes the plain-text guide for AI assistants from the cached pages' titles and descriptions, rebuilt hourly like the sitemap.
 - Server-rendered pages call the API through `app/_lib/server-fetch.ts`. It and the middleware both send the visitor's address along (`app/_lib/visitor-address.ts`), so the API's rate limits count each visitor.

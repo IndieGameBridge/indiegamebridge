@@ -160,9 +160,9 @@ class RebuildGenreStatsTests(TestCase):
 
     def test_unlisted_language_is_ignored(self):
         self._make_genre(10, "Action")
-        streamer = self._make_streamer(1, "ru_streamer")
-        # Russian isn't a language the fetch collects, so it contributes no rows.
-        self._make_stream(streamer, 1, duration=3600, genre_ids=[10], language="ru")
+        streamer = self._make_streamer(1, "nl_streamer")
+        # Dutch isn't a language the fetch collects, so it contributes no rows.
+        self._make_stream(streamer, 1, duration=3600, genre_ids=[10], language="nl")
 
         self._rebuild()
 

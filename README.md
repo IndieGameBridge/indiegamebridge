@@ -6,9 +6,9 @@ Indie developers struggle to find the right small streamers to pitch their games
 
 ## Status
 
-Live in production. A single VPS polls Twitch around the clock in eight languages (English, French, German, Spanish, Portuguese, Japanese, Italian and Chinese) and keeps millions of streamers' activity searchable. The web frontend runs on Cloudflare Workers.
+Live in production. A single VPS polls Twitch around the clock in thirteen languages and keeps millions of streamers' activity searchable. The pages show eight of them (English, French, German, Spanish, Portuguese, Japanese, Italian and Chinese); Russian, Polish, Ukrainian, Turkish and Korean are collected before the pages show them. The web frontend runs on Cloudflare Workers.
 
-Next up are AI-curated streamer lists, built on the personal lists feature: see [docs/ai-curated-lists.md](docs/ai-curated-lists.md).
+A possible next step is AI-curated streamer lists, built on the personal lists feature: see [docs/ai-curated-lists.md](docs/ai-curated-lists.md).
 
 ## What it offers
 
@@ -16,8 +16,8 @@ Next up are AI-curated streamer lists, built on the personal lists feature: see 
 - **Streamer profiles** (signed in): the last four weeks' numbers, a day-by-day activity chart, and the recent streams with the games played in them. The Home page finds one by Twitch login or channel link, and the account menu opens a signed-in streamer's own. A logged-out visitor who follows a link to a profile logs in with Twitch first, then lands on it.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file, with each streamer's days streamed in the last 28 days and their dates.
-- **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own.
-- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year, or found by name. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own.
+- **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own, which says in a few sentences built from its numbers which genres it favours compared with the other languages, and where Indie stands.
+- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year, or found by name. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own, which names its most streamed game and the top games that rank far lower in the other languages. A short guide follows the list.
 - **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Searches are recorded without the user who ran them. Sign-in, search and export records, and contact messages, are deleted after 12 months.
 
 ## How it works
@@ -78,7 +78,7 @@ The pipeline's jobs also ping Healthchecks.io when they succeed.
 
 Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Its middleware passes `/api/`, `/auth/` and `/accounts/` through to Django, so the auth cookies stay first-party, and renews an expired access token on the way. Its calls to the API, and those of the server-rendered pages, carry the visitor's address as Cloudflare saw it, so the rate limits count each visitor.
 
-The pages are home, Genre Trends, Games, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags, `robots` and a `sitemap`. The Genre Trends pages also carry schema.org `Dataset` structured data, and the overview its FAQ.
+The pages are home, Genre Trends, Games, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags with a shared preview picture, `robots`, a `sitemap`, and an `llms.txt` that tells AI assistants what each public page shows. The Genre Trends pages also carry schema.org `Dataset` structured data; the Genre Trends and Games overviews and the public streamer search page carry their FAQs.
 
 ### Auth and security
 

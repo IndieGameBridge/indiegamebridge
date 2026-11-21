@@ -1,10 +1,20 @@
 import { Fragment } from "react/jsx-runtime";
 import type { Metadata } from "next";
 
-import { LanguageSwitch, PageFooter, PageFooterContent, PageHeader } from "../../_components";
+import {
+    FaqContent,
+    LanguageSwitch,
+    PageFooter,
+    PageFooterContent,
+    PageHeader,
+    Standouts,
+    StandoutsContent,
+} from "../../_components";
 import type { CurrentUser } from "../../_lib/auth";
 import { RESULTS_ANCHOR, pageParam } from "../../_lib/paging";
 import { serverFetch } from "../../_lib/server-fetch";
+import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "../../_lib/share-metadata";
+import { GamesGuide, GamesGuideCopy } from "./GamesGuide";
 import { GamesList } from "./GamesList";
 import { GamesSearchForm, GamesSearchFormData } from "./GamesSearchForm";
 import type { GameLanguage, GameListLabels, GameSearchResponse } from "./types";
@@ -21,12 +31,20 @@ type PageCopy = {
     note: string | null;
 };
 
-export type GamesLanguagePage = PageCopy & GameLanguage & { slug: string };
+export type GamesLanguagePage = PageCopy & GameLanguage & {
+    slug: string;
+    // Its most streamed games against the other languages. Null while it has too few days to
+    // compare, and missing from a payload cached before it existed.
+    standouts?: StandoutsContent | null;
+};
 
 export type GamesContent = PageCopy & {
     language_pages: GamesLanguagePage[];
     search_form: GamesSearchFormData;
     labels: GameListLabels;
+    // Missing from a payload cached before they existed: the pages then show without them.
+    guide?: GamesGuideCopy;
+    faq?: FaqContent;
     footer_content: PageFooterContent;
 };
 
@@ -55,11 +73,13 @@ export function gamesMetadata(content: GamesContent, page: GamesLanguagePage | n
         // The filters narrow one page rather than make new ones.
         alternates: { canonical: pathOf(page) },
         openGraph: {
+            ...SHARED_OPEN_GRAPH,
             title: copy.seo_title,
             description: copy.seo_description,
             url: pathOf(page),
         },
         twitter: {
+            ...SHARED_TWITTER,
             title: copy.seo_title,
             description: copy.seo_description,
         },
@@ -107,6 +127,9 @@ export async function GamesView({ content, page, user, searchParams }: {
     const listQuery = [`lang=${page?.code ?? "all"}`, query].filter(Boolean).join("&");
     const resultsPage = pageParam(searchParams.p);
     const search = await searchGames(resultsPage ? `${listQuery}&p=${encodeURIComponent(resultsPage)}` : listQuery);
+    // The questions are the overview's: Google wants one marked-up copy of them, not one per
+    // language page.
+    const faq = !page && content.faq && content.faq.items.length > 0 ? content.faq : null;
 
     return (
         <Fragment>
@@ -119,6 +142,7 @@ export async function GamesView({ content, page, user, searchParams }: {
                         {copy.note && (
                             <p className="mb-8 text-sm border-l-4 border-gray-300 pl-4">{copy.note}</p>
                         )}
+                        {page?.standouts && <Standouts standouts={page.standouts} />}
                         <LanguageSwitch base="/games" pages={content.language_pages} current={page?.slug ?? null} query={query} />
                         <GamesSearchForm
                             key={`${pathOf(page)}?${query}`}
@@ -145,6 +169,15 @@ export async function GamesView({ content, page, user, searchParams }: {
                         </div>
                     </div>
                 </section>
+
+                {/* The list comes first; how to read it is here for whoever wants it. */}
+                {content.guide && (
+                    <section className="border-t border-gray-400 px-6">
+                        <div className="max-w-[1000] mx-auto py-24">
+                            <GamesGuide guide={content.guide} faq={faq} />
+                        </div>
+                    </section>
+                )}
             </main>
 
             <PageFooter content={content.footer_content} />

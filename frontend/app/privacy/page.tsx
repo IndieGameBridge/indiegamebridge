@@ -4,6 +4,7 @@ import { ProgressLink as Link } from "../_components/ProgressLink";
 
 import { getCurrentUser } from "../_lib/auth";
 import { serverFetch } from "../_lib/server-fetch";
+import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "../_lib/share-metadata";
 import { PageHeader, PageFooter, PageFooterContent } from "../_components";
 
 // Reads auth cookies + live backend data per request, so never prerender at
@@ -20,11 +21,13 @@ export const metadata: Metadata = {
     robots: { index: true, follow: true },
     alternates: { canonical: "/privacy" },
     openGraph: {
+        ...SHARED_OPEN_GRAPH,
         title: "Privacy Policy — IndieGameBridge",
         description,
         url: "/privacy",
         type: "article",
     },
+    twitter: SHARED_TWITTER,
 };
 
 export type PrivacyPolicyPageContent = {

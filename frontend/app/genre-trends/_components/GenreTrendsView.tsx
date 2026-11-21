@@ -10,10 +10,13 @@ import {
     PageHeader,
     PageFooter,
     PageFooterContent,
+    Standouts,
+    StandoutsContent,
 } from "../../_components";
 import type { CurrentUser } from "../../_lib/auth";
 import { jsonLd } from "../../_lib/json-ld";
 import { serverFetch } from "../../_lib/server-fetch";
+import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "../../_lib/share-metadata";
 
 // A page's own copy: the overview's sits at the top of the payload, each language's
 // in language_pages.
@@ -32,6 +35,9 @@ export type GenreLanguagePage = PageCopy & {
     code: string;
     slug: string;
     label: string;
+    // How its genres differ from the other languages'. Null while it has too few days to
+    // compare, and missing from a payload cached before it existed.
+    standouts?: StandoutsContent | null;
 };
 
 export type GenreTrendsContent = PageCopy & {
@@ -72,11 +78,13 @@ export function genreTrendsMetadata(content: GenreTrendsContent, page: GenreLang
         description: seoDescription,
         alternates: { canonical: pathOf(page) },
         openGraph: {
+            ...SHARED_OPEN_GRAPH,
             title: seoTitle,
             description: seoDescription,
             url: pathOf(page),
         },
         twitter: {
+            ...SHARED_TWITTER,
             title: seoTitle,
             description: seoDescription,
         },
@@ -150,6 +158,7 @@ export function GenreTrendsView({ content, page, user }: {
                         {copy.note && (
                             <p className="mb-8 text-sm border-l-4 border-gray-300 pl-4">{copy.note}</p>
                         )}
+                        {page?.standouts && <Standouts standouts={page.standouts} />}
                         {content.language_pages && (
                             <LanguageSwitch base="/genre-trends" pages={content.language_pages} current={page?.slug ?? null} />
                         )}

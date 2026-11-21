@@ -18,6 +18,7 @@ import { ExportMenu, ExportMenuLabels } from "../_components/ExportMenu";
 import { CurrentUser, getCurrentUser } from "../_lib/auth";
 import { Paging, RESULTS_ANCHOR, pageParam } from "../_lib/paging";
 import { serverFetch } from "../_lib/server-fetch";
+import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "../_lib/share-metadata";
 import { LoadingNote } from "./_components/LoadingNote";
 import { PublicPageCopy, PublicStreamers } from "./_components/PublicStreamers";
 import { SaveSearchAsList, SaveListLabels } from "./_components/SaveSearchAsList";
@@ -69,11 +70,13 @@ export async function generateMetadata(): Promise<Metadata> {
         // A search's URL shows a logged-out visitor this same page, so it points here too.
         alternates: { canonical: "/streamers" },
         openGraph: {
+            ...SHARED_OPEN_GRAPH,
             title: content.seo_title,
             description: content.seo_description,
             url: "/streamers",
         },
         twitter: {
+            ...SHARED_TWITTER,
             title: content.seo_title,
             description: content.seo_description,
         },

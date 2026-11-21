@@ -11,6 +11,7 @@ import {
 } from "./_components";
 import { getCurrentUser } from "./_lib/auth";
 import { serverFetch } from "./_lib/server-fetch";
+import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "./_lib/share-metadata";
 
 // Reads auth cookies + live backend data per request, so never prerender at
 // build time (the backend isn't reachable then). Render on demand on the Worker.
@@ -55,11 +56,13 @@ export async function generateMetadata(): Promise<Metadata> {
         description: seoDescription,
         alternates: { canonical: "/" },
         openGraph: {
+            ...SHARED_OPEN_GRAPH,
             title: seoTitle,
             description: seoDescription,
             url: "/",
         },
         twitter: {
+            ...SHARED_TWITTER,
             title: seoTitle,
             description: seoDescription,
         },

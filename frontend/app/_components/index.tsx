@@ -10,6 +10,7 @@ export * from "./GenreTrends";
 export * from "./FaqSection";
 export * from "./HomeShowcase";
 export * from "./LanguageSwitch";
+export * from "./Standouts";
 export * from "./StreamSnapshotsChart";
 export * from "./StreamerProfileStreamsList";
 export * from "./StreamerActivityChart";

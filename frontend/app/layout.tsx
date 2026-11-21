@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "./_lib/share-metadata";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,16 +23,10 @@ export const metadata: Metadata = {
   title: "IndieGameBridge",
   description: "Find Twitch streamers worth pitching your indie game to",
   applicationName: "IndieGameBridge",
-  // Defaults inherited by every page; individual pages add their own title,
-  // description, and url on top.
-  openGraph: {
-    siteName: "IndieGameBridge",
-    type: "website",
-    locale: "en_US",
-  },
-  twitter: {
-    card: "summary_large_image",
-  },
+  // Inherited by the pages that set no openGraph or twitter of their own; the others spread
+  // the same shared fields in (see share-metadata.ts).
+  openGraph: SHARED_OPEN_GRAPH,
+  twitter: SHARED_TWITTER,
 };
 
 export default function RootLayout({

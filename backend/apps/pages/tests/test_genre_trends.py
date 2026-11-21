@@ -99,3 +99,66 @@ class GenreTrendsPageTests(TestCase):
         GenreStats.objects.all().delete()
 
         self.assertIsNone(self._content(date(2026, 11, 3))["window"])
+
+
+class GenreStandoutTests(TestCase):
+    """A language page's genres against the other languages put together: the one it favours,
+    the one it plays less, and where Indie stands."""
+
+    def setUp(self):
+        genres = {name: GenreTrendsPageTests._genre(host_id, name) for host_id, name in [
+            (5, "Shooter"), (9, "Puzzle"), (32, "Indie"), (10, "Racing"),
+        ]}
+        hours = {
+            "en": {"Shooter": 1000, "Puzzle": 100, "Indie": 300, "Racing": 200},
+            "fr": {"Shooter": 100, "Puzzle": 100, "Indie": 10, "Racing": 10},
+        }
+        for language, by_genre in hours.items():
+            for name, total in by_genre.items():
+                GenreTrendsPageTests._stats(genres[name], language, streams=1, streamers=1, seconds=total * 3600)
+
+    @staticmethod
+    def _standouts(code, today=date(2026, 11, 21)):
+        pages = GenreTrendsPageTests._content(today)["language_pages"]
+        return {page["code"]: page["standouts"] for page in pages}[code]
+
+    def test_the_genres_that_stand_out(self):
+        standouts = self._standouts("fr")
+
+        self.assertEqual(standouts["title"], "What stands out in French")
+        # French: Puzzle 100 of 220 hours against 100 of 1,600 elsewhere, 7.3 times the share.
+        self.assertEqual(
+            standouts["paragraphs"],
+            [
+                "Compared with streams in the other languages, French streams spend about 7.3 times as much of their"
+                " time on Puzzle games. Puzzle ranks #1 by hours streamed in French, against #4 in the other"
+                " languages.",
+                "They spend about 65% less of their time on Racing games than streams in the other languages."
+                " Indie games rank #3 by hours in French, against #2 in the other languages, and get about 75% less"
+                " of the streaming time.",
+            ],
+        )
+
+    def test_a_language_like_the_others_says_so(self):
+        GenreStats.objects.filter(language="fr").delete()
+        shooter, puzzle, indie, racing = (GameGenre.objects.get(host_name=name) for name in ("Shooter", "Puzzle", "Indie", "Racing"))
+        for genre, total in [(shooter, 100), (puzzle, 10), (indie, 30), (racing, 20)]:
+            GenreTrendsPageTests._stats(genre, "fr", streams=1, streamers=1, seconds=total * 3600)
+
+        self.assertEqual(
+            self._standouts("fr")["paragraphs"],
+            [
+                "French streams spread their time over the genres much like streams in the other languages.",
+                "Indie games rank #2 by hours in French, against #2 in the other languages, with about the same"
+                " share of the streaming time.",
+            ],
+        )
+
+    def test_no_standouts_for_a_language_collected_for_under_a_week(self):
+        GenreTrendsPageTests._stats(GameGenre.objects.get(host_name="Shooter"), "ja", streams=1, streamers=1, seconds=3600)
+
+        self.assertIsNone(self._standouts("ja", date(2026, 11, 5)))
+        self.assertIsNotNone(self._standouts("ja", date(2026, 11, 9)))
+
+    def test_no_standouts_for_a_language_with_no_hours(self):
+        self.assertIsNone(self._standouts("de"))

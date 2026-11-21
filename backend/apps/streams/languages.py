@@ -15,6 +15,11 @@ LANGUAGE_NAMES = {
     "ja": "Japanese",
     "it": "Italian",
     "zh": "Chinese",
+    "ru": "Russian",
+    "pl": "Polish",
+    "uk": "Ukrainian",
+    "tr": "Turkish",
+    "ko": "Korean",
 }
 
 # The ones the pages offer: the search form, Genre Trends, and the home page's numbers

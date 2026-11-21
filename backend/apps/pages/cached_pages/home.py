@@ -25,8 +25,10 @@ class HomePageBuilder(BaseCachedPageBuilder):
         active_streamers, recent_streams = self.search_window_counts()
 
         return {
-            "title": f"IndieGameBridge",
-            "description": f"Find Twitch streamers worth pitching your indie game to",
+            # The page's h1 says what the site does; the brand opens the line under it.
+            "title": "Find Twitch Streamers for Your Indie Game",
+            "description": "IndieGameBridge shows who streams your game's genres on Twitch, and how many viewers"
+                " they really get.",
             # SEO <title> / meta description, kept separate from the visible
             # header above. The header doubles as the page's h1/intro, so it
             # stays brand-led, while these are keyword-led for search results.

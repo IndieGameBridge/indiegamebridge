@@ -226,6 +226,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
     matcher: [
         // Run on every page/api request except Next internals and static files.
-        "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+        "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|llms.txt|og-image.png).*)",
     ],
 };
