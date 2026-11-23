@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('slug', models.SlugField(help_text="The page's address, /game/<slug>: made from the game's name when the page is, and never changed.", max_length=255, unique=True)),
                 ('name', models.CharField(blank=True, default='', help_text="The game's name as the pages show it: with its release year when another page's game has the same name, as in Resident Evil 4 (2005). Written by rebuild_game_pages.", max_length=300)),
-                ('streamers', models.PositiveIntegerField(default=0, help_text='Different streamers who played it in the last 4 weeks. From DETAIL_MIN_STREAMERS the page shows more than totals and asks to be indexed.')),
+                ('streamers', models.PositiveIntegerField(default=0, help_text='Different streamers who played it in the last 4 weeks. From DETAIL_MIN_STREAMERS the page shows more than totals.')),
                 ('last_streamed_at', models.DateTimeField(blank=True, help_text='When its newest stream ended; kept once no stream of it is left in the window.', null=True)),
                 ('numbers', models.JSONField(blank=True, default=dict, help_text='What the page shows besides the streamers, as rebuild_game_pages computed it: streams, hours, and from DETAIL_MIN_STREAMERS the languages, sizes, weeks, hours of the day and games also played.')),
                 ('created_at', models.DateTimeField(auto_now_add=True, help_text='When the game got its page.')),

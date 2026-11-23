@@ -17,9 +17,10 @@ from apps.streams.size_groups import PEAK_THRESHOLDS, SIZE_GROUPS
 
 # A game gets a page the first time this many different streamers played it in 4 weeks.
 PAGE_MIN_STREAMERS = 10
-# From this many streamers in the 4 weeks, a page shows more than totals and asks search engines
-# to index it. Below it, a public page could describe one or two people's habits, and it has too
-# little to say to be worth finding.
+# From this many streamers in the 4 weeks, a page shows more than totals: below it, a public page
+# could describe one or two people's habits. Search engines may index every page, whatever its
+# numbers: a page once in their results stays there, rather than leaving as its game goes quiet
+# and coming back when it's streamed again.
 DETAIL_MIN_STREAMERS = 5
 
 # "Streamers who played it also played": up to ALSO_PLAYED_COUNT games, each played by at least
@@ -175,7 +176,6 @@ class GamePageContent:
             "breadcrumb": {"label": "Games", "href": "/games"},
             "seo_title": f"{name} on Twitch: Who Streams It | IndieGameBridge",
             "seo_description": self._seo_description(),
-            "indexable": self.details,
             "summary": {"title": "What the numbers say", "paragraphs": self._paragraphs()},
             "tiles": self._tiles(),
             "sizes": None,
@@ -202,7 +202,10 @@ class GamePageContent:
     def _seo_description(self) -> str:
         name = self.display_name
         if self.page.streamers == 0:
-            return f"Nobody streamed {name} on Twitch in the last 4 weeks."
+            last = self.page.last_streamed_at
+            return f"Nobody streamed {name} on Twitch in the last 4 weeks." + (
+                f" It was last streamed on {day_month_year(last.date())}." if last else ""
+            )
         if not self.details:
             return f"How many streamers played {name} on Twitch in the last 4 weeks."
         return (

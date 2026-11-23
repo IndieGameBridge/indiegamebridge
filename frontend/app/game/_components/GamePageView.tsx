@@ -26,7 +26,7 @@ type StreamersCta = {
 };
 
 // A game's page, as /games/pages/<slug>/ serves it. Below 5 streamers in the 4 weeks the page
-// has totals only, and the sections after the tiles are null.
+// has totals only, and the sections after the tiles are null; with none, no tiles either.
 export type GamePageContent = {
     slug: string;
     name: string;
@@ -36,7 +36,6 @@ export type GamePageContent = {
     breadcrumb: { label: string; href: string };
     seo_title: string;
     seo_description: string;
-    indexable: boolean;
     summary: StandoutsContent;
     tiles: StatTile[];
     sizes: ShareBarsContent | null;
@@ -63,15 +62,13 @@ export const fetchGamePage = cache(async (slug: string): Promise<GamePageContent
     return await response.json();
 });
 
+// Every game page may be indexed, whatever its numbers: once in search results, a page stays there.
 export function gamePageMetadata(content: GamePageContent): Metadata {
     const path = `/game/${content.slug}`;
     return {
         title: content.seo_title,
         description: content.seo_description,
         alternates: { canonical: path },
-        // A page with totals only, nobody streaming the game lately included, stays out of search
-        // results; its links still count.
-        ...(content.indexable ? {} : { robots: { index: false, follow: true } }),
         openGraph: {
             ...SHARED_OPEN_GRAPH,
             title: content.seo_title,

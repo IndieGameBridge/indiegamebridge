@@ -376,7 +376,6 @@ class PageContentTests(SimpleTestCase):
 
         self.assertEqual(page["title"], "Alpha on Twitch")
         self.assertEqual(page["info"], "Indie · released 2025")
-        self.assertTrue(page["indexable"])
         self.assertEqual([tile["value"] for tile in page["tiles"]], ["100", "7,180", "19,600", "4"])
         self.assertEqual(
             [(bar["label"], bar["value"], bar["baseline"]) for bar in page["sizes"]["bars"]],
@@ -458,7 +457,6 @@ class PageContentTests(SimpleTestCase):
     def test_few_streamers_get_totals_only(self):
         page = content(streamers=3, numbers={"streams": 4, "hours": 6})
 
-        self.assertFalse(page["indexable"])
         self.assertEqual(page["summary"]["paragraphs"], [
             "3 streamers played Alpha on Twitch in the last 4 weeks, in 4 streams and about 6 hours of play. Too few"
             " streamers played it lately to say more."
@@ -470,10 +468,10 @@ class PageContentTests(SimpleTestCase):
     def test_a_quiet_page_says_when_it_was_last_streamed(self):
         page = content(streamers=0, numbers={}, last=datetime(2026, 10, 2, 20, tzinfo=dt_timezone.utc))
 
-        self.assertFalse(page["indexable"])
         self.assertEqual(page["summary"]["paragraphs"], [
             "Nobody streamed Alpha on Twitch in the last 4 weeks. It was last streamed on 2 October 2026."
         ])
+        self.assertEqual(page["seo_description"], page["summary"]["paragraphs"][0])
         self.assertEqual(page["tiles"], [])
 
     def test_the_search_links_turn_the_other_filters_off(self):
@@ -501,28 +499,31 @@ class GamePageApiTests(GamePagesTestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual((data["title"], data["indexable"]), ("Alpha on Twitch", True))
+        self.assertEqual(data["title"], "Alpha on Twitch")
         self.assertIn("footer_content", data)
 
     def test_an_address_never_given_out_is_a_404(self):
         self.assertEqual(self.client.get("/games/pages/no-such-game/").status_code, 404)
 
-    def test_a_quiet_page_still_answers_but_asks_not_to_be_indexed(self):
+    def test_a_quiet_page_still_answers(self):
         self._page_of("Faded", "faded", 0)
 
         response = self.client.get("/games/pages/faded/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()["indexable"])
+        self.assertEqual(
+            response.json()["summary"]["paragraphs"], ["Nobody streamed Faded on Twitch in the last 4 weeks."],
+        )
 
-    def test_the_sitemaps_list_has_the_indexed_pages_most_streamed_first(self):
+    def test_the_sitemaps_list_has_every_page_most_streamed_first(self):
         self._page_of("Few", "few", 3)
         self._page_of("Most", "most", 50)
+        self._page_of("Faded", "faded", 0)
         self._page_of("Some", "some", 10)
 
         self.assertEqual(
-            self.client.get("/games/pages/").json(),
-            {"pages": [{"slug": "most", "name": "Most"}, {"slug": "some", "name": "Some"}]},
+            [page["slug"] for page in self.client.get("/games/pages/").json()["pages"]],
+            ["most", "some", "few", "faded"],
         )
 
     def test_a_games_list_row_links_its_page(self):

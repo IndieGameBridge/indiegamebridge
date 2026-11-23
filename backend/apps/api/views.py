@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
-from apps.streams.game_pages import DETAIL_MIN_STREAMERS, page_content
+from apps.streams.game_pages import page_content
 from apps.streams.game_search import PAGE_SIZE as GAME_PAGE_SIZE, GameSearch
 from apps.streams.models import GamePage
 from apps.streams.profile import StreamerProfileStreams
@@ -182,11 +182,11 @@ class GamePageView(APIView):
 
 
 class GamePagesView(APIView):
-    """The game pages that ask to be indexed, the most streamed first, for the sitemap and llms.txt."""
+    """Every game page, the most streamed first, for the sitemap and llms.txt."""
 
     def get(self, request):
         pages = (
-            GamePage.objects.filter(streamers__gte=DETAIL_MIN_STREAMERS)
+            GamePage.objects
             .order_by("-streamers", "slug")
             .values_list("slug", "name", "game__host_name")
         )

@@ -8,8 +8,8 @@ class GamePage(models.Model):
 
     A game gets one the first time enough different streamers played it in the window
     (apps.streams.game_pages.PAGE_MIN_STREAMERS), and keeps it: when the game goes quiet, the
-    row and its address stay, so a link to the page never breaks. While few streamers play it,
-    the page shows totals only and asks search engines not to index it. rebuild_game_pages
+    row and its address stay, so a link to the page never breaks, and search engines may go on
+    indexing it. While few streamers play it, the page shows totals only. rebuild_game_pages
     refreshes every row every 6 hours.
     """
 
@@ -36,7 +36,7 @@ class GamePage(models.Model):
     streamers = models.PositiveIntegerField(
         default=0,
         help_text="Different streamers who played it in the last 4 weeks. From DETAIL_MIN_STREAMERS the page shows"
-            " more than totals and asks to be indexed.",
+            " more than totals.",
     )
 
     last_streamed_at = models.DateTimeField(

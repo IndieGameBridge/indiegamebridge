@@ -36,7 +36,7 @@ function lastModified(content: CachedPageContent | undefined): Date | undefined 
     return content?.updated_at ? new Date(content.updated_at) : undefined;
 }
 
-// The game pages that ask to be indexed; none on any failure, so the rest of the sitemap stands.
+// Every game page; none on any failure, so the rest of the sitemap stands.
 async function gamePages(): Promise<{ slug: string }[]> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     try {
@@ -99,8 +99,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: "hourly" as const,
             priority: 0.7,
         })),
-        // Each game's own page, the most streamed first; one with totals only isn't listed, as it
-        // asks not to be indexed. Rebuilt every 6 hours, so no <lastmod> either.
+        // Each game's own page, the most streamed first, the quiet ones included: once made, a page
+        // stays. Rebuilt every 6 hours, so no <lastmod> either.
         ...gameRows.map((page) => ({
             url: `${baseUrl}/game/${page.slug}`,
             changeFrequency: "daily" as const,

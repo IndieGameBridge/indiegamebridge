@@ -33,7 +33,7 @@ async function pageContent(key: string): Promise<CachedPageContent | undefined> 
 // How many of the most streamed game pages the file names.
 const GAME_PAGES_LISTED = 20;
 
-// The game pages that ask to be indexed, the most streamed first; none on any failure.
+// Every game page, the most streamed first; none on any failure.
 async function gamePages(): Promise<{ slug: string; name: string }[]> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     try {
@@ -76,9 +76,9 @@ export async function GET() {
         "",
         "### Game pages",
         "",
-        "Each game that 10 or more different streamers played in the last 4 weeks has a page at /game/<name>: who"
-            + " streamed it, in which languages and sizes, at which hours, and which other games they also played."
-            + " The Games pages link to them. The most streamed:",
+        "A game gets a page at /game/<name> once 10 different streamers played it within 4 weeks, and keeps it: who"
+            + " streamed it in the last 4 weeks, in which languages and sizes, at which hours, and which other games"
+            + " they also played. The Games pages link to them. The most streamed:",
         "",
         ...gameRows.slice(0, GAME_PAGES_LISTED).map((page) => link(`/game/${page.slug}`, `${page.name} on Twitch`)),
     ];
