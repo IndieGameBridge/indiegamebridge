@@ -28,6 +28,10 @@ export type ResultsListLabels = {
     // The public demo's link to the login page.
     show_more: string;
     pagination: PaginationLabels;
+    // Over a search a game page narrowed to one game: "{game}" is its name. Absent until the
+    // page's cached text is rebuilt with them.
+    game_note?: string;
+    game_clear?: string;
 };
 
 const PROFILE_LINK_CLASSES = "text-sm align-baseline inline-block p-1 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 min-w-36 text-center border border-blue-600 hover:border-blue-700";

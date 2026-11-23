@@ -389,6 +389,8 @@ class GameSearchTests(GameStatsTestCase):
             "id": game.id,
             "place": 1,
             "name": "one",
+            # No page of its own: rebuild_game_pages hasn't given it one.
+            "slug": None,
             "release_year": 2024,
             "genres": ["Indie", "Puzzle"],
             "recent_streams": [2, 0, 1],

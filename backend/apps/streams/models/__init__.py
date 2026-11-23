@@ -6,8 +6,9 @@ from .game_genre import GameGenre
 from .streamer_search_stats import StreamerSearchStats
 from .genre_stats import GenreStats
 from .game_stats import GameStats
+from .game_page import GamePage
 from .json_cache import JsonCache
 from .archived_month import ArchivedMonth
 
 
-__all__ = ["Stream", "StreamerProfile", "StreamerProfileCache", "Game", "GameGenre", "StreamerSearchStats", "GenreStats", "GameStats", "JsonCache", "ArchivedMonth"]
+__all__ = ["Stream", "StreamerProfile", "StreamerProfileCache", "Game", "GameGenre", "StreamerSearchStats", "GenreStats", "GameStats", "GamePage", "JsonCache", "ArchivedMonth"]

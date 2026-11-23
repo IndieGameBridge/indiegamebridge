@@ -1,10 +1,36 @@
 from django.contrib import admin
 from django.template.defaultfilters import filesizeformat
 
-from apps.streams.models import ArchivedMonth, JsonCache, Stream, StreamerProfileCache
+from apps.streams.models import ArchivedMonth, GamePage, JsonCache, Stream, StreamerProfileCache
 
 
 admin.site.register(Stream)
+
+
+@admin.register(GamePage)
+class GamePageAdmin(admin.ModelAdmin):
+    """View only: rebuild_game_pages makes and refreshes these, and a page's address must never
+    change or go, or links to it would break."""
+
+    list_display = ("slug", "game_name", "streamers", "last_streamed_at", "created_at", "updated_at")
+    search_fields = ("slug", "game__host_name")
+    ordering = ("-streamers",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Game", ordering="game__host_name")
+    def game_name(self, obj):
+        return obj.game.host_name
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("game")
 
 
 @admin.register(ArchivedMonth)

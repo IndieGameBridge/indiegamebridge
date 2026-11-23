@@ -16,7 +16,9 @@ from django.utils import timezone
 
 from apps.streams.languages import PAGE_LANGUAGES
 from apps.streams.models import (
+    Game,
     GameGenre,
+    GamePage,
     Stream,
     StreamerProfile,
     StreamerSearchStats,
@@ -59,7 +61,7 @@ class RebuildAndSearchTests(TestCase):
         )
 
     def _make_stream(self, profile, host_stream_id, max_viewers, avg_viewers,
-                     duration, language="en", genre_ids=None, days_ago=1, started_at=None):
+                     duration, language="en", genre_ids=None, days_ago=1, started_at=None, host_game_ids=None):
         return Stream.objects.create(
             streamer_profile=profile,
             host_stream_id=host_stream_id,
@@ -72,7 +74,12 @@ class RebuildAndSearchTests(TestCase):
             avg_viewers=avg_viewers,
             duration=duration,
             genre_ids=genre_ids or [],
+            host_game_ids=host_game_ids or [],
         )
+
+    @staticmethod
+    def _make_game(host_game_id, name, category=Game.Category.ISGAME):
+        return Game.objects.create(host_game_id=host_game_id, igdb_game_id=host_game_id, host_name=name, category=category)
 
     def _rebuild(self):
         call_command("rebuild_search_stats", stdout=StringIO())
@@ -522,3 +529,50 @@ class RebuildAndSearchTests(TestCase):
 
         self.assertIn({"label": "Streams in the evening in", "value": "Europe & Africa, Asia & Oceania"}, search.describe())
         self.assertEqual(StreamerSearch(search.explicit_filters()).filters["evening"], ["europe", "asia"])
+
+    def _game_streamers(self):
+        # Two streamers played the game, one of them besides Just Chatting; a third only chatted.
+        game = self._make_game(511, "Hollow Knight")
+        chatting = self._make_game(509, "Just Chatting", category=Game.Category.ISNONGAME)
+        both, gamer, chatter = (self._make_streamer(n, login) for n, login in enumerate(("both", "gamer", "chatter"), 1))
+        self._make_stream(both, 1, 100, 50, 3600, host_game_ids=[509, 511])
+        self._make_stream(gamer, 2, 90, 50, 3600, host_game_ids=[511])
+        self._make_stream(chatter, 3, 80, 50, 3600, host_game_ids=[509])
+        self._rebuild()
+        return game, chatting
+
+    def test_game_ids_are_the_games_played_and_only_games(self):
+        self._game_streamers()
+
+        self.assertEqual(
+            dict(StreamerSearchStats.objects.values_list("host_login", "game_ids")),
+            {"both": [511], "gamer": [511], "chatter": []},
+        )
+
+    def test_the_game_filter_keeps_the_streamers_who_played_it(self):
+        self._game_streamers()
+
+        self.assertEqual(self._logins(self._search(game="511").results()), ["both", "gamer"])
+        self.assertEqual(self._search(game=511).total(), 2)
+
+    def test_a_game_filter_naming_no_game_is_no_filter(self):
+        self._game_streamers()
+
+        for value in ("509", "999", "abc", ""):
+            with self.subTest(value=value):
+                search = self._search(game=value)
+                self.assertNotIn("game", search.filters)
+                self.assertEqual(search.total(), 3)
+
+    def test_the_game_filter_is_described_first_and_stored_only_when_set(self):
+        game, _ = self._game_streamers()
+        GamePage.objects.create(game=game, slug="hollow-knight")
+
+        search = self._search(game="511", lang="fr")
+        self.assertEqual(search.describe()[0], {"label": "Game", "value": "Hollow Knight"})
+        self.assertEqual(search.game(), {"id": 511, "name": "Hollow Knight", "slug": "hollow-knight"})
+        self.assertEqual(StreamerSearch(search.explicit_filters()).filters["game"], 511)
+        # A search without one stores what it always did.
+        plain = self._search()
+        self.assertNotIn("game", plain.explicit_filters())
+        self.assertIsNone(plain.game())

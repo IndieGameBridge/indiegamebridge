@@ -7,7 +7,9 @@ from rest_framework.views import APIView
 
 from apps.pages.models import CachedPage
 from apps.streams.distribution import StreamersDistribution
+from apps.streams.game_pages import DETAIL_MIN_STREAMERS, page_content
 from apps.streams.game_search import PAGE_SIZE as GAME_PAGE_SIZE, GameSearch
+from apps.streams.models import GamePage
 from apps.streams.profile import StreamerProfileStreams
 from apps.streams.search import PAGE_SIZE as SEARCH_PAGE_SIZE, StreamerSearch
 from apps.streams.streamer_lookup import profile_for_login, twitch_login_from
@@ -87,6 +89,9 @@ class StreamerSearchView(APIView):
             self._record(search)
         return Response({
             "filters": search.filters,
+            # The game a game page's link narrowed the search to, for the results to name; None
+            # without one.
+            "game": search.game(),
             "results": results,
             "total": total,
             "page": page,
@@ -154,6 +159,38 @@ class GameHoursView(APIView):
 
     def get(self, request, game_id):
         return Response(GameSearch.hours_of_game(game_id, request.GET.get("peak")))
+
+
+class GamePageView(APIView):
+    """A game's public page, /game/<slug>, from its GamePage row. A page once made always answers,
+    even with nobody streaming the game lately; only an address never given out is a 404."""
+
+    # Search engines read thousands of these one after another, and each is a few indexed reads:
+    # a ceiling of its own, in place of the general one per visitor.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "game_pages"
+
+    def get(self, request, slug):
+        page = GamePage.objects.select_related("game").filter(slug=slug).first()
+        if page is None:
+            raise Http404
+        footer = CachedPage.objects.filter(key="page_footer").first()
+        return Response(page_content(page) | {
+            "footer_content": footer.content if footer else None,
+            "updated_at": page.updated_at.isoformat(),
+        })
+
+
+class GamePagesView(APIView):
+    """The game pages that ask to be indexed, the most streamed first, for the sitemap and llms.txt."""
+
+    def get(self, request):
+        pages = (
+            GamePage.objects.filter(streamers__gte=DETAIL_MIN_STREAMERS)
+            .order_by("-streamers", "slug")
+            .values_list("slug", "name", "game__host_name")
+        )
+        return Response({"pages": [{"slug": slug, "name": name or host_name} for slug, name, host_name in pages]})
 
 
 class StreamersDistributionView(APIView):

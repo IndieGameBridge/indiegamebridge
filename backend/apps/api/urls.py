@@ -3,6 +3,8 @@ from django.urls import path
 from apps.api.views import (
     CachedPageContentView,
     GameHoursView,
+    GamePagesView,
+    GamePageView,
     GameSearchView,
     StreamerLookupView,
     StreamerSearchView,
@@ -18,4 +20,6 @@ urlpatterns = [
     path("api/streamers/find/", StreamerLookupView.as_view(), name="streamer-lookup"),
     path("games/", GameSearchView.as_view(), name="game-search"),
     path("games/<int:game_id>/hours/", GameHoursView.as_view(), name="game-hours"),
+    path("games/pages/", GamePagesView.as_view(), name="game-pages"),
+    path("games/pages/<slug:slug>/", GamePageView.as_view(), name="game-page"),
 ]

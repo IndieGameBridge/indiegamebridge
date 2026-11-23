@@ -63,6 +63,9 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                 # The logged-out demo's link to the login page.
                 "show_more": "Show More",
                 "pagination": pagination_labels(),
+                # Over the results of a search a game page's link narrowed to one game.
+                "game_note": "Only the streamers who played {game} in the last 4 weeks.",
+                "game_clear": "Show every game",
             },
             "add_to_list": add_to_list_labels(),
             "export": export_menu_labels(),

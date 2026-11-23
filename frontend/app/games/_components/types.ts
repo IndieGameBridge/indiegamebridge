@@ -18,6 +18,9 @@ export type GameRow = {
     // keeps the number it has in the list. Absent from an API older than the name search.
     place?: number;
     name: string;
+    // Its own page's address, /game/<slug>: null for a game without one, absent from an API
+    // older than the game pages.
+    slug?: string | null;
     release_year: number | null;
     genres: string[];
     // The newest hours' streams, newest first.
@@ -64,6 +67,9 @@ export type GameListLabels = {
     no_results: string;
     no_data: string;
     game_column: string;
+    // The link to a game's own page under its chart, "{game}" being its name. Absent until the
+    // page's cached text is rebuilt with it.
+    game_page?: string;
     hours_caption: string;
     pagination: PaginationLabels;
     chart: GameChartLabels;

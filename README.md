@@ -12,12 +12,13 @@ A possible next step is AI-curated streamer lists, built on the personal lists f
 
 ## What it offers
 
-- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other, and by the part of the day a streamer goes live in. The day splits into three 8-hour parts named after where it's evening then (Americas 23:00–07:00, Europe & Africa 15:00–23:00, Asia & Oceania 07:00–15:00 UTC), and a streamer counts under the part that held most of their time: it says when they stream, not where they live. Up to 10,000 results, 50 to a page. Each result shows a strip of the last 28 days, so regular streamers stand out from those who stopped.
+- **Streamer search** (signed in; logged-out visitors get a public page about it, with a sample of real results): filter by language, by peak and average viewers, and by streams and hours streamed over the last four weeks, plus up to three game genres that narrow each other, and by the part of the day a streamer goes live in. The day splits into three 8-hour parts named after where it's evening then (Americas 23:00–07:00, Europe & Africa 15:00–23:00, Asia & Oceania 07:00–15:00 UTC), and a streamer counts under the part that held most of their time: it says when they stream, not where they live. A game page's links narrow it to the streamers who played that game. Up to 10,000 results, 50 to a page. Each result shows a strip of the last 28 days, so regular streamers stand out from those who stopped.
 - **Streamer profiles** (signed in): the last four weeks' numbers, a day-by-day activity chart, the share of their streaming time in each part of the day, and the recent streams with the games played in them. The Home page finds one by Twitch login or channel link, and the account menu opens a signed-in streamer's own. A logged-out visitor who follows a link to a profile logs in with Twitch first, then lands on it.
 - **Personal lists:** save a search as a list or build one by hand, add streamers one at a time or a search's whole result set, and keep a private note on each streamer. The dashboard shows the lists as cards.
 - **Exports:** any list or set of search results as an Excel, CSV or JSON file, with each streamer's days streamed in the last 28 days and their dates.
 - **Genre Trends** (public): Twitch's game genres compared by streams, streamers and hours streamed over the last four weeks, as a market reference for developers. An overview adds up every language, and each language has a page of its own, which says in a few sentences built from its numbers which genres it favours compared with the other languages, and where Indie stands.
-- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year, or found by name. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet. An overview adds up every language, and each language has a page of its own, which names its most streamed game and the top games that rank far lower in the other languages. A short guide follows the list.
+- **Games** (public): the games streamed most right now, narrowed by streamer size, genre and release year, or found by name. Each game opens a chart of the streams live in every hour of the last four weeks, a line per language, so a streamer can see which hours are quiet, and a game with a page of its own links to it. An overview adds up every language, and each language has a page of its own, which names its most streamed game and the top games that rank far lower in the other languages. A short guide follows the list.
+- **Game pages** (public): a page for each game that 10 or more different streamers played in the last four weeks, at `/game/<name>`. It shows how many streamers played it, in how many streams and hours; their sizes and languages against indie games (or every game, for the rest); the hours of the day it's streamed; its streamers week by week; and the games its streamers played far more often than streamers in general. A few sentences built from the numbers say what stands out. A page never moves or goes away: with fewer than 5 streamers it shows totals only and asks search engines not to index it. Signed-in users open the game's streamers in the search, a language at a time.
 - **Privacy controls:** a streamer can opt out, which erases what was collected about them and keeps them out of future polls and the archive files. Signed-in users can turn off usage tracking, exclude their own streams or delete their account. Searches are recorded without the user who ran them. Sign-in, search and export records, and contact messages, are deleted after 12 months.
 
 ## How it works
@@ -32,8 +33,9 @@ The system has two halves: scheduled management commands that **collect and shap
 | `categorize_games` | hourly | Asks Helix `games` about categories new to the database. Those with an IGDB id become games, the rest (Just Chatting, say) non-games. |
 | `enrich_igdb_games` | hourly | Fills games in from IGDB, with genres, summary and link, then updates the genres of the streams that played them. |
 | `approve_streams` | hourly | Approves the ended streams that played a game and deletes those that didn't. A stream still waiting on an uncategorized game is left for the next run. |
-| `rebuild_search_stats` | every 6 hours | Rebuilds the search table in one pass: one read of the streams table, then only the rows whose numbers changed are written. The same pass splits each stream at 07:00, 15:00 and 23:00 UTC to find the part of the day holding most of a streamer's time. |
+| `rebuild_search_stats` | every 6 hours | Rebuilds the search table in one pass: one read of the streams table, then only the rows whose numbers changed are written. The same pass splits each stream at 07:00, 15:00 and 23:00 UTC to find the part of the day holding most of a streamer's time, and lists the games each streamer played, for the game pages' links. |
 | `rebuild_game_stats` | every 6 hours | Counts the streams live in each hour of the last 4 weeks, per game, language and streamer size, and sorts each list once, for the Games page. |
+| `rebuild_game_pages` | every 6 hours | Gives a page to each game that 10 different streamers played in the last 4 weeks, at an address made from its name, and rewrites every page's numbers. One read of the approved streams, without their snapshots; the streamers' sizes come from the search table, and the hours of the day from `GameStats`, which it runs 2 hours after. |
 | `rebuild_genre_stats` | daily | Recomputes the Genre Trends numbers in one pass, before the page is rebuilt. |
 | `refresh_distribution` | daily | Recomputes the home page's chart of streamers by peak viewers. |
 | `update_cached_pages` | hourly | Pre-renders the pages' payloads. Home and Streamers hold real streamers and games, so the hourly run keeps their numbers fresh and takes an opted-out streamer off them within the hour. |
@@ -44,12 +46,13 @@ The system has two halves: scheduled management commands that **collect and shap
 
 ### Read models
 
-Search never scans the streams table, which holds tens of millions of rows. A read model, `StreamerSearchStats`, has one row per streamer and language, summing up their last four weeks: peak and average viewers, hours, streams, the genres played and the part of the day holding most of their time. A search is an indexed filter and sort over that table.
+Search never scans the streams table, which holds tens of millions of rows. A read model, `StreamerSearchStats`, has one row per streamer and language, summing up their last four weeks: peak and average viewers, hours, streams, the genres and games played and the part of the day holding most of their time. A search is an indexed filter and sort over that table.
 
 - It's rebuilt in one pass every 6 hours. A streamer's streams are spread all through the streams table, so reading it costs about the same for one streamer as for all of them, and one pass beats many smaller ones. Only the rows whose numbers changed are written, and streamers with no recent streams drop out.
 - Genre Trends reads `GenreStats`, rebuilt in one pass once a day. A stream's hours are split across the games it played, by snapshot, and a game's hours count toward each of its genres, so non-game time such as Just Chatting doesn't count.
 - The Games pages read `GameStats`, rebuilt in one pass every 6 hours: one row per game, language and streamer size group, holding that line's hours and its place in its list. The newest hour decides the order and an older hour only breaks a tie, so a search reads a stored position instead of comparing 4 weeks of hours.
-- Streamer sizes are one set of groups by peak viewers (`apps/streams/size_groups.py`), shared by the home page's chart, the streamer search and the Games pages.
+- The game pages read `GamePage`, one row per page, rebuilt every 6 hours: the page's numbers, and its address, stored when the page is made so it never changes. A game nobody streams any more keeps its row at zero, so its page stays. The sizes and languages the pages compare with, for indie games and for every game, are kept beside them in `JsonCache`.
+- Streamer sizes are one set of groups by peak viewers (`apps/streams/size_groups.py`), shared by the home page's chart, the streamer search, the Games pages and the game pages.
 - Public page payloads are pre-rendered into `CachedPage` and served as stored. The home page shows a block per feature, each with a small sample of real data, and headline counts read from the search table.
 - A streamer's profile is computed on its first view and cached for an hour.
 
@@ -78,15 +81,16 @@ The pipeline's jobs also ping Healthchecks.io when they succeed.
 
 Next.js (App Router) with server-side rendering and Tailwind CSS, deployed to Cloudflare Workers via OpenNext. Its middleware passes `/api/`, `/auth/` and `/accounts/` through to Django, so the auth cookies stay first-party, and renews an expired access token on the way. Its calls to the API, and those of the server-rendered pages, carry the visitor's address as Cloudflare saw it, so the rate limits count each visitor.
 
-The pages are home, Genre Trends, Games, streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags with a shared preview picture, `robots`, a `sitemap`, and an `llms.txt` that tells AI assistants what each public page shows. The Genre Trends pages also carry schema.org `Dataset` structured data; the Genre Trends and Games overviews and the public streamer search page carry their FAQs.
+The pages are home, Genre Trends, Games, the game pages (`/game/<name>`), streamer search (`/streamers`) and profiles, the dashboard and its lists, account, sign-in, opt-out, contact and the privacy policy. They come with page metadata, Open Graph tags with a shared preview picture, `robots`, a `sitemap` that lists every game page asking to be indexed, and an `llms.txt` that tells AI assistants what each public page shows and names the most streamed game pages. The Genre Trends pages also carry schema.org `Dataset` structured data; the Genre Trends and Games overviews and the public streamer search page carry their FAQs.
 
 ### Auth and security
 
 - Sign-in is with Twitch, through django-allauth. Sessions are JWTs (SimpleJWT) in HttpOnly cookies, and signing out blacklists the refresh token.
-- Search, profiles, lists and exports need a signed-in user. The home page, Genre Trends and Games are public, and so is `/streamers` itself: a logged-out visitor gets a page about the search, with a sample of real results.
+- Search, profiles, lists and exports need a signed-in user. The home page, Genre Trends, Games and the game pages are public, and so is `/streamers` itself: a logged-out visitor gets a page about the search, with a sample of real results.
 - Cookie-authenticated writes are CSRF-protected.
 - DRF throttles limit request rates, counted in Redis so every Gunicorn worker shares them:
   - 60 requests a minute per logged-out visitor, and 120 per signed-in user;
+  - 300 game pages a minute instead, since search engines read them one after another;
   - 30 searches a minute;
   - 60 list changes and 30 exports an hour;
   - 5 contact messages an hour.
@@ -105,12 +109,12 @@ The pages are home, Genre Trends, Games, streamer search (`/streamers`) and prof
 backend/
   core/              settings, URLs, the admin's chart engine, the Twitch and IGDB clients
   apps/fetch/        the Twitch polling pipeline and its run records
-  apps/streams/      streams, streamers and games, the search, Games and Genre Trends read models, the archive
+  apps/streams/      streams, streamers and games, the search, Games, game page and Genre Trends read models, the archive
   apps/userlists/    personal lists
   apps/exports/      Excel, CSV and JSON exports
   apps/users/        accounts, sign-in, opt-out and account settings
   apps/pages/        pre-rendered page payloads
-  apps/api/          the streamer and game searches, the streamer lookup, the Games chart, the distribution and page endpoints
+  apps/api/          the streamer and game searches, the streamer lookup, the Games chart, the game pages, the distribution and page endpoints
   apps/jobs/         run records and graphs for the scheduled jobs
   apps/contact/      the contact form
 frontend/            the Next.js app

@@ -75,10 +75,13 @@ export function SearchStreamerForm({
     search_form,
     user,
     initial_values,
+    keep_params,
 }: {
     search_form: SearchFormData;
     user: CurrentUser | null;
     initial_values?: SearchFormInitialValues;
+    // Params outside the form that a new search keeps, such as a game page's game.
+    keep_params?: Record<string, string>;
 }) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -139,7 +142,7 @@ export function SearchStreamerForm({
     const submitFilters = () => {
         if (!user) return;
 
-        const params = new URLSearchParams();
+        const params = new URLSearchParams(keep_params);
         for (const one_filter of search_form.filters) {
             if (one_filter.ui_control === 'multiselect') {
                 const values = asArray(formData[one_filter.name]);

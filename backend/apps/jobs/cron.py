@@ -42,6 +42,12 @@ JOBS = (
     Job("rebuild_game_stats", timedelta(hours=6), (
         ("rows", "Game, language and size rows"),
     )),
+    # 2 hours after rebuild_game_stats, whose hours it reads.
+    Job("rebuild_game_pages", timedelta(hours=6), (
+        ("pages", "Game pages"),
+        ("created", "Game pages made"),
+        ("written", "Game pages changed"),
+    )),
     # Daily, before update_cached_pages rebuilds the Genre Trends page.
     Job("rebuild_genre_stats", timedelta(days=1), (
         ("rows", "Genre and language rows"),

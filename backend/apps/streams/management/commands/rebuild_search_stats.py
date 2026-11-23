@@ -22,7 +22,8 @@ WINDOW_DAYS = 28
 
 # Every (streamer, language) row the window's approved streams make. avg_viewers is
 # rounded as a float, half to even, as Python rounds; genre_ids is the union of the
-# streams' genres, sorted; active_days the UTC days they started on, as a profile's chart
+# streams' genres, sorted; game_ids the same for the games they played, only the categories
+# IGDB lists as games; active_days the UTC days they started on, as a profile's chart
 # counts them, sorted; evening_window the part of the day holding most of their time.
 #
 # The evening windows split each stream exactly as apps.streams.evening_windows does: in
@@ -33,7 +34,7 @@ WINDOW_DAYS = 28
 FRESH_SQL = """
     CREATE TEMP TABLE fresh_search_stats AS
     WITH window_streams AS MATERIALIZED (
-        SELECT streamer_profile_id, language, max_viewers, avg_viewers, duration, genre_ids,
+        SELECT streamer_profile_id, language, max_viewers, avg_viewers, duration, genre_ids, host_game_ids,
                (started_at AT TIME ZONE 'UTC')::date - DATE '1970-01-01' AS day,
                extract(epoch FROM started_at)::bigint - 25200 AS shifted_start
         FROM streams_stream
@@ -65,8 +66,15 @@ FRESH_SQL = """
         SELECT streamer_profile_id, language, array_agg(DISTINCT genre_id ORDER BY genre_id) AS genre_ids
         FROM window_streams, unnest(genre_ids) AS genre_id
         GROUP BY streamer_profile_id, language
+    ),
+    games AS (
+        SELECT streamer_profile_id, language, array_agg(DISTINCT game.host_game_id ORDER BY game.host_game_id) AS game_ids
+        FROM window_streams, unnest(host_game_ids) AS played(host_game_id)
+        JOIN streams_game AS game ON game.host_game_id = played.host_game_id AND game.category = 'isgame'
+        GROUP BY streamer_profile_id, language
     )
-    SELECT stats.*, coalesce(genres.genre_ids, '{}') AS genre_ids, profile.host_login, profile.host_display_name,
+    SELECT stats.*, coalesce(genres.genre_ids, '{}') AS genre_ids, coalesce(games.game_ids, '{}') AS game_ids,
+           profile.host_login, profile.host_display_name,
            CASE
                WHEN coalesce(windows.americas + windows.europe + windows.asia, 0) = 0 THEN ''
                WHEN windows.americas >= windows.europe AND windows.americas >= windows.asia THEN 'americas'
@@ -76,6 +84,7 @@ FRESH_SQL = """
     FROM stats
     JOIN streams_streamerprofile AS profile ON profile.id = stats.streamer_profile_id
     LEFT JOIN genres USING (streamer_profile_id, language)
+    LEFT JOIN games USING (streamer_profile_id, language)
     LEFT JOIN windows USING (streamer_profile_id, language)
 """
 
@@ -83,23 +92,24 @@ FRESH_SQL = """
 UPSERT_SQL = """
     INSERT INTO streams_streamersearchstats AS current (
         streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
-        genre_ids, active_days, evening_window, host_login, host_display_name, computed_at
+        genre_ids, game_ids, active_days, evening_window, host_login, host_display_name, computed_at
     )
     SELECT streamer_profile_id, language, peak_viewers, avg_viewers, total_duration_seconds, streams_count,
-           genre_ids, active_days, evening_window, host_login, host_display_name, now()
+           genre_ids, game_ids, active_days, evening_window, host_login, host_display_name, now()
     FROM fresh_search_stats
     ON CONFLICT (streamer_profile_id, language) DO UPDATE SET
         peak_viewers = EXCLUDED.peak_viewers, avg_viewers = EXCLUDED.avg_viewers,
         total_duration_seconds = EXCLUDED.total_duration_seconds, streams_count = EXCLUDED.streams_count,
-        genre_ids = EXCLUDED.genre_ids, active_days = EXCLUDED.active_days, evening_window = EXCLUDED.evening_window,
+        genre_ids = EXCLUDED.genre_ids, game_ids = EXCLUDED.game_ids, active_days = EXCLUDED.active_days,
+        evening_window = EXCLUDED.evening_window,
         host_login = EXCLUDED.host_login, host_display_name = EXCLUDED.host_display_name,
         computed_at = EXCLUDED.computed_at
     WHERE (current.peak_viewers, current.avg_viewers, current.total_duration_seconds, current.streams_count,
-           current.genre_ids, current.active_days, current.evening_window, current.host_login,
+           current.genre_ids, current.game_ids, current.active_days, current.evening_window, current.host_login,
            current.host_display_name)
           IS DISTINCT FROM
           (EXCLUDED.peak_viewers, EXCLUDED.avg_viewers, EXCLUDED.total_duration_seconds, EXCLUDED.streams_count,
-           EXCLUDED.genre_ids, EXCLUDED.active_days, EXCLUDED.evening_window, EXCLUDED.host_login,
+           EXCLUDED.genre_ids, EXCLUDED.game_ids, EXCLUDED.active_days, EXCLUDED.evening_window, EXCLUDED.host_login,
            EXCLUDED.host_display_name)
 """
 

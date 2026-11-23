@@ -15,6 +15,7 @@ import {
     PageFooterContent,
 } from "../_components";
 import { ExportMenu, ExportMenuLabels } from "../_components/ExportMenu";
+import { ProgressLink as Link } from "../_components/ProgressLink";
 import { CurrentUser, getCurrentUser } from "../_lib/auth";
 import { Paging, RESULTS_ANCHOR, pageParam } from "../_lib/paging";
 import { serverFetch } from "../_lib/server-fetch";
@@ -47,9 +48,34 @@ type StreamersPageContent = {
 
 type SearchResponse = Paging & {
     filters: Record<string, unknown>;
+    // The game a game page's link narrowed the search to; null without one, and absent from an
+    // API older than the game pages.
+    game?: { id: number; name: string; slug: string | null } | null;
     results: StreamerData[];
     total: number;
 };
+
+/** Says which game a search is narrowed to, linking its page, with the same search for every game. */
+function GameNote({ game, labels, searchQuery }: {
+    game: { name: string; slug: string | null };
+    labels: ResultsListLabels;
+    searchQuery: string;
+}) {
+    if (!labels.game_note || !labels.game_clear) return null;
+    const [before, after] = labels.game_note.split("{game}");
+    const everyGame = new URLSearchParams(searchQuery);
+    everyGame.delete("game");
+    return (
+        <p className="mb-8 text-sm border-l-4 border-gray-300 pl-4">
+            {before}
+            {game.slug ? <Link href={`/game/${game.slug}`} className="underline">{game.name}</Link> : game.name}
+            {after}{" "}
+            <Link href={`/streamers?${everyGame.toString()}`} className="underline text-blue-700 hover:text-blue-500">
+                {labels.game_clear}
+            </Link>
+        </p>
+    );
+}
 
 async function fetchStreamersContent(): Promise<StreamersPageContent> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
@@ -126,24 +152,27 @@ async function SearchResults({ content, user, searchQuery, page }: {
     const search: SearchResponse = await searchResp.json();
 
     return (
-        <SearchStreamerResultsList
-            search_results={search.results}
-            user={user}
-            labels={content.results_labels}
-            total={search.total}
-            paging={{ page: search.page, pages: search.pages, page_size: search.page_size, query: searchQuery }}
-            add_to_list={content.add_to_list}
-            count_actions={search.total > 0
-                ? (
-                    <div className="w-full md:w-auto flex flex-col md:flex-row md:items-start gap-6">
-                        {content.export && (
-                            <ExportMenu url="/api/streamers/export/" query={searchQuery} labels={content.export} />
-                        )}
-                        <SaveSearchAsList search_query={searchQuery} labels={content.save_list} />
-                    </div>
-                )
-                : undefined}
-        />
+        <Fragment>
+            {search.game && <GameNote game={search.game} labels={content.results_labels} searchQuery={searchQuery} />}
+            <SearchStreamerResultsList
+                search_results={search.results}
+                user={user}
+                labels={content.results_labels}
+                total={search.total}
+                paging={{ page: search.page, pages: search.pages, page_size: search.page_size, query: searchQuery }}
+                add_to_list={content.add_to_list}
+                count_actions={search.total > 0
+                    ? (
+                        <div className="w-full md:w-auto flex flex-col md:flex-row md:items-start gap-6">
+                            {content.export && (
+                                <ExportMenu url="/api/streamers/export/" query={searchQuery} labels={content.export} />
+                            )}
+                            <SaveSearchAsList search_query={searchQuery} labels={content.save_list} />
+                        </div>
+                    )
+                    : undefined}
+            />
+        </Fragment>
     );
 }
 
@@ -189,6 +218,9 @@ export default async function StreamersPage({
                                 search_form={content.search_form}
                                 user={user}
                                 initial_values={sp}
+                                // The form has no game filter of its own: a game page's link sets it,
+                                // and it stays when the other filters change.
+                                keep_params={typeof sp.game === "string" ? { game: sp.game } : undefined}
                             />
                             <div id={RESULTS_ANCHOR} className="scroll-mt-8" />
                             <Suspense

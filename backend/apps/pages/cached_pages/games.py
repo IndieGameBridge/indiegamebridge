@@ -112,7 +112,8 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                     {
                         "title": "Open a game.",
                         "text": "Its chart shows how many streams were live on it in every hour of the last 4 weeks,"
-                            " in UTC or in your own time, for all languages or one.",
+                            " in UTC or in your own time, for all languages or one. Under the chart, a game with a page"
+                            " of its own links to it: who streamed it, in which languages and sizes.",
                     },
                 ],
             },
@@ -176,6 +177,8 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                 "no_results": "No game streamed in the last 4 weeks matches these filters.",
                 "no_data": "The game numbers are being built. Check back soon.",
                 "game_column": "Game",
+                # Under an open chart, for a game with a page of its own.
+                "game_page": "Who streamed {game}: their languages, sizes and hours",
                 "hours_caption": "Streams live in each hour, UTC",
                 "pagination": pagination_labels(),
                 "chart": {

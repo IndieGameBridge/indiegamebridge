@@ -49,6 +49,14 @@ class StreamerSearchStats(models.Model):
         help_text="Distinct GameGenre.host_genre_id values played in the window; filtered by overlap.",
     )
 
+    game_ids = ArrayField(
+        models.BigIntegerField(),
+        default=list,
+        blank=True,
+        help_text="Distinct Game.host_game_id values of the games played in the window, only categories IGDB lists"
+            " as games; filtered by the search's game filter, which a game page's links set.",
+    )
+
     active_days = ArrayField(
         models.IntegerField(),
         default=list,
@@ -91,6 +99,7 @@ class StreamerSearchStats(models.Model):
             models.Index(fields=["language", "-avg_viewers"], name="searchstats_lang_avg_idx"),
             models.Index(fields=["language", "-total_duration_seconds"], name="searchstats_lang_dur_idx"),
             GinIndex(fields=["genre_ids"], name="searchstats_genre_ids_gin"),
+            GinIndex(fields=["game_ids"], name="searchstats_game_ids_gin"),
         ]
 
     def __str__(self):

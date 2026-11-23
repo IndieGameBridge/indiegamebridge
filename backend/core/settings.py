@@ -274,6 +274,9 @@ REST_FRAMEWORK = {
         # Someone exporting by hand stays far below this; a script copying the
         # data a file at a time doesn't.
         "exports": "30/hour",
+        # A game page, in place of the anon/user ceiling: search engines read
+        # thousands of them one after another, and each is a few indexed reads.
+        "game_pages": "300/min",
     },
     # See NUM_PROXIES above - lets DRF read the real client IP from
     # X-Forwarded-For so per-IP throttles bucket visitors individually.

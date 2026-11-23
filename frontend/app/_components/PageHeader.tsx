@@ -7,7 +7,13 @@ import { CurrentUser } from "../_lib/auth";
 import { AuthStatus } from "./AuthStatus";
 import { IndieGameBridgeMark } from "./IndieGameBridgeMark";
 
-export function NavLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
+export function NavLink({ href, also, className, children }: {
+    href: string;
+    // Another address prefix whose pages belong to this link's section, such as /game/ for Games.
+    also?: string;
+    className?: string;
+    children: React.ReactNode;
+}) {
     const pathname = usePathname();
     const base = `text-white underline-offset-3 ${className ?? ""}`;
     if (pathname === href) {
@@ -15,18 +21,20 @@ export function NavLink({ href, className, children }: { href: string; className
     }
     // A page under this one, such as a language's Genre Trends: marked the same, but
     // still a link back.
-    if (href !== "/" && pathname.startsWith(`${href}/`)) {
+    if ((href !== "/" && pathname.startsWith(`${href}/`)) || (also && pathname.startsWith(also))) {
         return <Link href={href} className={`${base} underline`}>{children}</Link>;
     }
     return <Link href={href} className={`${base} hover:underline`}>{children}</Link>;
 }
 
 export function PageHeader(
-    { user, title, description, info, link_to_twitch, actions, buttons }: {
+    { user, title, description, info, link_to_twitch, actions, buttons, breadcrumb }: {
         user: CurrentUser | null;
         title?: string;
         description?: string;
         info?: string;
+        // Shown over the title, e.g. a game page's way back to the Games page.
+        breadcrumb?: React.ReactNode;
         link_to_twitch?: string;
         // Shown beside the title, before the Twitch link, e.g. the profile
         // page's "Add to list".
@@ -47,7 +55,7 @@ export function PageHeader(
                             </div>
                             <NavLink href="/streamers">Streamers</NavLink>
                             <NavLink href="/genre-trends">Genre Trends</NavLink>
-                            <NavLink href="/games">Games</NavLink>
+                            <NavLink href="/games" also="/game/">Games</NavLink>
                         </div>
                         <AuthStatus user={user} />
                     </div>
@@ -55,6 +63,12 @@ export function PageHeader(
             </section>
             <section className="px-6">
                 <div className="max-w-[1000] mx-auto">
+                    {breadcrumb && (
+                        <p className="mb-3 text-sm opacity-80 wrap-anywhere">
+                            {/* A Fragment's only child, for the reason given for actions. */}
+                            <Fragment>{breadcrumb}</Fragment>
+                        </p>
+                    )}
                     <div className="flex flex-row items-center justify-between flex-wrap gap-y-8">
                         {/* A long streamer name breaks rather than push a phone's page sideways. */}
                         {title && <h1 className="text-3xl min-w-0 wrap-anywhere">{title}</h1>}

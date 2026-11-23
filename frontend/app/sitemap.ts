@@ -36,15 +36,28 @@ function lastModified(content: CachedPageContent | undefined): Date | undefined 
     return content?.updated_at ? new Date(content.updated_at) : undefined;
 }
 
+// The game pages that ask to be indexed; none on any failure, so the rest of the sitemap stands.
+async function gamePages(): Promise<{ slug: string }[]> {
+    const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
+    try {
+        const response = await serverFetch(`${apiBase}/games/pages/`, undefined, { visitor: false });
+        if (!response.ok) return [];
+        return (await response.json()).pages ?? [];
+    } catch {
+        return [];
+    }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Only the indexable public routes. Login, opt-out, and contact are marked
     // noindex (see each page's robots metadata), so they're left out.
-    const [home, streamers, genreTrends, games, privacy] = await Promise.all([
+    const [home, streamers, genreTrends, games, privacy, gameRows] = await Promise.all([
         pageContent("home"),
         pageContent("streamers"),
         pageContent("genre_trends"),
         pageContent("games"),
         pageContent("privacy"),
+        gamePages(),
     ]);
     const genreTrendsModified = lastModified(genreTrends);
 
@@ -85,6 +98,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             url: `${baseUrl}/games/${page.slug}`,
             changeFrequency: "hourly" as const,
             priority: 0.7,
+        })),
+        // Each game's own page, the most streamed first; one with totals only isn't listed, as it
+        // asks not to be indexed. Rebuilt every 6 hours, so no <lastmod> either.
+        ...gameRows.map((page) => ({
+            url: `${baseUrl}/game/${page.slug}`,
+            changeFrequency: "daily" as const,
+            priority: 0.6,
         })),
         {
             url: `${baseUrl}/privacy`,

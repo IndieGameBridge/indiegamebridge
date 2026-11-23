@@ -88,7 +88,8 @@ class GameSearch:
     def results(self, offset: int = 0, limit: int = PAGE_SIZE) -> list[dict]:
         rows = list(
             self._queryset().values(
-                "game_id", "game__host_name", "game__release_date", "position", "hours__0_3", "streams__0_3",
+                "game_id", "game__host_name", "game__release_date", "game__page__slug", "position", "hours__0_3",
+                "streams__0_3",
             )[offset:offset + limit]
         )
         newest_hour = self.newest_hour()
@@ -103,6 +104,8 @@ class GameSearch:
                 "id": row["game_id"],
                 "place": place,
                 "name": row["game__host_name"],
+                # Its own page's address, /game/<slug>; None for a game without one.
+                "slug": row["game__page__slug"],
                 "release_year": release_date.year if release_date else None,
                 "genres": genres.get(row["game_id"], []),
                 "recent_streams": [

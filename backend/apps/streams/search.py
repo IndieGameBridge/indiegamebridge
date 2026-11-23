@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.streams.evening_windows import EVENING_WINDOW_CODES, EVENING_WINDOWS
 from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES
-from apps.streams.models import GameGenre, StreamerSearchStats
+from apps.streams.models import Game, GameGenre, StreamerSearchStats
 from apps.streams.size_groups import SIZE_FILTER_VALUES, SIZE_GROUPS_BY_LABEL
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,11 @@ GENRE_FILTER_NAMES = ("genres", "genres2", "genres3")
 # The "Streams in the evening in" checkboxes: which parts of the day, named after where it's
 # evening then, may hold most of a streamer's time. Every box ticked is no filter.
 EVENING_FILTER = "evening"
+
+# Only the streamers who played one game: its Twitch category id, Game.host_game_id. Not in
+# the form, which has no room for thousands of games: a game page's links set it, and the
+# results say which game they're for.
+GAME_FILTER = "game"
 
 # Query params that arrive repeated rather than once (?evening=europe&evening=asia). Names
 # must match the filter config in get_filters_config.
@@ -58,6 +63,7 @@ class StreamerSearch:
         self.filters = self._normalize_query_params(self.raw_filters)
         self._queryset = None
         self._matches = None
+        self._game = None
 
     @classmethod
     def from_query_params(cls, query_params) -> "StreamerSearch":
@@ -180,12 +186,39 @@ class StreamerSearch:
         search re-runs as the same search even after the defaults change.
         """
         _, allowed_names = self.get_filters_config()
-        return {name: self.filters.get(name, "any") for name in allowed_names}
+        explicit = {name: self.filters.get(name, "any") for name in allowed_names}
+        # Only when set: no game is the one default it can have, so the searches and lists
+        # without it stay stored as they were.
+        if GAME_FILTER in self.filters:
+            explicit[GAME_FILTER] = self.filters[GAME_FILTER]
+        return explicit
+
+    def game(self) -> dict | None:
+        """The game the search is narrowed to, as the results name it; None without one."""
+        if GAME_FILTER not in self.filters:
+            return None
+        if self._game is None:
+            game = Game.objects.filter(host_game_id=self.filters[GAME_FILTER]).select_related("page").first()
+            if game is None:
+                return None
+            # A reverse one-to-one with no row raises an AttributeError, so getattr's default.
+            page = getattr(game, "page", None)
+            self._game = {
+                "id": game.host_game_id,
+                "name": game.host_name,
+                # Its page's address, or None for a game without a page.
+                "slug": page.slug if page else None,
+            }
+        return self._game
 
     def describe(self) -> list[dict]:
-        """The filters that narrow this search, as label/value pairs in form order."""
+        """The filters that narrow this search, as label/value pairs: the game first, then the
+        form's in its order."""
         filters_config, _ = self.get_filters_config()
         described = []
+        game = self.game()
+        if game:
+            described.append({"label": "Game", "value": game["name"]})
         for one_config in filters_config:
             name = one_config["name"]
             if one_config["ui_control"] == "range":
@@ -246,6 +279,8 @@ class StreamerSearch:
         # Some boxes unticked: only the streamers whose main part of the day is a ticked one.
         if self.filters.get(EVENING_FILTER):
             qs = qs.filter(evening_window__in=self.filters[EVENING_FILTER])
+        if GAME_FILTER in self.filters:
+            qs = qs.filter(game_ids__contains=[self.filters[GAME_FILTER]])
 
         # Matches the language-leading index, so this is an index-ordered scan.
         self._queryset = qs.order_by("-peak_viewers", "-avg_viewers", "-total_duration_seconds")
@@ -365,6 +400,14 @@ class StreamerSearch:
                 [value["v"] for value in one_config["max_values"]],
                 one_config["max_default"],
             )
+
+        # Outside the form's config: any category IGDB lists as a game, by its id. Anything
+        # else, a category that isn't a game included, is no filter.
+        raw_game = str(raw.get(GAME_FILTER, "")).strip()
+        if raw_game.isdigit() and Game.objects.filter(
+            host_game_id=int(raw_game), category=Game.Category.ISGAME,
+        ).exists():
+            normalized_filters[GAME_FILTER] = int(raw_game)
 
         return normalized_filters
 

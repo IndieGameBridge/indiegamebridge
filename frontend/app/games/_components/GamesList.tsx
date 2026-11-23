@@ -3,6 +3,7 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { PagePicker, Pagination } from "../../_components/Pagination";
+import { ProgressLink as Link } from "../../_components/ProgressLink";
 import type { Paging } from "../../_lib/paging";
 import { GameHoursChart } from "./GameHoursChart";
 import type { GameLanguage, GameListLabels, GameRow } from "./types";
@@ -224,6 +225,13 @@ export function GamesList({ results, total, paging, newest_hour, path, query, pe
                                         onLanguageChange={setChartLanguage}
                                         labels={labels.chart}
                                     />
+                                    {game.slug && labels.game_page && (
+                                        <p className="px-1.5 pb-6 text-sm wrap-anywhere">
+                                            <Link href={`/game/${game.slug}`} className="underline text-blue-700 hover:text-blue-500">
+                                                {labels.game_page.replace("{game}", game.name)}
+                                            </Link>
+                                        </p>
+                                    )}
                                 </Slide>
                             )}
                         </li>
