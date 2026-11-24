@@ -14,7 +14,7 @@ type FeatureText = {
 type GameRow = {
     id: number;
     name: string;
-    // The newest hours' streams, newest first.
+    // A number under each of `columns.hours`, the newest hour's first.
     recent_streams: number[];
 };
 

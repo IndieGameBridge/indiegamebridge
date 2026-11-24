@@ -105,9 +105,9 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                             " words in the game's name.",
                     },
                     {
-                        "title": "Read the hours.",
-                        "text": "Each game's row shows how many streams were live on it in the newest hour and the two"
-                            " hours before it.",
+                        "title": "Read the number.",
+                        "text": "Each game's row shows how many streams were live on it in the newest hour. The numbers"
+                            " are rebuilt every 6 hours, so that hour can be up to about 7 hours ago.",
                     },
                     {
                         "title": "Open a game.",
@@ -179,7 +179,8 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                 "game_column": "Game",
                 # Under an open chart, for a game with a page of its own.
                 "game_page": "Who streamed {game}: their languages, sizes and hours",
-                "hours_caption": "Streams live in each hour, UTC",
+                # Over the rows' numbers: each game's streams in the newest hour.
+                "streams_column": "Live streams",
                 "pagination": pagination_labels(),
                 "chart": {
                     "language": "Language",

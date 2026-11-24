@@ -3,7 +3,9 @@ import { serverFetch } from "../_lib/server-fetch";
 // Server-side route handler, so the non-public FRONTEND_URL env is available.
 const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
 
-// Rebuilt hourly, like the sitemap, so the pages it lists follow the cached pages.
+// Rebuilt at most hourly where Next keeps a cache of it, like the sitemap, so the pages it
+// lists follow the cached pages. Production has no such cache (open-next.config.ts), so
+// there each request builds it afresh.
 export const revalidate = 3600;
 
 type PageCopy = {
@@ -21,7 +23,8 @@ type CachedPageContent = PageCopy & {
 async function pageContent(key: string): Promise<CachedPageContent | undefined> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     try {
-        // Built ahead of any request, so there's no visitor's address to pass on.
+        // No visitor's address: reading the request's headers would make the route dynamic and
+        // drop the hourly rebuild above.
         const response = await serverFetch(`${apiBase}/pages/${key}/`, undefined, { visitor: false });
         if (!response.ok) return undefined;
         return await response.json();

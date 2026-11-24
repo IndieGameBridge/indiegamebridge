@@ -99,7 +99,8 @@ class HomePageBuilder(BaseCachedPageBuilder):
                     " each language. The quiet hours are when a stream of it meets the fewest competitors.",
                 "btn": "Explore games",
                 "sample_title": f"Indie games released in {games_year}, all languages",
-                "columns": {"name": "Game", "hours": ["Newest hour", "1 h before", "2 h before"]},
+                # A heading for each number in a row: the newest hour's streams, as on the Games page.
+                "columns": {"name": "Game", "hours": ["Live streams"]},
                 # Stored here, not read on each request: the search's total costs about half a
                 # second on the VPS, and an hourly rebuild keeps up with the 6-hourly numbers.
                 "rows": GameSearch({GENRE_FILTER_NAMES[0]: INDIE_GENRE_ID, "year": games_year}).results(limit=SAMPLE_ROWS),

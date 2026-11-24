@@ -8,7 +8,10 @@ from django.utils import timezone
 
 from apps.pages.cached_pages.home import INDIE_GENRE_ID, SAMPLE_ROWS, HomePageBuilder
 from apps.streams.game_search import GameSearch
-from apps.streams.models import Game, GameGenre, GameStats, GenreStats, StreamerProfile, StreamerSearchStats
+from apps.streams.management.commands.rebuild_game_stats import GAME_STATS_CACHE_KEY
+from apps.streams.models import (
+    Game, GameGenre, GameStats, GenreStats, JsonCache, StreamerProfile, StreamerSearchStats,
+)
 from apps.streams.search import StreamerSearch
 
 
@@ -170,3 +173,13 @@ class ShowcaseTests(TestCase):
         self._indie_games(self._genre(INDIE_GENRE_ID, "Indie"), 2026, SAMPLE_ROWS)
 
         self.assertIn("released in 2026", self._showcase(2027, 1)["games"]["sample_title"])
+
+    def test_the_games_sample_has_a_heading_for_each_number(self):
+        # The frontend lays the headings and a row's numbers out side by side.
+        self._indie_games(self._genre(INDIE_GENRE_ID, "Indie"), 2026, SAMPLE_ROWS)
+        JsonCache.objects.create(key=GAME_STATS_CACHE_KEY, content={"newest_hour": 1})
+
+        games = self._showcase()["games"]
+
+        self.assertEqual(games["rows"][0]["recent_streams"], [1])
+        self.assertEqual(len(games["columns"]["hours"]), len(games["rows"][0]["recent_streams"]))

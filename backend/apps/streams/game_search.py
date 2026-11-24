@@ -12,8 +12,8 @@ from apps.streams.size_groups import SIZE_FILTER_VALUES, SIZE_GROUPS
 
 PAGE_SIZE = 50
 
-# How many of the newest hours a result row shows.
-RECENT_HOURS = 3
+# How many of the newest hours a result row shows: the newest only, as its live streams.
+RECENT_HOURS = 1
 
 # The stored number of each size filter value. "any" is dropped from a search's filters, as
 # in the streamer search, so it's the fallback rather than a key here.
@@ -86,10 +86,13 @@ class GameSearch:
         return cls({key: query_params.get(key) for key in query_params.keys() if key not in PAGING_PARAMS})
 
     def results(self, offset: int = 0, limit: int = PAGE_SIZE) -> list[dict]:
+        # The arrays hold only the hours with streams, newest first, so the newest hours that had
+        # any are in their first cells.
+        hours_cells, streams_cells = f"hours__0_{RECENT_HOURS}", f"streams__0_{RECENT_HOURS}"
         rows = list(
             self._queryset().values(
-                "game_id", "game__host_name", "game__release_date", "game__page__slug", "position", "hours__0_3",
-                "streams__0_3",
+                "game_id", "game__host_name", "game__release_date", "game__page__slug", "position", hours_cells,
+                streams_cells,
             )[offset:offset + limit]
         )
         newest_hour = self.newest_hour()
@@ -98,8 +101,7 @@ class GameSearch:
         results = []
         for row, place in zip(rows, places):
             release_date = row["game__release_date"]
-            # The arrays run newest first, so the newest hours' numbers are in their first cells.
-            streams_by_hour = dict(zip(row["hours__0_3"], row["streams__0_3"]))
+            streams_by_hour = dict(zip(row[hours_cells], row[streams_cells]))
             results.append({
                 "id": row["game_id"],
                 "place": place,

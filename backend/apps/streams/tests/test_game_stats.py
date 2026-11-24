@@ -377,7 +377,7 @@ class GameSearchTests(GameStatsTestCase):
 
         self.assertEqual(self._names(lang="xx", peak="nonsense", genres="1 OR 1=1"), ["one"])
 
-    def test_a_row_shows_its_newest_hours_with_the_empty_ones_as_zero(self):
+    def test_a_row_shows_its_newest_hours_streams_only(self):
         indie, puzzle = self._genre(32, "Indie"), self._genre(9, "Puzzle")
         game = self._game("one", genres=[puzzle, indie], release_date=date(2024, 12, 31))
         self._streams(game, 2, age=0)
@@ -393,15 +393,15 @@ class GameSearchTests(GameStatsTestCase):
             "slug": None,
             "release_year": 2024,
             "genres": ["Indie", "Puzzle"],
-            "recent_streams": [2, 0, 1],
+            "recent_streams": [2],
         }])
 
-    def test_a_game_with_nothing_lately_shows_zeros(self):
+    def test_a_game_with_nothing_in_the_newest_hour_shows_zero(self):
         game = self._game("one")
-        self._streams(game, 4, age=10)
+        self._streams(game, 4, age=1)
         self._rebuild()
 
-        self.assertEqual(GameSearch({"lang": "en"}).results()[0]["recent_streams"], [0, 0, 0])
+        self.assertEqual(GameSearch({"lang": "en"}).results()[0]["recent_streams"], [0])
 
     def test_total_counts_what_the_filters_let_through(self):
         indie = self._genre(32, "Indie")
@@ -524,7 +524,7 @@ class GameApiTests(GameStatsTestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual((data["total"], data["newest_hour"]), (1, NEWEST_HOUR))
-        self.assertEqual(data["results"][0]["recent_streams"], [2, 0, 0])
+        self.assertEqual(data["results"][0]["recent_streams"], [2])
 
     def test_search_pages_by_number(self):
         for number in range(3):

@@ -1,7 +1,9 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
 
 // Default configuration: packages the Next.js server (server components +
-// proxy.ts middleware) into a single Cloudflare Worker. No incremental/ISR
-// cache backend is wired yet — the only revalidated route is /sitemap.xml,
-// which is cheap to regenerate. Add an R2/KV cache here later if needed.
+// middleware.ts) into a single Cloudflare Worker. No incremental (ISR) cache
+// backend is wired yet, so the two routes with `revalidate`, /sitemap.xml and
+// /llms.txt, are built afresh on every request: the sitemap, with every game
+// page in it, takes about 2 seconds and 6 API calls. Add an R2 or KV cache
+// here if that ever matters.
 export default defineCloudflareConfig();

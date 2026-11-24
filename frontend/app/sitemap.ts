@@ -5,9 +5,10 @@ import { serverFetch } from "./_lib/server-fetch";
 // Server-side route handler, so the non-public FRONTEND_URL env is available.
 const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
 
-// Regenerate hourly so <lastmod> tracks the hourly cache rebuilds. Without this
-// the route handler is cached indefinitely and lastModified would freeze at the
-// build time.
+// Rebuilt at most hourly where Next keeps a cache of it (`next start`), so <lastmod>
+// follows the hourly cache rebuilds; without this, the route would be built once and keep
+// the build's dates. Production has no such cache (open-next.config.ts), so there each
+// request builds it afresh: about 2 seconds and 6 API calls.
 export const revalidate = 3600;
 
 // What the sitemap reads from a cached page: its real last-refresh time (the
@@ -23,7 +24,8 @@ type CachedPageContent = {
 async function pageContent(key: string): Promise<CachedPageContent | undefined> {
     const apiBase = process.env.API_BASE_URL ?? "http://localhost:8000";
     try {
-        // Built hourly ahead of any request, so there's no visitor's address to pass on.
+        // No visitor's address: reading the request's headers would make the route dynamic and
+        // drop the hourly rebuild above. These calls all count as the Worker's own address.
         const response = await serverFetch(`${apiBase}/pages/${key}/`, undefined, { visitor: false });
         if (!response.ok) return undefined;
         return await response.json();

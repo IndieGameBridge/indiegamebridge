@@ -263,12 +263,16 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
         return { hour, rows, left: cursor.tipLeft };
     }, [cursor, newest, series]);
 
-    const buttonClass = (active: boolean) => active
-        ? "py-0.5 px-2 rounded border border-brand-blue bg-brand-blue text-white text-xs cursor-pointer"
-        : "py-0.5 px-2 rounded border border-gray-300 hover:border-brand-blue text-xs cursor-pointer";
+    // Tight, so the 9 buttons take 3 rows on a 390px phone and 4 on a 320px one.
+    const buttonClass = (active: boolean) => `inline-flex items-center gap-1 py-0.5 px-1.5 rounded border text-xs cursor-pointer ${active
+        ? "border-brand-blue bg-brand-blue text-white"
+        : "border-gray-300 hover:border-brand-blue"}`;
 
     return (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-y-3 pt-3 pb-6">
+            {/* Each language's button carries its line's colour, so the buttons are the chart's
+                legend too. The dot's white ring, like the line's end marker's, keeps it apart
+                from a picked button's blue. */}
             <div role="group" aria-label={labels.language} className="flex flex-row flex-wrap gap-1.5">
                 {[{ code: "all", label: labels.all_languages }, ...languages].map((one) => (
                     <button
@@ -278,6 +282,13 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
                         className={buttonClass(language === one.code)}
                         onClick={() => onLanguageChange(one.code)}
                     >
+                        {LANGUAGE_COLORS[one.code] && (
+                            <i
+                                aria-hidden="true"
+                                className="inline-block size-3 shrink-0 rounded-full ring-1 ring-white"
+                                style={{ background: LANGUAGE_COLORS[one.code] }}
+                            />
+                        )}
                         {one.label}
                     </button>
                 ))}
@@ -289,16 +300,6 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
 
             {scale && drawing && (
                 <div>
-                    {series.length > 1 && (
-                        <div className="flex flex-row flex-wrap gap-x-3.5 gap-y-1 text-xs mb-1">
-                            {series.map((one) => (
-                                <span key={one.code} className="inline-flex items-center gap-1.5">
-                                    <i className="inline-block w-3.5 h-0.75 rounded-sm" style={{ background: LANGUAGE_COLORS[one.code] }} />
-                                    {one.label}
-                                </span>
-                            ))}
-                        </div>
-                    )}
                     <div ref={chartRef} className="relative">
                         <div className="grid grid-cols-[52px_minmax(0,1fr)]">
                             <svg width={AXIS_WIDTH} height={HEIGHT} aria-hidden="true" className="block">

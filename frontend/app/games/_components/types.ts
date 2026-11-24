@@ -23,7 +23,8 @@ export type GameRow = {
     slug?: string | null;
     release_year: number | null;
     genres: string[];
-    // The newest hours' streams, newest first.
+    // The newest hour's streams first: the list shows only that one. An older API sends the
+    // two hours before it too.
     recent_streams: number[];
 };
 
@@ -70,7 +71,8 @@ export type GameListLabels = {
     // The link to a game's own page under its chart, "{game}" being its name. Absent until the
     // page's cached text is rebuilt with it.
     game_page?: string;
-    hours_caption: string;
+    // Over the rows' numbers. Absent until the page's cached text is rebuilt with it.
+    streams_column?: string;
     pagination: PaginationLabels;
     chart: GameChartLabels;
 };
