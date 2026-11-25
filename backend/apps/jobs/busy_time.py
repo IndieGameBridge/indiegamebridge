@@ -218,9 +218,10 @@ def busy_time(raw_offset, now=None):
             legend=[LegendItem("Failed or never finished", "critical", "rect")] if failed else [],
             table_title=f"Free stretches of {LISTED_STRETCH} minutes or more",
             table_headers=[Cell("From", number=False), Cell("To", number=False), "Minutes"],
+            # The newest first, as the timeline reads.
             table_rows=[
                 [clock(first), Cell(clock(first + length), number=False), count_text(length)]
-                for first, length, _ in free_stretches
+                for first, length, _ in reversed(free_stretches)
                 if length >= LISTED_STRETCH
             ],
         )],

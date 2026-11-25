@@ -149,6 +149,9 @@ class RebuildAndSearchTests(TestCase):
         self.assertEqual(today_row["days_ago"], [0, 3])
         self.assertEqual(next_day_row["days_ago"], [1, 4])
         self.assertNotIn("active_days", today_row)
+        # And the date they count back from.
+        self.assertEqual(today_row["today"], "2026-11-05")
+        self.assertEqual(next_day_row["today"], "2026-11-06")
 
     def test_days_growing_older_doesnt_rewrite_a_row(self):
         streamer = self._make_streamer(1, "solo")

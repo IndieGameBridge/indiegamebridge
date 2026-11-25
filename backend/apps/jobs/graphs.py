@@ -423,7 +423,8 @@ def _run_time_figure(job, axis, runs, by_day, runs_source):
     ])
 
     rows = []
-    for day, of_day in by_day.items():
+    # The newest day first, as the plot reads.
+    for day, of_day in reversed(by_day.items()):
         durations = [one.duration for one in of_day if one.finished]
         rows.append([
             day_text(day),
@@ -466,7 +467,8 @@ def _day_time_figure(job, days_axis, by_day, days_source):
     ], crosshair=False)
 
     rows = []
-    for day, of_day in by_day.items():
+    # The newest day first, as the plot reads.
+    for day, of_day in reversed(by_day.items()):
         durations = [one.duration for one in of_day if one.finished]
         rows.append([
             day_text(day),
@@ -508,9 +510,10 @@ def _counts_figure(job, days_axis, by_day, days_source):
         ], crosshair=False)
         plots.append(plot)
 
+    # The newest day first, as the plots read.
     rows = [
         [day_text(day), count_text(len(of_day)), *(count_text(of_days[day]) for of_days in totals)]
-        for day, of_day in by_day.items()
+        for day, of_day in reversed(by_day.items())
     ]
     return Figure(
         key="counts",

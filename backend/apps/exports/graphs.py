@@ -116,7 +116,8 @@ def export_graphs(days, now=None):
             plots=[plot],
             legend=[LegendItem(label, color, "rect") for color, label in PARTS],
             table_headers=["Day", "Exports", "Exported again", "First export", "Users"],
-            table_rows=rows,
+            # The newest day first, as the plot reads.
+            table_rows=rows[::-1],
         )],
         "hover_sources": [source],
     })

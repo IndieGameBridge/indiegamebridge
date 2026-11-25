@@ -386,7 +386,8 @@ def _run_time_figure(axis, runs, by_day, runs_source, name):
         legend.append(LegendItem("Stopped at the time limit", "warning", "warning"))
 
     rows = []
-    for day, of_day in by_day.items():
+    # The newest day first, as the plot reads.
+    for day, of_day in reversed(by_day.items()):
         durations = [one.duration for one in of_day if one.finished]
         rows.append([
             day_text(day),
@@ -436,7 +437,8 @@ def _time_split_figure(axis, runs, by_day, runs_source, language, name):
     ] + [{"field": RUN_TIME, "label": "polling time" if name else "run time", "color": None}])
 
     rows = []
-    for day, of_day in by_day.items():
+    # The newest day first, as the plot reads.
+    for day, of_day in reversed(by_day.items()):
         splits = [one.time_split for one in of_day if one.finished]
         rows.append([day_text(day)] + [
             duration_text(mean(split[index] for split in splits)) if splits else "-" for index in range(len(parts))
@@ -482,7 +484,8 @@ def _helix_figure(axis, runs, by_day, runs_source, name):
     ])
 
     rows = []
-    for day, of_day in by_day.items():
+    # The newest day first, as the plot reads.
+    for day, of_day in reversed(by_day.items()):
         finished = [one for one in of_day if one.finished]
         averages = [one.average_per_minute for one in finished if one.average_per_minute is not None]
         rows.append([
@@ -546,7 +549,8 @@ def _collected_figure(axis, days_axis, runs, by_day, runs_source, days_source, n
         plots.append(plot)
 
     rows = []
-    for day, of_day in by_day.items():
+    # The newest day first, as the plot reads.
+    for day, of_day in reversed(by_day.items()):
         rows.append([
             day_text(day),
             count_text(sum(one.written for one in of_day)),

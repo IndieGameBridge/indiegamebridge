@@ -1,4 +1,5 @@
 import logging
+from datetime import date, timedelta
 from functools import cache
 
 from django.utils import timezone
@@ -47,6 +48,8 @@ STATS_FIELDS = ("peak_viewers", "avg_viewers", "total_duration_seconds", "stream
 
 # The days a result's strip shows, as on a profile's chart: today and the 27 before it.
 STRIP_DAYS = 28
+# The stats store a day as days since this one.
+EPOCH = date(1970, 1, 1)
 
 
 class StreamerSearch:
@@ -322,6 +325,9 @@ class StreamerSearch:
         # here. An older day can still be stored: its stream ended inside the window.
         today = int(timezone.now().timestamp()) // 86400
         row["days_ago"] = sorted(today - day for day in row.pop("active_days") if today - day < STRIP_DAYS)
+        # The UTC date they count back from, so a page can name each day and mark the
+        # weekends, even from a cached text built before midnight.
+        row["today"] = (EPOCH + timedelta(days=today)).isoformat()
         return row
 
     @staticmethod

@@ -1,5 +1,9 @@
 {% load l10n %}{% localize off %}
 <div class="viz-row" style="--plot-height: {{ plot.height }}px; --column-width: {{ plot.column_width }}px">
+  <div class="viz-end-labels" aria-hidden="true">
+    {% for reference in plot.references %}<span style="top: {{ reference.y }}px">{{ reference.text }}</span>{% endfor %}
+    {% for label in plot.labels %}<span style="top: {{ label.y }}px">{{ label.text }}</span>{% endfor %}
+  </div>
   <div class="viz-y-axis" aria-hidden="true">{% for tick in plot.y_ticks %}<span style="top: {{ tick.at }}px">{{ tick.label }}</span>{% endfor %}</div>
   <div class="viz-scroll" data-now="{{ plot.now_percent }}" data-group="{{ plot.group }}">
     <div class="viz-canvas" style="{% if plot.stretch %}min-width{% else %}width{% endif %}: {{ plot.width }}px">
@@ -18,10 +22,6 @@
       {% for column in plot.columns %}<div class="viz-column-group" data-index="{{ column.index }}">{% for part in column.parts %}<div class="viz-column{% if part.rounded %} viz-column-top{% endif %}" style="left: {{ column.left }}%; top: {{ part.top }}px; height: {{ part.height }}px; --c: var(--viz-{{ part.color }})"></div>{% endfor %}</div>{% endfor %}
       {% for marker in plot.markers %}<span class="viz-dot viz-dot-{{ marker.kind }}" style="left: {{ marker.left }}%; top: {{ marker.y }}px"></span>{% endfor %}
     </div>
-  </div>
-  <div class="viz-end-labels" aria-hidden="true">
-    {% for reference in plot.references %}<span style="top: {{ reference.y }}px">{{ reference.text }}</span>{% endfor %}
-    {% for label in plot.labels %}<span style="top: {{ label.y }}px">{{ label.text }}</span>{% endfor %}
   </div>
 </div>
 {% endlocalize %}

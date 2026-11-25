@@ -62,14 +62,14 @@
   .viz-key-line { width: 14px; height: 2px; border-radius: 1px; background: var(--c); }
   .viz-key-rect { width: 10px; height: 10px; border-radius: 2px; background: var(--c); }
 
-  /* A plot is a row: its y-axis labels, the plot itself, which scrolls when it's wider
-     than the page, and the labels at the ends of its lines. The labels, markers and
-     columns are HTML over the stretched SVG, so they keep their size. */
-  .viz-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 124px; }
+  /* A plot is a row: the labels at the newest ends of its lines, its y-axis labels, and
+     the plot itself, newest on the left, which scrolls when it's wider than the page. The
+     labels, markers and columns are HTML over the stretched SVG, so they keep their size. */
+  .viz-row { display: grid; grid-template-columns: 124px 52px minmax(0, 1fr); }
   .viz-y-axis, .viz-end-labels, .viz-canvas { position: relative; height: var(--plot-height); }
   .viz-y-axis span, .viz-end-labels span, .viz-x-label { position: absolute; font-size: 0.75rem; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
   .viz-y-axis span { right: 8px; transform: translateY(-50%); color: var(--viz-muted); }
-  .viz-end-labels span { left: 8px; transform: translateY(-50%); color: var(--body-quiet-color); }
+  .viz-end-labels span { right: 8px; transform: translateY(-50%); color: var(--body-quiet-color); }
   .viz-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
   .viz-canvas { width: 100%; }
   .viz-plot { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
@@ -166,20 +166,21 @@
     {% for figure in figures %}{% include "admin/charts/figure.html" %}{% endfor %}
     {% for source in hover_sources %}{{ source.data|json_script:source.element_id }}{% endfor %}
     <script>
-      // Plots on one axis scroll together, and open on the latest data. Then the hover
-      // layer: a crosshair, or the hovered column, and a tooltip listing the plot's values
-      // at the nearest x position. Click or Enter opens what it shows; the arrow keys step
-      // through the positions once a plot has focus.
+      // Plots on one axis scroll together, and open on the latest data, which is on the
+      // left. Then the hover layer: a crosshair, or the hovered column, and a tooltip
+      // listing the plot's values at the nearest x position. Click or Enter opens what it
+      // shows; the arrow keys step through the positions once a plot has focus.
       (() => {
         "use strict";
         const scrollers = [...document.querySelectorAll(".viz-scroll")];
-        // Until the plots are scrolled by hand, keep "now" at their right edge, through
-        // whatever changes their width as the page settles, the admin's sidebar for one.
+        // Until the plots are scrolled by hand, keep "now" just inside their left edge,
+        // through whatever changes their width as the page settles, the admin's sidebar
+        // for one.
         let scrolledByHand = false;
         const toNow = () => {
           if (scrolledByHand) return;
           for (const scroller of scrollers) {
-            scroller.scrollLeft = (Number(scroller.dataset.now) / 100) * scroller.scrollWidth + 48 - scroller.clientWidth;
+            scroller.scrollLeft = (Number(scroller.dataset.now) / 100) * scroller.scrollWidth - 48;
           }
         };
         const resizes = new ResizeObserver(toNow);
@@ -207,6 +208,11 @@
           const columns = [...svg.parentElement.querySelectorAll(".viz-column-group")];
           const scroller = svg.closest(".viz-scroll");
           const width = svg.viewBox.baseVal.width;
+          // The rows come oldest first, and the oldest is on the right: `order` holds their
+          // indexes from left to right, and `places` each index's place in it.
+          const order = source.xs.map((_, index) => index).sort((a, b) => source.xs[a] - source.xs[b]);
+          const places = [];
+          order.forEach((index, place) => { places[index] = place; });
           let current = -1;
 
           // Scroll a position stepped to from the keyboard into view.
@@ -218,15 +224,15 @@
           };
 
           const nearest = (x) => {
-            const xs = source.xs;
+            const xAt = (place) => source.xs[order[place]];
             let low = 0;
-            let high = xs.length - 1;
+            let high = order.length - 1;
             while (low < high) {
               const middle = (low + high) >> 1;
-              if (xs[middle] < x) low = middle + 1;
+              if (xAt(middle) < x) low = middle + 1;
               else high = middle;
             }
-            return low > 0 && x - xs[low - 1] < xs[low] - x ? low - 1 : low;
+            return order[low > 0 && x - xAt(low - 1) < xAt(low) - x ? low - 1 : low];
           };
 
           const show = (index) => {
@@ -303,18 +309,21 @@
           scroller.addEventListener("scroll", () => {
             if (current >= 0 && document.activeElement !== svg) hide();
           }, { passive: true });
+          // Focus starts on the leftmost position, the newest.
           svg.addEventListener("focus", () => {
-            const index = current >= 0 ? current : source.xs.length - 1;
+            const index = current >= 0 ? current : order[0];
             reveal(index);
             show(index);
           });
           svg.addEventListener("blur", hide);
+          // The keys move as they point: Left to the newer position, Home to the newest.
           svg.addEventListener("keydown", (event) => {
-            const last = source.xs.length - 1;
-            const moves = { ArrowLeft: current - 1, ArrowRight: current + 1, Home: 0, End: last };
+            const last = order.length - 1;
+            const place = current >= 0 ? places[current] : 0;
+            const moves = { ArrowLeft: place - 1, ArrowRight: place + 1, Home: 0, End: last };
             if (event.key in moves) {
               event.preventDefault();
-              const index = Math.min(Math.max(moves[event.key], 0), last);
+              const index = order[Math.min(Math.max(moves[event.key], 0), last)];
               reveal(index);
               show(index);
             } else if (event.key === "Enter") {

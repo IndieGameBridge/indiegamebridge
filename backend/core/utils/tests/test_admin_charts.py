@@ -7,6 +7,7 @@ from django.test import SimpleTestCase
 from core.utils.admin_charts import (
     COLUMN_DAY_WIDTH,
     DEFAULT_WINDOW,
+    MinuteTimeline,
     Plot,
     TimeAxis,
     compact_text,
@@ -55,35 +56,46 @@ class TextTests(SimpleTestCase):
 
 
 class TimeAxisTests(SimpleTestCase):
+    def test_the_newest_is_on_the_left(self):
+        axis = TimeAxis(FIRST_DAY, LAST_DAY, 720, NOW)
+        self.assertEqual((axis.x(axis.end), axis.x(axis.start)), (0, axis.width))
+        timeline = MinuteTimeline(NOW, 180, "")
+        # The newest minute's middle is half a minute in from the left; the oldest's is at the right.
+        self.assertEqual((timeline.minute_x(179), timeline.minute_x(0)), (2, 718))
+
     def test_days_are_day_width_wide(self):
         axis = TimeAxis(FIRST_DAY, LAST_DAY, 720, NOW)
         self.assertEqual(axis.width, 2880)
-        self.assertEqual(axis.x(datetime(2026, 10, 24, 6, tzinfo=dt_timezone.utc)), 900)
-        self.assertEqual(axis.day_x(FIRST_DAY), 360)
-        self.assertEqual(axis.now, 2340)
-        self.assertEqual(axis.percent(axis.now), 81.25)
+        # Two days and 18 hours before the axis' end, at midnight on Tue 27.
+        self.assertEqual(axis.x(datetime(2026, 10, 24, 6, tzinfo=dt_timezone.utc)), 1980)
+        self.assertEqual(axis.day_x(FIRST_DAY), 2520)
+        self.assertEqual(axis.now, 540)
+        self.assertEqual(axis.percent(axis.now), 18.75)
 
     def test_shades_the_weekend_and_marks_where_days_meet(self):
-        axis = TimeAxis(FIRST_DAY, LAST_DAY, 720, NOW)
-        self.assertEqual([band.x for band in axis.weekends()], [720, 1440])
+        # Fri 23 to Sun 25: the weekend is the newest two days, so it's on the left.
+        axis = TimeAxis(FIRST_DAY, date(2026, 10, 25), 720, NOW)
+        self.assertEqual([band.x for band in axis.weekends()], [720, 0])
         plot = Plot(axis, label="", height=168, max_value=1)
-        self.assertEqual((plot.midnights, plot.separators), ([720, 1440, 2160], []))
+        self.assertEqual((plot.midnights, plot.separators), ([720, 1440], []))
 
     def test_wide_days_get_their_hours(self):
         labels = TimeAxis(FIRST_DAY, FIRST_DAY, 720, NOW).labels()
         self.assertEqual([(label.text, label.kind) for label in labels], [
             ("Fri 23", "day"), ("06:00", "hour"), ("12:00", "hour"), ("18:00", "hour"),
         ])
-        self.assertEqual(labels[2].left, 50)
+        # The day's name at its left edge, where it ends; its hours run back from there.
+        self.assertEqual([label.left for label in labels], [0, 75, 50, 25])
 
     def test_narrow_days_get_a_short_name_under_their_middle(self):
         labels = TimeAxis(FIRST_DAY, LAST_DAY, 72, NOW).labels()
-        self.assertEqual([label.text for label in labels], ["Fr 23", "Sa 24", "Su 25", "Mo 26"])
+        self.assertEqual([label.text for label in labels], ["Mo 26", "Su 25", "Sa 24", "Fr 23"])
         self.assertEqual(labels[0].left, 12.5)
 
     def test_days_too_narrow_for_their_names_skip_some(self):
+        # Counted from the newest, which always keeps its name.
         labels = TimeAxis(FIRST_DAY, LAST_DAY, 32, NOW).labels()
-        self.assertEqual([label.text for label in labels], ["Fr 23", "Su 25"])
+        self.assertEqual([label.text for label in labels], ["Mo 26", "Sa 24"])
 
     def test_days_of_one_column_name_every_column(self):
         plot = Plot(TimeAxis(FIRST_DAY, LAST_DAY, COLUMN_DAY_WIDTH, NOW, stretch=False), label="", height=150, max_value=1)

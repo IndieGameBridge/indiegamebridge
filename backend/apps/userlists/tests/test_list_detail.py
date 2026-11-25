@@ -1,7 +1,11 @@
 """Tests for one list: reading it with its entries, editing it, deleting it (/api/lists/<id>/)."""
 
+from datetime import datetime, timezone as dt_timezone
+from unittest import mock
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.streams.models import StreamerProfile, StreamerSearchStats
@@ -83,7 +87,8 @@ class ListDetailTests(TestCase):
         for index, login in enumerate(("top", "middle", "small"), start=1):
             self._add(self._make_streamer(index, login), description=f"note on {login}")
 
-        response = self._get()
+        with mock.patch.object(timezone, "now", return_value=datetime(2026, 11, 5, 12, tzinfo=dt_timezone.utc)):
+            response = self._get()
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["streamers_count"], 3)
@@ -94,7 +99,10 @@ class ListDetailTests(TestCase):
         self.assertEqual(entries[0]["description"], "note on top")
         self.assertEqual(
             entries[0]["streamer"]["stats"],
-            {"peak_viewers": 100, "avg_viewers": 50, "streams_count": 8, "hours_streamed": 10, "genres": [], "days_ago": []},
+            {
+                "peak_viewers": 100, "avg_viewers": 50, "streams_count": 8, "hours_streamed": 10, "genres": [],
+                "days_ago": [], "today": "2026-11-05",
+            },
         )
 
     def test_stats_come_from_the_lists_language(self):

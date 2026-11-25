@@ -135,9 +135,10 @@ class BusyTimeTests(TestCase):
         figure = busy_time("", now=NOW)["figures"][0]
 
         self.assertEqual(figure.table_title, "Free stretches of 5 minutes or more")
+        # The newest first, as the timeline reads.
         self.assertEqual(
             [[cell.text for cell in row] for row in figure.table_rows],
-            [["09:10", "09:15", "5"], ["09:16", "11:51", "155"]],
+            [["09:16", "11:51", "155"], ["09:10", "09:15", "5"]],
         )
 
     def test_counts_the_minutes_with_two_or_more_jobs(self):
@@ -187,9 +188,11 @@ class BusyTimeTests(TestCase):
 
         context = busy_time("", now=NOW)
 
+        # The newest minute is on the left, 4 pixels a minute, so a bar starts where its
+        # last minute ends: the failed run's minutes 10 and 11, then the other's minute 30.
         colors = {bar.x: bar.color for bar in _timeline(context).bars}
-        self.assertEqual(colors[40], "critical")
-        self.assertEqual(colors[120], "series-1")
+        self.assertEqual(colors[(WINDOW_MINUTES - 12) * 4], "critical")
+        self.assertEqual(colors[(WINDOW_MINUTES - 31) * 4], "series-1")
         self.assertEqual([item.label for item in context["figures"][0].legend], ["Failed or never finished"])
         self.assertIn("Failed after 1m 30s", context["hover_sources"][0].rows[10]["values"])
 

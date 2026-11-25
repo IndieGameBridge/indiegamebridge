@@ -4,11 +4,14 @@ A graph page builds Figures from the pieces here: a time axis of whole UTC days 
 every plot on the page shares, round y-axis ticks, the SVG paths of lines and stacked
 areas, columns, and the texts axes, tooltips and tables show.
 
+Time runs from right to left: the newest is on the left, where reading starts, as on the
+site's own charts, and the tables list the newest day first.
+
 The templates in templates/admin/charts draw them. A plot is at least its days times
 the axis' day_width pixels wide: a wider screen stretches it, a narrower one scrolls
 it. Lines and areas are SVG stretched across the plot; labels, markers and columns are
-laid over it in HTML, so they keep their size, and the y-axis and end labels sit in
-columns beside it, so they stay in view. The page's script adds the hover tooltip and
+laid over it in HTML, so they keep their size, and the end labels and y-axis sit in
+columns to its left, so they stay in view. The page's script adds the hover tooltip and
 scrolls the plots together. GraphsAdminMixin puts such a page beside a ModelAdmin's list.
 
 A MinuteTimeline stands in a Figure's plots where a few hours matter rather than days:
@@ -181,7 +184,8 @@ class Column(NamedTuple):
 class TimeAxis:
     """Whole UTC days, first_day to last_day, day_width pixels each: at the least when
     the axis stretches to the page's width, exactly when it doesn't, as for columns of
-    one value a day, which then stand close together. Plots on one axis scroll together."""
+    one value a day, which then stand close together. The newest is on the left, so a
+    day's left edge is where it ends. Plots on one axis scroll together."""
 
     def __init__(self, first_day, last_day, day_width, now, stretch=True):
         self.days = [first_day + timedelta(days=offset) for offset in range((last_day - first_day).days + 1)]
@@ -193,7 +197,12 @@ class TimeAxis:
         self.now = self.x(min(max(now, self.start), self.end))
 
     def x(self, moment):
-        return round((moment - self.start) / (self.end - self.start) * self.width, 1)
+        """How far from the plot's left edge a moment is: the axis' end is at 0."""
+        return round((self.end - moment) / (self.end - self.start) * self.width, 1)
+
+    @staticmethod
+    def _midnight(day):
+        return datetime.combine(day, time(), tzinfo=dt_timezone.utc)
 
     def day_x(self, day):
         """The middle of a day, where its column stands."""
@@ -210,22 +219,31 @@ class TimeAxis:
     def labels(self):
         if self.label_rows == 2:
             labels = []
-            for index, day in enumerate(self.days):
+            for day in self.days:
+                midnight = self._midnight(day)
                 labels.append(XLabel(
-                    self.percent(index * self.day_width), f"{day:%a} {day.day}", "day", self.percent(self.day_width),
+                    self.percent(self.x(midnight + timedelta(days=1))), f"{day:%a} {day.day}", "day",
+                    self.percent(self.day_width),
                 ))
                 for hour in range(HOUR_LABEL_STEP, 24, HOUR_LABEL_STEP):
-                    labels.append(XLabel(self.percent((index + hour / 24) * self.day_width), f"{hour:02d}:00", "hour"))
+                    labels.append(XLabel(self.percent(self.x(midnight + timedelta(hours=hour))), f"{hour:02d}:00", "hour"))
             return labels
         every = math.ceil(MIN_DAY_LABEL_GAP / self.day_width)
-        return [XLabel(self.percent(self.day_x(day)), f"{day:%a}"[:2] + f" {day.day}", "middle") for day in self.days[::every]]
+        # Counted from the newest day, so the one read first always has its name.
+        return [
+            XLabel(self.percent(self.day_x(day)), f"{day:%a}"[:2] + f" {day.day}", "middle")
+            for day in self.days[::-1][::every]
+        ]
 
     def midnights(self):
-        """Where one day ends and the next starts."""
-        return [round(index * self.day_width, 1) for index in range(1, len(self.days))]
+        """Where one day ends and the next starts, from left to right."""
+        return sorted(self.x(self._midnight(day)) for day in self.days[1:])
 
     def weekends(self):
-        return [Band(round(index * self.day_width, 1), self.day_width) for index, day in enumerate(self.days) if day.weekday() >= 5]
+        return [
+            Band(self.x(self._midnight(day) + timedelta(days=1)), self.day_width)
+            for day in self.days if day.weekday() >= 5
+        ]
 
 
 def _stretches(points):
@@ -382,7 +400,8 @@ class TimelineBar(NamedTuple):
 class MinuteTimeline:
     """A row of minutes for each thing shown, over a short window that starts on a whole
     minute: what templates/admin/charts/timeline.html draws. Rows go down in the order
-    they're added. Like a Plot it stretches on a wide screen and scrolls on a narrow one.
+    they're added. Like a Plot it stretches on a wide screen and scrolls on a narrow one,
+    and has the newest minute on the left.
     """
 
     template = "admin/charts/timeline.html"
@@ -409,18 +428,23 @@ class MinuteTimeline:
     def height(self):
         return self.x_label_top + LABEL_ROW
 
+    def _x(self, minute):
+        """How far from the left edge a minute of the window starts: its end is at 0."""
+        return (self.minutes - minute) * MINUTE_WIDTH
+
     def add_row(self, label, stretches):
         """A row, filled for each (first minute, length, color) stretch."""
         top = self.base
         self.rows.append(TimelineRow(label, top + TIMELINE_ROW / 2, top + TIMELINE_ROW))
         for first, length, color in stretches:
+            # A stretch's left edge is where its last minute ends.
             self.bars.append(TimelineBar(
-                first * MINUTE_WIDTH, top + (TIMELINE_ROW - TIMELINE_BAR) / 2, length * MINUTE_WIDTH, color,
+                self._x(first + length), top + (TIMELINE_ROW - TIMELINE_BAR) / 2, length * MINUTE_WIDTH, color,
             ))
 
     def minute_x(self, minute):
         """The middle of a minute, where its tooltip's cursor stands."""
-        return (minute + 0.5) * MINUTE_WIDTH
+        return self._x(minute + 0.5)
 
     def hover_on(self, source, fields):
         """Give the timeline a tooltip, as Plot.hover_on does, with one row per minute."""
@@ -434,17 +458,17 @@ class MinuteTimeline:
 
     @property
     def gridlines(self):
-        return [minute * MINUTE_WIDTH for minute, moment in self._steps() if moment.minute]
+        return [self._x(minute) for minute, moment in self._steps() if moment.minute]
 
     @property
     def hour_lines(self):
-        return [minute * MINUTE_WIDTH for minute, moment in self._steps() if not moment.minute]
+        return [self._x(minute) for minute, moment in self._steps() if not moment.minute]
 
     @property
     def x_labels(self):
         return [
             XLabel(
-                round(minute / self.minutes * 100, 3),
+                round(self._x(minute) / self.width * 100, 3),
                 f"{moment:%a %H:%M}" if (moment.hour, moment.minute) == (0, 0) else f"{moment:%H:%M}",
                 "hour",
             )

@@ -171,8 +171,9 @@ class StreamersPageBuilder(BaseCachedPageBuilder):
                     {
                         "term": "Days streamed",
                         "meaning": "A column for each of the last 28 days, today first, filled if they started a stream"
-                            " that day. It shows at a glance who streams regularly and who has gone quiet. Days are in"
-                            " UTC, and a stream appears a few hours after it ends.",
+                            " that day, with a green line under each Saturday and Sunday. It shows at a glance who"
+                            " streams regularly and who has gone quiet. Days are in UTC, and a stream appears a few"
+                            " hours after it ends.",
                     },
                     {
                         "term": "Genres",
