@@ -130,6 +130,7 @@ export async function GamesView({ content, page, user, searchParams }: {
     // The questions are the overview's: Google wants one marked-up copy of them, not one per
     // language page.
     const faq = !page && content.faq && content.faq.items.length > 0 ? content.faq : null;
+    const languages = content.language_pages.map(({ code, label, since_hour }) => ({ code, label, since_hour }));
 
     return (
         <Fragment>
@@ -152,7 +153,9 @@ export async function GamesView({ content, page, user, searchParams }: {
                         />
                         <div id={RESULTS_ANCHOR} className="scroll-mt-8">
                             {/* Keyed by the list: new filters start it afresh, while another page
-                                of the same list keeps the chart's language as picked. */}
+                                of the same list keeps the chart's languages as set. A chart opens
+                                with every language on, or on a language's page with only its own,
+                                so the others are a click away to compare. */}
                             <GamesList
                                 key={listQuery}
                                 results={search.results}
@@ -162,8 +165,8 @@ export async function GamesView({ content, page, user, searchParams }: {
                                 path={pathOf(page)}
                                 query={query}
                                 peak={one(searchParams.peak) ?? "any"}
-                                languages={content.language_pages.map(({ code, label, since_hour }) => ({ code, label, since_hour }))}
-                                default_language={page?.code ?? "all"}
+                                languages={languages}
+                                default_languages={page ? [page.code] : languages.map(({ code }) => code)}
                                 labels={content.labels}
                             />
                         </div>

@@ -112,8 +112,9 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                     {
                         "title": "Open a game.",
                         "text": "Its chart shows how many streams were live on it in every hour of the last 4 weeks,"
-                            " in UTC or in your own time, for all languages or one. Under the chart, a game with a page"
-                            " of its own links to it: who streamed it, in which languages and sizes.",
+                            " in UTC or in your own time, with a line per language. Turn languages on and off to compare"
+                            " the ones you pick. Under the chart, a game with a page of its own links to it: who streamed"
+                            " it, in which languages and sizes.",
                     },
                 ],
             },
@@ -129,8 +130,8 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                     {
                         "question": "What does a game's chart show?",
                         "answer": "How many streams were live on the game in each hour of the last 4 weeks, the newest"
-                            " hours on the left. You can read it in UTC or in your own time, and for all languages or"
-                            " one.",
+                            " hours on the left, with a line per language. You can read it in UTC or in your own time,"
+                            " and turn languages on and off to compare the ones you pick.",
                     },
                     {
                         "question": "When do streams of a game meet the fewest competitors?",
@@ -183,14 +184,20 @@ class GamesPageBuilder(BaseCachedPageBuilder):
                 "streams_column": "Live streams",
                 "pagination": pagination_labels(),
                 "chart": {
-                    "language": "Language",
-                    "all_languages": "All",
+                    # Names the language buttons for screen readers.
+                    "language": "Languages shown",
+                    # The button after the languages: it turns every language on, or off while all are on.
+                    "show_all": "Show all",
+                    "hide_all": "Hide all",
+                    "none_on": "Turn a language on to see its line.",
                     "loading": "Loading the chart...",
                     "error": "Couldn't load the chart. Try again.",
                     "empty": "No streams for this game with these filters in the last 4 weeks.",
                     "caption": "Each point is one hour: how many streams were live on this game. The chart opens on"
                         " the newest hours, on the left. Scroll right for older ones, back 4 weeks.",
-                    "caption_all": "Pick one language to see every hour's number, or move over the chart.",
+                    "caption_languages": "The buttons turn each language's line on and off, and the scale fits the"
+                        " lines left on, so turning English off lets the other languages fill the chart. With one"
+                        " language on, every hour shows its number; with more, move over the chart to see them.",
                     "utc": "UTC",
                     "your_time": "You",
                     "your_time_long": "your time",

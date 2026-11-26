@@ -96,10 +96,10 @@ function Slide({ open, slideIn, onShut, children }: {
 /**
  * One page of the games in the list's stored order, each with its live streams in the newest
  * hour. A row opens that game's chart under it; the top game's starts open, to show what a row
- * holds. The chart's language stays as picked from one game to the next, and from page to page.
- * The other pages' addresses are `path` with the filters in `query`.
+ * holds. The languages turned on in the chart stay as set from one game to the next, and from
+ * page to page. The other pages' addresses are `path` with the filters in `query`.
  */
-export function GamesList({ results, total, paging, newest_hour, path, query, peak, languages, default_language, labels }: {
+export function GamesList({ results, total, paging, newest_hour, path, query, peak, languages, default_languages, labels }: {
     results: GameRow[];
     total: number;
     paging: Paging;
@@ -108,7 +108,8 @@ export function GamesList({ results, total, paging, newest_hour, path, query, pe
     query: string;
     peak: string;
     languages: GameLanguage[];
-    default_language: string;
+    // The languages a chart opens with turned on.
+    default_languages: string[];
     labels: GameListLabels;
 }) {
     const [openGame, setOpenGame] = useState<number | null>(results[0]?.id ?? null);
@@ -116,7 +117,7 @@ export function GamesList({ results, total, paging, newest_hour, path, query, pe
     const [shutting, setShutting] = useState<number[]>([]);
     // Charts slide once someone opens one; the top game's, open from the start, just shows.
     const [sliding, setSliding] = useState(false);
-    const [chartLanguage, setChartLanguage] = useState(default_language);
+    const [chartLanguages, setChartLanguages] = useState(default_languages);
     // Each row's number is its place in the list, so page 2's first is 51, and a game found by
     // name keeps its own. Rows from an older API, without a place, are numbered down the list.
     // The widest sets the column: 2 digits on page 1, 5 deep in the list.
@@ -208,8 +209,8 @@ export function GamesList({ results, total, paging, newest_hour, path, query, pe
                                         gameId={game.id}
                                         peak={peak}
                                         languages={languages}
-                                        language={chartLanguage}
-                                        onLanguageChange={setChartLanguage}
+                                        shown={chartLanguages}
+                                        onShownChange={setChartLanguages}
                                         labels={labels.chart}
                                     />
                                     {game.slug && labels.game_page && (

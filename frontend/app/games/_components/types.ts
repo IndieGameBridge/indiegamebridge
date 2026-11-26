@@ -50,13 +50,19 @@ export type GameLanguage = {
 };
 
 export type GameChartLabels = {
+    // Names the language buttons for screen readers.
     language: string;
-    all_languages: string;
     loading: string;
     error: string;
     empty: string;
     caption: string;
-    caption_all: string;
+    // The language buttons' texts: absent until the page's cached text is rebuilt with them,
+    // and the chart then goes without them.
+    caption_languages?: string;
+    show_all?: string;
+    hide_all?: string;
+    // In place of the lines when every language is off.
+    none_on?: string;
     utc: string;
     your_time: string;
     your_time_long: string;

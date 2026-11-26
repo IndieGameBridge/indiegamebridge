@@ -59,13 +59,13 @@ function niceScale(max: number) {
     return { unit, top: Math.ceil(Math.max(max, 1) / unit) * unit };
 }
 
-function seriesOf(data: GameHoursResponse, languages: GameLanguage[], language: string): Series[] {
+function seriesOf(data: GameHoursResponse, languages: GameLanguage[], shown: string[]): Series[] {
     const newest = data.newest_hour;
     if (newest === null) return [];
     const series: Series[] = [];
     for (const one_language of languages) {
         const line = data.lines[one_language.code];
-        if (!line || (language !== "all" && language !== one_language.code)) continue;
+        if (!line || !shown.includes(one_language.code)) continue;
         const values = new Array<number>(data.window_hours).fill(0);
         line.hours.forEach((hour, index) => {
             const age = newest - hour;
@@ -175,16 +175,18 @@ function Drawing({ series, newest, windowHours, axis, yOf, ticks, labelRows, sho
 }
 
 /**
- * One game's streams in each hour of the last 4 weeks, a line per language, on one long
- * timeline: the newest hour on the left, older hours further right. With one language
- * picked, every hour shows its number. The left axis stays put while the hours scroll.
+ * One game's streams in each hour of the last 4 weeks, a line per language turned on, on one
+ * long timeline: the newest hour on the left, older hours further right. The scale fits the
+ * lines that are on, so turning English off lets the smaller languages fill the chart. With
+ * one language on, every hour shows its number. The left axis stays put while the hours scroll.
  */
-export function GameHoursChart({ gameId, peak, languages, language, onLanguageChange, labels }: {
+export function GameHoursChart({ gameId, peak, languages, shown, onShownChange, labels }: {
     gameId: number;
     peak: string;
     languages: GameLanguage[];
-    language: string;
-    onLanguageChange: (language: string) => void;
+    // The codes of the languages turned on.
+    shown: string[];
+    onShownChange: (shown: string[]) => void;
     labels: GameChartLabels;
 }) {
     const [data, setData] = useState<GameHoursResponse | null>(null);
@@ -202,18 +204,20 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
         return () => { cancelled = true; };
     }, [gameId, peak]);
 
-    const series = useMemo(() => (data ? seriesOf(data, languages, language) : []), [data, languages, language]);
+    const series = useMemo(() => (data ? seriesOf(data, languages, shown) : []), [data, languages, shown]);
 
+    // Drawn with no line on too, so turning the last language off and another on doesn't
+    // move the page or lose the hours scrolled to.
     const scale = useMemo(() => {
-        if (series.length === 0) return null;
+        if (!data || data.newest_hour === null) return null;
         const showLocal = Intl.DateTimeFormat().resolvedOptions().timeZone !== "UTC";
         const labelRows = showLocal ? 3 : 2;
         const axis = HEIGHT - labelRows * LABEL_ROW - 10;
-        const { unit, top } = niceScale(Math.max(...series.flatMap((one) => one.values.slice(0, one.oldestAge + 1))));
+        const { unit, top } = niceScale(Math.max(0, ...series.flatMap((one) => one.values.slice(0, one.oldestAge + 1))));
         const yOf = (value: number) => TOP + (axis - TOP) * (1 - value / top);
         const ticks = Array.from({ length: Math.round(top / unit) + 1 }, (_, index) => index * unit);
         return { showLocal, labelRows, axis, yOf, ticks };
-    }, [series]);
+    }, [data, series]);
 
     const windowHours = data?.window_hours ?? 0;
     const newest = data?.newest_hour ?? null;
@@ -254,7 +258,7 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
     }
 
     const tip = useMemo(() => {
-        if (cursor === null || newest === null) return null;
+        if (cursor === null || newest === null || series.length === 0) return null;
         const hour = newest - cursor.age;
         const rows = series
             .filter((one) => cursor.age <= one.oldestAge)
@@ -263,40 +267,62 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
         return { hour, rows, left: cursor.tipLeft };
     }, [cursor, newest, series]);
 
+    // Every language on: the extra button turns them all off, so one or two can be turned back
+    // on in as many clicks; otherwise it turns them all on.
+    const allOn = languages.every((one) => shown.includes(one.code));
+    const allLabel = allOn ? labels.hide_all : labels.show_all;
+    const emptyText = shown.length === 0 ? labels.none_on : labels.empty;
+
+    function toggleLanguage(code: string) {
+        onShownChange(shown.includes(code) ? shown.filter((one) => one !== code) : [...shown, code]);
+    }
+
     // Tight, so the 9 buttons take 3 rows on a 390px phone and 4 on a 320px one.
-    const buttonClass = (active: boolean) => `inline-flex items-center gap-1 py-0.5 px-1.5 rounded border text-xs cursor-pointer ${active
-        ? "border-brand-blue bg-brand-blue text-white"
-        : "border-gray-300 hover:border-brand-blue"}`;
+    const buttonClass = (on: boolean) => `inline-flex items-center gap-1 py-0.5 px-1.5 rounded border text-xs cursor-pointer ${on
+        ? "border-brand-blue bg-brand-blue/10 text-gray-900 hover:bg-brand-blue/20"
+        : "border-gray-300 text-gray-500 hover:border-brand-blue"}`;
 
     return (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-y-3 pt-3 pb-6">
             {/* Each language's button carries its line's colour, so the buttons are the chart's
-                legend too. The dot's white ring, like the line's end marker's, keeps it apart
-                from a picked button's blue. */}
-            <div role="group" aria-label={labels.language} className="flex flex-row flex-wrap gap-1.5">
-                {[{ code: "all", label: labels.all_languages }, ...languages].map((one) => (
+                legend too: a filled dot while its line is on, a ring while it's off. */}
+            <div role="group" aria-label={labels.language} className="flex flex-row flex-wrap items-center gap-1.5">
+                {languages.map((one) => {
+                    const on = shown.includes(one.code);
+                    const color = LANGUAGE_COLORS[one.code];
+                    return (
+                        <button
+                            key={one.code}
+                            type="button"
+                            aria-pressed={on}
+                            className={buttonClass(on)}
+                            onClick={() => toggleLanguage(one.code)}
+                        >
+                            {color && (
+                                <i
+                                    aria-hidden="true"
+                                    className="inline-block size-3 shrink-0 rounded-full border-2"
+                                    style={{ borderColor: color, background: on ? color : undefined }}
+                                />
+                            )}
+                            {one.label}
+                        </button>
+                    );
+                })}
+                {allLabel && (
                     <button
-                        key={one.code}
                         type="button"
-                        aria-pressed={language === one.code}
-                        className={buttonClass(language === one.code)}
-                        onClick={() => onLanguageChange(one.code)}
+                        className="py-0.5 px-1.5 text-xs text-blue-700 underline hover:text-blue-500 cursor-pointer"
+                        onClick={() => onShownChange(allOn ? [] : languages.map((one) => one.code))}
                     >
-                        {LANGUAGE_COLORS[one.code] && (
-                            <i
-                                aria-hidden="true"
-                                className="inline-block size-3 shrink-0 rounded-full ring-1 ring-white"
-                                style={{ background: LANGUAGE_COLORS[one.code] }}
-                            />
-                        )}
-                        {one.label}
+                        {allLabel}
                     </button>
-                ))}
+                )}
             </div>
 
             {failed && <p className="text-sm text-gray-600 py-6">{labels.error}</p>}
             {!failed && !data && <p className="text-sm text-gray-600 py-6">{labels.loading}</p>}
-            {data && series.length === 0 && <p className="text-sm text-gray-600 py-6">{labels.empty}</p>}
+            {data && !scale && <p className="text-sm text-gray-600 py-6">{labels.empty}</p>}
 
             {scale && drawing && (
                 <div>
@@ -304,7 +330,7 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
                         <div className="grid grid-cols-[52px_minmax(0,1fr)]">
                             <svg width={AXIS_WIDTH} height={HEIGHT} aria-hidden="true" className="block">
                                 <g fontSize="12" className="fill-gray-600">
-                                    {scale.ticks.map((tick) => (
+                                    {series.length > 0 && scale.ticks.map((tick) => (
                                         <text key={tick} x={AXIS_WIDTH - 8} y={scale.yOf(tick) + 4} textAnchor="end">{formatCount(tick)}</text>
                                     ))}
                                     <text x={AXIS_WIDTH - 8} y={scale.axis + 16} textAnchor="end">{labels.utc}</text>
@@ -329,7 +355,7 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
                                     onKeyDown={handleKey}
                                 >
                                     {drawing}
-                                    {cursor !== null && (
+                                    {cursor !== null && series.length > 0 && (
                                         <g>
                                             <line x1={xOf(cursor.age)} x2={xOf(cursor.age)} y1={TOP} y2={scale.axis} stroke={MUTED_COLOR} />
                                             {series.filter((one) => cursor.age <= one.oldestAge).map((one) => (
@@ -348,6 +374,14 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
                                 </svg>
                             </div>
                         </div>
+                        {series.length === 0 && emptyText && (
+                            <div
+                                className="absolute right-0 flex items-center justify-center px-4 pointer-events-none"
+                                style={{ left: AXIS_WIDTH, top: TOP, height: scale.axis - TOP }}
+                            >
+                                <p className="bg-white/90 px-3 py-2 text-sm text-gray-600 text-center">{emptyText}</p>
+                            </div>
+                        )}
                         {tip && (
                             <div
                                 className="absolute top-2 z-10 pointer-events-none bg-white border border-gray-200 rounded shadow-md px-2.5 py-1.5 text-xs"
@@ -373,7 +407,7 @@ export function GameHoursChart({ gameId, peak, languages, language, onLanguageCh
 
             {scale && (
                 <p className="text-xs text-gray-600">
-                    {labels.caption}{series.length > 1 ? ` ${labels.caption_all}` : ""}
+                    {labels.caption}{labels.caption_languages ? ` ${labels.caption_languages}` : ""}
                 </p>
             )}
         </div>
