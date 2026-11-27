@@ -63,19 +63,15 @@ JOBS = (
         ("exports", "Export records deleted"),
         ("searches", "Search records deleted"),
     )),
-    Job("remove_opted_out_from_archive", timedelta(weeks=1), (
-        ("months", "Files rewritten"),
-        ("streams", "Streams removed"),
-    )),
-    # The first Tuesday of the month: 28 or 35 days after the one before.
-    Job("archive_streams", timedelta(days=35), (
+    # Daily: the month files on the 1st, their game history, the deletes, and the opt-out
+    # cleanup on Mondays. remove_opted_out_from_archive runs that cleanup by hand only.
+    Job("archive_streams", timedelta(days=1), (
         ("months", "Months archived"),
         ("streams", "Streams archived"),
-    )),
-    # Wednesdays, several runs in a row until the month is out.
-    Job("delete_archived_streams", timedelta(weeks=1), (
-        ("streams", "Streams deleted"),
-        ("months", "Months out of Postgres"),
+        ("history_months", "Months of game history counted"),
+        ("deleted", "Streams deleted from Postgres"),
+        ("rewritten", "Files rewritten for opt-outs"),
+        ("removed", "Streams removed for opt-outs"),
     )),
 )
 

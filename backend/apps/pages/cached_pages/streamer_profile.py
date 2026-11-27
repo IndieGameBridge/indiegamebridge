@@ -11,7 +11,8 @@ class StreamerProfilePageBuilder(BaseCachedPageBuilder):
             "title": f"Streamer: %streamer_display_name%",
             "add_to_list": add_to_list_labels(),
             "stats_title": f"Last 4-Week Stats",
-            "streams_title": f"All Streams",
+            "streams_title": f"Streams in the Last 4 Weeks",
+            "streams_empty": f"No streams in the last 4 weeks.",
             "show_more": f"Show More",
             "notes": [
                 f"Streams with smaller, more variable audiences shift positions in Twitch's results between our polls,"

@@ -8,6 +8,7 @@ import type { CurrentUser } from "../../_lib/auth";
 import { serverFetch } from "../../_lib/server-fetch";
 import { SHARED_OPEN_GRAPH, SHARED_TWITTER } from "../../_lib/share-metadata";
 import { HourBars, HourBarsContent, ShareBars, ShareBarsContent, StatTile, StatTiles } from "./GameCharts";
+import { GameHistory, GameHistoryContent } from "./GameHistory";
 
 type AlsoPlayed = {
     title: string;
@@ -42,6 +43,9 @@ export type GamePageContent = {
     languages: ShareBarsContent | null;
     hours_of_day: HourBarsContent | null;
     weeks: ShareBarsContent | null;
+    // Its past months: null until a month it was streamed in has been counted, and absent from
+    // an API older than the month by month section.
+    history?: GameHistoryContent | null;
     also_played: AlsoPlayed | null;
     cta: StreamersCta | null;
     notes: { title: string; items: string[] };
@@ -166,6 +170,7 @@ export function GamePageView({ content, user }: { content: GamePageContent; user
                         )}
                         {content.hours_of_day && <HourBars content={content.hours_of_day} />}
                         {content.weeks && <ShareBars content={content.weeks} labelWidth="w-28" className="max-w-160" />}
+                        {content.history && <GameHistory history={content.history} />}
                         {content.also_played && <AlsoPlayedGames also={content.also_played} />}
                         {content.cta && <GameStreamers cta={content.cta} user={user} />}
                         <section className="border-t border-gray-300 pt-8">

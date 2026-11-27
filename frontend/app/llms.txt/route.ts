@@ -81,7 +81,9 @@ export async function GET() {
         "",
         "A game gets a page at /game/<name> once 10 different streamers played it within 4 weeks, and keeps it: who"
             + " streamed it in the last 4 weeks, in which languages and sizes, at which hours, and which other games"
-            + " they also played. The Games pages link to them. The most streamed:",
+            + " they also played; then its history month by month since May 2026, with its streamers, streams, hours"
+            + " played, hours watched and average viewers, in all and in each language. The Games pages link to them."
+            + " The most streamed:",
         "",
         ...gameRows.slice(0, GAME_PAGES_LISTED).map((page) => link(`/game/${page.slug}`, `${page.name} on Twitch`)),
     ];
@@ -113,7 +115,7 @@ export async function GET() {
         "## Notes",
         "",
         "- The numbers come from public Twitch streams, read through Twitch's API every 20 minutes, with game"
-            + " details from IGDB. They cover the last 4 weeks.",
+            + " details from IGDB. They cover the last 4 weeks; the game pages add every past month since May 2026.",
         "- Streamer profiles, the full search, lists and exports need a free login with Twitch.",
         "- There's no public API. The numbers are for reading on these pages: they come from Twitch's API and"
             + " IGDB, so IndieGameBridge can't license them for reuse, and no license is given.",

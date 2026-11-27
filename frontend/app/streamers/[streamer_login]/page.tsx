@@ -34,6 +34,8 @@ type StreamerProfilePageContent = {
     add_to_list: AddToListLabels;
     stats_title: string;
     streams_title: string;
+    // Absent until the cached page text is rebuilt; then an empty list shows nothing.
+    streams_empty?: string;
     show_more: string;
     notes: string[];
     streams: TwitchStream[];
@@ -135,7 +137,9 @@ export default async function StreamerProfilePage({ params }: { params: Promise<
                 <section className="px-6 border-t border-t-gray-400">
                     <div className="max-w-[1000] mx-auto mb-24 pt-24">
                         <div className="text-2xl font-bold mb-8">{content.streams_title}</div>
-                        <StreamerProfileStreamsList streams={content.streams} showMoreLabel={content.show_more} />
+                        {content.streams.length === 0 && content.streams_empty
+                            ? <p>{content.streams_empty}</p>
+                            : <StreamerProfileStreamsList streams={content.streams} showMoreLabel={content.show_more} />}
                     </div>
                     <div className="max-w-[1000] mx-auto pb-24 italic">{content.notes.map((one_note, index) => (
                         <div key={`note-${index}`} className="before:content-(--note-marker) ml-4 before:absolute before:-left-4 relative mb-4 pt-2"

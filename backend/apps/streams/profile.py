@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 STREAMER_PROFILE_CACHE_TTL = timedelta(hours=1)
+# The profile lists the streams of the recent window, newest first, up to this many.
 STREAMER_PROFILE_STREAMS_LIMIT = 200
 STREAMER_PROFILE_RECENT_WINDOW = timedelta(weeks=4)
 # Number of calendar-day columns in the profile activity chart. Kept equal to the
@@ -69,8 +70,9 @@ class StreamerProfileStreams:
         recent_cutoff = now - STREAMER_PROFILE_RECENT_WINDOW
         recent = approved.filter(finished_at__gte=recent_cutoff)
 
+        # The 4 weeks the stats cover, as the list's title says; Postgres keeps just a week more.
         streams = list(
-            approved
+            recent
             .order_by("-finished_at")
             .values(
                 "id",

@@ -38,7 +38,10 @@ class ArchivedMonthAdmin(admin.ModelAdmin):
     """View only: archive_streams writes these, and a record removed by hand would
     leave its file on disk with nothing pointing at it."""
 
-    list_display = ("month", "streams_count", "size", "archived_at", "rows_deleted_at", "rewritten_at")
+    list_display = (
+        "month", "streams_count", "size", "archived_at", "stats_computed_at", "deleted_through", "rows_deleted_at",
+        "rewritten_at",
+    )
 
     def has_add_permission(self, request):
         return False

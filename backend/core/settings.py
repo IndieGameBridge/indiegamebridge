@@ -226,7 +226,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 # Stream archive
-# archive_streams writes finished streams older than the retention window here,
+# archive_streams writes each month's finished streams here once the month is over,
 # one Parquet file per month, under streams/.
 ARCHIVE_DIR = Path(env.str("ARCHIVE_DIR", default=str(BASE_DIR / "archive")))
 

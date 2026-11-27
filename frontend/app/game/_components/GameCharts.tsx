@@ -47,15 +47,19 @@ function percent(share: number): string {
 }
 
 /** Horizontal bars, each with its share and, where there's one, a dark tick at the baseline's. */
-export function ShareBars({ content, labelWidth, className = "" }: {
+export function ShareBars({ content, labelWidth, className = "", heading = "h2" }: {
     content: ShareBarsContent;
     // Tailwind width of the label column, e.g. "w-16".
     labelWidth: string;
     className?: string;
+    // "h3" inside a section of its own, such as the month by month one.
+    heading?: "h2" | "h3";
 }) {
     return (
         <section className={`min-w-0 ${className}`}>
-            <h2 className="text-xl font-bold mb-2">{content.title}</h2>
+            {heading === "h3"
+                ? <h3 className="text-lg font-bold mb-2">{content.title}</h3>
+                : <h2 className="text-xl font-bold mb-2">{content.title}</h2>}
             <p className="text-sm text-gray-600 mb-5">{content.caption}</p>
             <ul className="flex flex-col gap-3">
                 {content.bars.map((bar) => {

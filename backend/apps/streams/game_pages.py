@@ -1,18 +1,21 @@
 """The per-game public pages, /game/<slug>: which games get one, their addresses, and what a
 page says. rebuild_game_pages computes each page's numbers into its GamePage row every 6 hours;
-page_content() turns a row into the page the API serves.
+page_content() turns a row into the page the API serves, with the game's past months from
+GameMonthStats, which archive_streams counts once a month.
 
 A page compares its game with a baseline: indie games for a game IGDB lists in the Indie genre,
 every game for the rest.
 """
 
+from calendar import monthrange
+from datetime import date
 from urllib.parse import urlencode
 
 from django.db.models import Count
 from django.utils.text import slugify
 
-from apps.streams.languages import LANGUAGE_NAMES, PAGE_LANGUAGES, day_month_year, names_of
-from apps.streams.models import GamePage, JsonCache
+from apps.streams.languages import ALL_LANGUAGES, COLLECTED_SINCE, LANGUAGE_NAMES, PAGE_LANGUAGES, day_month_year, names_of
+from apps.streams.models import ArchivedMonth, GameMonthStats, GamePage, JsonCache
 from apps.streams.size_groups import PEAK_THRESHOLDS, SIZE_GROUPS
 
 # A game gets a page the first time this many different streamers played it in 4 weeks.
@@ -61,6 +64,21 @@ BASELINE_NAMES = {
 }
 
 WEEK_LABELS = ("4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week")
+
+# The month by month history says a month "more than doubled" from this many times the month
+# before, once that month had JUMP_MIN_STREAMERS; a game "held steady" while every month stayed
+# within STEADY_RATIO of each other, each with STEADY_MIN_STREAMERS, over STEADY_MIN_MONTHS.
+JUMP_RATIO = 2
+JUMP_MIN_STREAMERS = 20
+STEADY_RATIO = 1.5
+STEADY_MIN_STREAMERS = 30
+STEADY_MIN_MONTHS = 3
+# A language's streams "drew more viewers" from this many times the average of the language
+# most of its streamers streamed it in.
+VIEWERS_RATIO = 2
+# What a hidden number shows, and says on hover.
+HIDDEN = "–"
+HIDDEN_HINT = "1 to 4 streamers: only their totals are shown."
 
 
 def slug_base(name: str) -> str:
@@ -506,7 +524,351 @@ class GamePageContent:
         }
 
 
+# The month by month history's tables: each column's name, and whether it holds numbers.
+HISTORY_COLUMNS = (
+    ("Month", False), ("Streamers", True), ("Streams", True), ("Hours played", True), ("Hours watched", True),
+    ("Average viewers", True), ("Main languages", False),
+)
+LANGUAGE_COLUMNS = (
+    ("Month", False), ("Streamers", True), ("Streams", True), ("Share of its streams", True), ("Hours played", True),
+    ("Hours watched", True), ("Average viewers", True),
+)
+
+
+def _month_name(month) -> str:
+    """A month as sentences write it: "October 2026"."""
+    return f"{month:%B %Y}"
+
+
+def _month_label(month) -> str:
+    """A month as tables and bars write it: "Oct 2026"."""
+    return f"{month:%b %Y}"
+
+
+def _about_watched(hours: int) -> str:
+    """Hours watched as the text rounds them: 10,649,191 to 10.6 million; fewer, as _about_hours does."""
+    return f"{hours / 1_000_000:.1f} million" if hours >= 1_000_000 else _about_hours(hours)
+
+
+def _columns(columns) -> list[dict]:
+    return [{"label": label, "numeric": numeric} for label, numeric in columns]
+
+
+class _Month:
+    """A game's numbers in one month, in all the page languages or in one: zeros where it had none."""
+
+    def __init__(self, row: GameMonthStats | None):
+        self.streamers = row.streamers if row else 0
+        self.streams = row.streams if row else 0
+        self.hours = round(row.seconds / 3600) if row else 0
+        self.watched = round(row.viewer_seconds / 3600) if row else 0
+        self.viewers = round(row.viewer_seconds / row.snapshot_seconds) if row and row.snapshot_seconds else 0
+
+    @property
+    def detailed(self) -> bool:
+        return self.streamers >= DETAIL_MIN_STREAMERS
+
+
+class GameHistoryContent:
+    """A game page's month by month section, from its GameMonthStats rows: every month counted
+    from the archive files, from the first one it was streamed in, newest first. One table adds
+    up the page languages; under it, one for each language that DETAIL_MIN_STREAMERS streamers
+    played it in, in some month. The text says what stands out, each sentence only where the
+    game's own numbers show it.
+
+    A month below DETAIL_MIN_STREAMERS streamers, in all or in a language, shows its totals only,
+    as the rest of the page does.
+    """
+
+    def __init__(self, game, name: str):
+        self.game = game
+        self.name = name
+        self.rows = {(row.month, row.language): row for row in GameMonthStats.objects.filter(game=game)}
+        counted = ArchivedMonth.objects.filter(stats_computed_at__isnull=False).order_by("month").values_list("month", flat=True)
+        first = next((month for month in counted if (month, ALL_LANGUAGES) in self.rows), None)
+        # Oldest first; the page shows them newest first.
+        self.months = [month for month in counted if first is not None and month >= first]
+
+    def _numbers(self, month, language=ALL_LANGUAGES) -> _Month:
+        return _Month(self.rows.get((month, language)))
+
+    def payload(self) -> dict | None:
+        if not self.months:
+            return None
+        newest_first = list(reversed(self.months))
+        top = max(self._numbers(month).streamers for month in self.months) or 1
+        data_start = min((COLLECTED_SINCE[code] for code in PAGE_LANGUAGES if code in COLLECTED_SINCE), default=None)
+        tables, others = self._language_tables()
+        return {
+            "title": f"{self.name} Twitch stats, month by month",
+            "caption": f"Each month that is over, since {_month_name(self.months[0])}, in the languages the pages"
+                " cover. The last 4 weeks are in the sections above.",
+            "text": " ".join(self._sentences()),
+            "bars": {
+                "title": "Streamers each month",
+                "caption": "Different streamers who played it in each month, the newest first.",
+                "bars": [
+                    {"label": _month_label(month), "share": self._numbers(month).streamers / top,
+                     "value": f"{self._numbers(month).streamers:,}"}
+                    for month in newest_first
+                ],
+            },
+            "table": {
+                "columns": _columns(HISTORY_COLUMNS),
+                "rows": [{"month": self._label(month, data_start), "cells": self._main_cells(month)} for month in newest_first],
+            },
+            "by_language": {
+                "title": "By language",
+                "caption": f"A table for each language that {DETAIL_MIN_STREAMERS} or more streamers played it in, in"
+                    " some month, the most played first.",
+                "tables": tables,
+                "others": others,
+            } if tables or others else None,
+            "hidden": HIDDEN,
+            "hidden_hint": HIDDEN_HINT,
+            "notes": self._notes(),
+        }
+
+    @staticmethod
+    def _label(month, start) -> str:
+        """A month's label; in the month counting began, after its 1st, the days counted, as in
+        "16–31 Aug 2026"."""
+        if start and (start.year, start.month) == (month.year, month.month) and start.day > 1:
+            return f"{start.day}–{monthrange(month.year, month.month)[1]} {_month_label(month)}"
+        return _month_label(month)
+
+    def _came_out(self, month) -> bool:
+        release = self.game.release_date
+        return bool(release) and (release.year, release.month) == (month.year, month.month)
+
+    @staticmethod
+    def _detail_cells(one: _Month) -> list[str]:
+        """Hours watched and average viewers; 0 when nobody streamed it, hidden for 1 to 4 streamers."""
+        if not one.streamers:
+            return ["0", "0"]
+        if not one.detailed:
+            return [HIDDEN, HIDDEN]
+        return [f"{one.watched:,}", f"{one.viewers:,}"]
+
+    def _main_cells(self, month) -> list[str]:
+        one = self._numbers(month)
+        if not one.streamers:
+            languages = "None"
+        elif not one.detailed:
+            languages = HIDDEN
+        else:
+            ranked = sorted(
+                ((self._numbers(month, code).streams, code) for code in PAGE_LANGUAGES),
+                key=lambda item: (-item[0], PAGE_LANGUAGES.index(item[1])),
+            )
+            languages = " · ".join(
+                f"{LANGUAGE_NAMES[code]} {_percent(streams / one.streams)}" for streams, code in ranked[:2] if streams
+            )
+        return [f"{one.streamers:,}", f"{one.streams:,}", f"{one.hours:,}", *self._detail_cells(one), languages]
+
+    # The tables by language.
+
+    def _language_tables(self) -> tuple[list[dict], str | None]:
+        totals = {code: sum(self._numbers(month, code).streamers for month in self.months) for code in PAGE_LANGUAGES}
+        played = [code for code in PAGE_LANGUAGES if totals[code]]
+        shown = sorted(
+            (code for code in played if max(self._numbers(month, code).streamers for month in self.months) >= DETAIL_MIN_STREAMERS),
+            key=lambda code: (-totals[code], PAGE_LANGUAGES.index(code)),
+        )
+        others = [LANGUAGE_NAMES[code] for code in played if code not in shown]
+        return (
+            [self._language_table(code) for code in shown],
+            f"Also streamed in {_names(others)}, by fewer than {DETAIL_MIN_STREAMERS} streamers in every month." if others else None,
+        )
+
+    def _language_months(self, code) -> list:
+        """The game's months from the one counting began in for the language."""
+        start = COLLECTED_SINCE.get(code)
+        return [month for month in self.months if start is None or (month.year, month.month) >= (start.year, start.month)]
+
+    def _language_table(self, code) -> dict:
+        start = COLLECTED_SINCE.get(code)
+        months = self._language_months(code)
+        return {
+            "heading": f"{self.name} on Twitch in {LANGUAGE_NAMES[code]}",
+            "text": self._language_sentences(code, months, start),
+            "table": {
+                "columns": _columns(LANGUAGE_COLUMNS),
+                "rows": [
+                    {"month": self._label(month, start), "cells": self._language_cells(month, code)}
+                    for month in reversed(months)
+                ],
+            },
+        }
+
+    def _share(self, month, code) -> str:
+        """The language's share of the game's streams that month."""
+        every = self._numbers(month).streams
+        return _percent(self._numbers(month, code).streams / every) if every else "0%"
+
+    def _language_cells(self, month, code) -> list[str]:
+        one = self._numbers(month, code)
+        return [f"{one.streamers:,}", f"{one.streams:,}", self._share(month, code), f"{one.hours:,}", *self._detail_cells(one)]
+
+    def _language_sentences(self, code, months, start) -> str:
+        language = LANGUAGE_NAMES[code]
+        numbers = {month: self._numbers(month, code) for month in months}
+        peak = max(months, key=lambda month: (numbers[month].streamers, -month.toordinal()))
+        latest = months[-1]
+        sentences = []
+        if start and (start.year, start.month) > (self.months[0].year, self.months[0].month):
+            sentences.append(f"Counted from {day_month_year(start)}.")
+        sentences.append(
+            f"Its busiest month in {language} was {_month_name(peak)}"
+            f"{', the month it came out' if self._came_out(peak) else ''},"
+            f" with {_plural(numbers[peak].streamers, 'streamer', 'streamers')}."
+        )
+        if latest != peak:
+            one = numbers[latest]
+            if one.streamers:
+                sentences.append(
+                    f"In {_month_name(latest)}: {_plural(one.streamers, 'streamer', 'streamers')},"
+                    f" {self._share(latest, code)} of its streams"
+                    + (f", averaging {one.viewers:,} viewers." if one.detailed else ".")
+                )
+            else:
+                last = max(month for month in months if numbers[month].streamers)
+                sentences.append(f"Nobody streamed it in {language} after {_month_name(last)}.")
+        return " ".join(sentences)
+
+    # The text about all the page languages.
+
+    def _sentences(self) -> list[str]:
+        numbers = {month: self._numbers(month) for month in self.months}
+        peak = max(self.months, key=lambda month: (numbers[month].streamers, -month.toordinal()))
+        top = numbers[peak]
+        watched = f", and viewers watched about {_about_watched(top.watched)} hours." if top.detailed and top.watched else "."
+        if len(self.months) == 1:
+            return [f"In {_month_name(peak)}, {_plural(top.streamers, 'streamer', 'streamers')} played it" + watched]
+
+        index = self.months.index(peak)
+        came_out = self._came_out(peak)
+        before = numbers[self.months[index - 1]] if index else None
+        busiest = (
+            f"Its busiest month was {_month_name(peak)}{', the month it came out' if came_out else ''}:"
+            f" {_plural(top.streamers, 'streamer', 'streamers')} played it"
+        )
+        if before and not came_out and before.streamers and top.streamers >= JUMP_RATIO * before.streamers:
+            busiest += f", up from {before.streamers:,} in {_month_name(self.months[index - 1])}"
+        sentences = [busiest + watched]
+
+        steady = self._steady_sentence(numbers)
+        if steady:
+            sentences.append(steady)
+        else:
+            if came_out and index:
+                earlier = [numbers[month].streamers for month in self.months[:index]]
+                low, high = min(earlier), max(earlier)
+                sentences.append(
+                    f"Before then, {low:,} streamers a month played it." if low == high
+                    else f"Before then, {low:,} to {high:,} streamers a month played it."
+                )
+            sentences.extend(filter(None, [self._after_peak_sentence(numbers, index), self._jump_sentence(numbers, index)]))
+        sentences.extend(filter(None, [self._lead_sentence(numbers), self._viewers_sentence()]))
+        return sentences
+
+    def _steady_sentence(self, numbers) -> str | None:
+        counts = [numbers[month].streamers for month in self.months]
+        if len(counts) < STEADY_MIN_MONTHS or min(counts) < STEADY_MIN_STREAMERS or max(counts) > STEADY_RATIO * min(counts):
+            return None
+        return f"Between {min(counts):,} and {max(counts):,} streamers played it every month."
+
+    def _after_peak_sentence(self, numbers, index) -> str | None:
+        later = [numbers[month].streamers for month in self.months[index + 1:]]
+        if not later:
+            return None
+        if max(later) < DETAIL_MIN_STREAMERS:
+            return "Nobody streamed it in the months after." if not max(later) else (
+                f"In the months after, at most {_plural(max(later), 'streamer', 'streamers')} a month played it."
+            )
+        latest, peak = self.months[-1], self.months[index]
+        return (
+            f"In {_month_name(latest)}, {_plural(numbers[latest].streamers, 'streamer', 'streamers')} played it,"
+            f" {_percent(numbers[latest].streamers / numbers[peak].streamers)} as many as in {_month_name(peak)}."
+        )
+
+    def _jump_sentence(self, numbers, index) -> str | None:
+        """The latest month after the busiest one whose streamers more than doubled."""
+        for position in range(len(self.months) - 1, index + 1, -1):
+            month, previous = self.months[position], self.months[position - 1]
+            now, before = numbers[month].streamers, numbers[previous].streamers
+            if before and now >= JUMP_MIN_STREAMERS and now >= JUMP_RATIO * before:
+                return f"In {_month_name(month)}, its streamers more than doubled, from {before:,} to {now:,}."
+        return None
+
+    def _lead_sentence(self, numbers) -> str | None:
+        """Since when a language other than its usual one has had most of its streams."""
+        latest = self.months[-1]
+        if not numbers[latest].detailed:
+            return None
+
+        def leader(month):
+            streams, place, code = max((self._numbers(month, code).streams, -PAGE_LANGUAGES.index(code), code) for code in PAGE_LANGUAGES)
+            return code if streams else None
+
+        totals = {code: sum(self._numbers(month, code).streams for month in self.months) for code in PAGE_LANGUAGES}
+        usual = max(PAGE_LANGUAGES, key=lambda code: (totals[code], -PAGE_LANGUAGES.index(code)))
+        now = leader(latest)
+        if now is None or now == usual:
+            return None
+        start = latest
+        for month in reversed(self.months[:-1]):
+            if not numbers[month].detailed or leader(month) != now:
+                break
+            start = month
+        new, old = LANGUAGE_NAMES[now], LANGUAGE_NAMES[usual]
+        if start == latest:
+            return f"In {_month_name(latest)}, more of its streams were in {new} than in {old}."
+        return f"Since {_month_name(start)}, more of its streams have been in {new} than in {old}."
+
+    def _viewers_sentence(self) -> str | None:
+        """A language whose streams drew far more viewers than those of the language most of its
+        streamers streamed it in, in the latest month with DETAIL_MIN_STREAMERS."""
+        latest = next((month for month in reversed(self.months) if self._numbers(month).detailed), None)
+        if latest is None:
+            return None
+        shown = [(code, self._numbers(latest, code)) for code in PAGE_LANGUAGES]
+        shown = [(code, one) for code, one in shown if one.detailed and one.viewers]
+        if len(shown) < 2:
+            return None
+        main_code, main = max(shown, key=lambda item: (item[1].streamers, -PAGE_LANGUAGES.index(item[0])))
+        code, best = max(shown, key=lambda item: (item[1].viewers, -PAGE_LANGUAGES.index(item[0])))
+        if code == main_code or best.viewers < VIEWERS_RATIO * main.viewers:
+            return None
+        return (
+            f"In {_month_name(latest)}, its {LANGUAGE_NAMES[code]} streams averaged {best.viewers:,} viewers,"
+            f" against {main.viewers:,} in {LANGUAGE_NAMES[main_code]}."
+        )
+
+    @staticmethod
+    def _notes() -> list[str]:
+        starts = {}
+        for code in PAGE_LANGUAGES:
+            starts.setdefault(COLLECTED_SINCE.get(code), []).append(LANGUAGE_NAMES[code])
+        parts = [
+            f"from {day_month_year(day)} in {_names(names)}"
+            for day, names in sorted(starts.items(), key=lambda item: item[0] or date.min)
+            if day is not None
+        ]
+        counted = parts[0] if len(parts) == 1 else "; ".join(parts[:-1]) + f"; and {parts[-1]}"
+        return [
+            f"Counted {counted}.",
+            "Hours watched add up the time every viewer spent watching it. Average viewers is how many people"
+                " watched one of its streams at once, on average.",
+            f"0 means nobody streamed it that month, or nobody in that language. {HIDDEN} means 1 to"
+                f" {DETAIL_MIN_STREAMERS - 1} streamers did, so only their totals are shown.",
+        ]
+
+
 def page_content(page: GamePage) -> dict:
-    """The page the API serves for one GamePage row: a few indexed reads."""
+    """The page the API serves for one GamePage row: a few indexed reads. Its past months come
+    whatever the last 4 weeks hold, as each month has its own totals-only rule."""
     genres = sorted(page.game.genres.values_list("host_name", flat=True))
-    return GamePageContent(page, baselines(), genres).payload()
+    content = GamePageContent(page, baselines(), genres).payload()
+    content["history"] = GameHistoryContent(page.game, content["name"]).payload()
+    return content

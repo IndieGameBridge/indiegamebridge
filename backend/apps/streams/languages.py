@@ -31,13 +31,23 @@ PAGE_LANGUAGES = ("en", "fr", "de", "es", "pt", "ja", "it", "zh")
 # Stands for the page languages added up, where a language is expected.
 ALL_LANGUAGES = "all"
 
-# When collecting began, for the languages added after the first four. Until a
-# language's 4-week window has filled, the pages showing it say so.
+# When collecting began for each language (UTC), as the first streams kept show. Until a
+# language's 4-week window has filled, the pages showing it say so; the game pages' month
+# by month history counts each language from here.
 COLLECTED_SINCE = {
+    "en": date(2026, 5, 4),
+    "fr": date(2026, 5, 4),
+    "de": date(2026, 5, 4),
+    "es": date(2026, 8, 16),
     "pt": date(2026, 11, 2),
     "ja": date(2026, 11, 2),
     "it": date(2026, 11, 2),
     "zh": date(2026, 11, 2),
+    "ru": date(2026, 11, 21),
+    "pl": date(2026, 11, 21),
+    "uk": date(2026, 11, 21),
+    "tr": date(2026, 11, 21),
+    "ko": date(2026, 11, 21),
 }
 
 
