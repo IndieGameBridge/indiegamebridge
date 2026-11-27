@@ -385,7 +385,7 @@ class PageContentTests(SimpleTestCase):
         self.assertEqual([bar["label"] for bar in page["languages"]["bars"]], ["English", "Spanish", "French", "German"])
         self.assertEqual(
             [(bar["label"], bar["value"]) for bar in page["weeks"]["bars"]],
-            [("4 weeks ago", "1,167"), ("3 weeks ago", "1,118"), ("2 weeks ago", "1,078"), ("Last week", "967")],
+            [("Last week", "967"), ("2 weeks ago", "1,078"), ("3 weeks ago", "1,118"), ("4 weeks ago", "1,167")],
         )
         self.assertEqual(
             [(game["href"], game["detail"]) for game in page["also_played"]["games"]],

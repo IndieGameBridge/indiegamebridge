@@ -63,7 +63,9 @@ BASELINE_NAMES = {
     "all": {"plural": "games on Twitch", "one": "a game on Twitch"},
 }
 
-WEEK_LABELS = ("4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week")
+# The weeks' names, newest first, as the row's numbers hold them and as the page shows them, like
+# the months below them.
+WEEK_LABELS = ("Last week", "2 weeks ago", "3 weeks ago", "4 weeks ago")
 
 # The month by month history says a month "more than doubled" from this many times the month
 # before, once that month had JUMP_MIN_STREAMERS; a game "held steady" while every month stayed
@@ -453,14 +455,13 @@ class GamePageContent:
         weeks = self.numbers.get("weeks")
         if not weeks:
             return None
-        oldest_first = list(reversed(weeks))
-        top = max(oldest_first) or 1
+        top = max(weeks) or 1
         return {
             "title": "Streamers each week",
-            "caption": "Different streamers who played it in each of the last 4 weeks.",
+            "caption": "Different streamers who played it in each of the last 4 weeks, the newest first.",
             "bars": [
                 {"label": label, "share": count / top, "value": f"{count:,}"}
-                for label, count in zip(WEEK_LABELS, oldest_first)
+                for label, count in zip(WEEK_LABELS, weeks)
             ],
         }
 
